@@ -1,0 +1,8 @@
+- create CLI ver and self hosted UI ver for this SQL AI agent
+- Mock data generation 
+- DB Prober (MySQL, Postgres, MongoDB) 
+- Docker DBs, Local DBs, Cloud DBs support
+- Add autocomeplete for DB names, table names, column names 
+- add a toggle to verify sql before executing it (show the generated SQL and ask for confirmation before executing it)
+- add a sql injection prevention mechanism (e.g. check for certain keywords or patterns in the generated SQL and block execution if they are detected)
+- implement a mulit agent system where we have a orchestor agent that receives the user query then calls the Text2SQL to generate 
