@@ -1,4 +1,3 @@
-or should i just use one general model to do all ?  Also I am tasking with market analysis and to see the features i want to implement 
 I am working on a project : its core is  A Natural Language To SQL, later I will be adding a lot of features  such as visualization , optimisation requests for admin users , multiple DB support and multiple AI integration (local , cloud api). I will be creating a CLI and Web version . I am thinking of using python due to familarity .  Later I will work on  these features and small details but i should start with the core. I am tasked with market analysis to see all the features in existing solutions and which features are missing and i want  to implement them in my project. 
 i need to benchmark  exisitngs solutions and critique them.
 

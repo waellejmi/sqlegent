@@ -11,5 +11,7 @@ wheels/
 .env
 
 # Dev files 
+# results/
+data/Chinook_Sqlite.sqlite
 dev/
-results/
+assitant-with-skills/
