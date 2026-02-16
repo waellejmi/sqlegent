@@ -3,10 +3,72 @@ I am working on a project : its core is  A Natural Language To SQL, later I will
 i need to benchmark  exisitngs solutions and critique them.
 
 This is my search so far composing mostly of open source projects : 
+# Market Analysis
+## Open-Source Solutions
+- [vanna](https://github.com/vanna-ai/vanna)
+```
++ RBAC (admin = more rights, user see only what he is concerend with) 
++ oss 
++ visulisations
+- DB prober (Select DB from multiple that are running )
+- DB provider supports (Cloud, Docker , Local , Distrubeted )
+```
+- [WrenAI](https://github.com/Canner/WrenAI)
+[Documentation](https://docs.getwren.ai/oss/concept/wren_ai_service) 
+```
++ visulisations saved to a seperate dashboard tab. (maybe add a cron job to update the graph for the saved request )
++ multiple DB support plus Local AI integration.
++ Modeling Definition Language (MDL) for structured output 
++ Clear Documentation
+```
+- [sqlchat](https://github.com/sqlchat/sqlchat)
+```
++ multiple DB support
++ confirmation before executing the generated SQL
++ token limit for converstation prompt 
+- db schema is in the prompt (We Let THE LLM decide = risk of hallucinations and TOkens wasted )
+```
+- [dataherald](https://github.com/Dataherald/dataherald/tree/main)
+```
++ core sepreration: Engine(core lang2sql), enterprise (for auth, orgs, usrs), admin console (GUI) , slackbot (for slack integration) {not needed but good for context}
+- missing normal user GUI 
+```
+- [nao](https://github.com/getnao/nao)
+```
++ framework like structure (it creates a directory with subfolders for each component: DBs, Documents , Rules)
++ fetches 10 rows from dataset to show examples for the moodel 
++ exctracts db schema and transform it to md.
+- relying too much on the LLM to understand the schema if not specified in the prompt
+```
+### Benchmarks on Datasets
+- [list of Text-to-SQL Models](https://github.com/eosphoros-ai/Awesome-Text2SQL)
+- [Agentar-Scale-SQL Framework + results](https://github.com/antgroup/Agentar-Scale-SQL/tree/main)
+### Extras 
+- [NL2SQL Handbook](https://github.com/HKUSTDial/NL2SQL_Handbook)
+- [Data Agents Handbook](https://github.com/HKUSTDial/awesome-data-agents)
+- [intressting OPENAI implementation](https://openai.com/index/inside-our-in-house-data-agent/)
+- [pandas-ai library](https://github.com/sinaptik-ai/pandas-ai)
+- [useful blog plus implementation](https://bytes.swiggy.com/hermes-a-text-to-sql-solution-at-swiggy-81573fb4fb6e)
+## Paid and closed source solutions:
+- [Salesforce Tableau AskData](https://www.tableau.com/learn/tutorials/on-demand/ask-data)
+- [Snowflake Cortex](https://www.snowflake.com/en/product/features/cortex/)
+
 
 Try to search for more paid solutions and closed source, for each tell me its features and which are missing.for example i saw Tableau AskData.
 
 and These are my ideas:
+
+- create CLI ver and self hosted UI ver for this SQL AI agent
+- Support distributed databases(Views may not contain full db schema sometimes).
+- DB Prober (MySQL, Postgres, MongoDB) 
+- Docker DBs, Local DBs, Cloud DBs support
+- Add autocomeplete for DB names, table names, column names 
+- add a toggle to verify sql before executing it (show the generated SQL and ask for confirmation before executing it)
+- add a sql injection prevention mechanism (e.g. check for certain keywords or patterns in the generated SQL and block execution if they are detected)
+- implement a mulit agent system where we have a orchestor agent that receives the user query then calls the Text2SQL to generate 
+- keep a register of queries  to cache results 
+- log failed requests for manual review 
+
 
 I keep seeing a lot of papers about Text2SQL or NL2SQL, are they working on creatings LLMs that generate SQL from natural language or are they working on Agnets that use big general LLMs like gpt  ? Also in big benchmarks like SPIDER And BIRD from the leaderboards, i keep seeing these results:
 

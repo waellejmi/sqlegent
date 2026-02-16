@@ -29,6 +29,12 @@
 - missing normal user GUI 
 ```
 - [nao](https://github.com/getnao/nao)
+```
++ framework like structure (it creates a directory with subfolders for each component: DBs, Documents , Rules)
++ fetches 10 rows from dataset to show examples for the moodel 
++ exctracts db schema and transform it to md.
+- relying too much on the LLM to understand the schema if not specified in the prompt
+```
 ### Benchmarks on Datasets
 - [list of Text-to-SQL Models](https://github.com/eosphoros-ai/Awesome-Text2SQL)
 - [Agentar-Scale-SQL Framework + results](https://github.com/antgroup/Agentar-Scale-SQL/tree/main)
