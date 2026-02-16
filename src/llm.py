@@ -1,9 +1,12 @@
 import pathlib
 
 from langchain.agents import create_agent
+from langchain.agents.middleware import HumanInTheLoopMiddleware
 from langchain_community.agent_toolkits import SQLDatabaseToolkit
 from langchain_community.utilities import SQLDatabase
 from langchain_groq import ChatGroq
+from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.types import Command, interrupt
 
 from utils.env_config import MyConfig
 
@@ -65,12 +68,44 @@ agent = create_agent(
     model,
     tools,
     system_prompt=system_prompt,
+    middleware=[
+        HumanInTheLoopMiddleware(
+            interrupt_on={"sql_db_query": True},  # I can remove the edit option later
+            description_prefix="DB Query Tool is pending approval",
+        )
+    ],
+    checkpointer=InMemorySaver(),
 )
 
 question = "Which genre on average has the longest tracks?"
+config = {"configurable": {"thread_id": "1"}}
 
 for step in agent.stream(
     {"messages": [{"role": "user", "content": question}]},
+    config,
     stream_mode="values",
 ):
-    step["messages"][-1].pretty_print()
+    if "__interrupt__" in step:
+        print("INTERRUPTED:")
+        interrupt = step["__interrupt__"][0]
+        for request in interrupt.value["action_requests"]:
+            print(request["description"])
+    elif "messages" in step:
+        step["messages"][-1].pretty_print()
+    else:
+        pass
+
+for step in agent.stream(
+    Command(resume={"decisions": [{"type": "approve"}]}),
+    config,
+    stream_mode="values",
+):
+    if "__interrupt__" in step:
+        print("INTERRUPTED:")
+        interrupt = step["__interrupt__"][0]
+        for request in interrupt.value["action_requests"]:
+            print(request["description"])
+    elif "messages" in step:
+        step["messages"][-1].pretty_print()
+    else:
+        pass
