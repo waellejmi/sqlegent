@@ -8,6 +8,8 @@ wheels/
 
 # Virtual environments
 .venv
+.env
 
 # Dev files 
 dev/
+results/
