@@ -8,3 +8,4 @@
 - implement a mulit agent system where we have a orchestor agent that receives the user query then calls the Text2SQL to generate 
 - keep a register of queries  to cache results 
 - log failed requests for manual review 
+- safe execution sandbox for the sql queries
