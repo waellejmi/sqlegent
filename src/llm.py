@@ -11,6 +11,8 @@ from langchain.agents.middleware import (
 )
 from langchain.messages import SystemMessage, ToolMessage
 from langchain.tools import ToolRuntime, tool
+from langchain_community.agent_toolkits import SQLDatabaseToolkit
+from langchain_community.utilities import SQLDatabase
 from langchain_groq import ChatGroq
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.types import Command, interrupt
@@ -18,7 +20,7 @@ from langgraph.types import Command, interrupt
 from utils.env_config import MyConfig
 
 config = MyConfig()
-project_root = pathlib.Path(__file__).resolve().parent.parent
+project_root = pathlib.Path(__file__).resolve().parent.parent.parent
 db_path = project_root / "data" / "Chinook.db"
 
 model = ChatGroq(
@@ -30,6 +32,18 @@ model = ChatGroq(
     timeout=None,
     max_retries=2,
 )
+
+db = SQLDatabase.from_uri(f"sqlite:///{db_path}")
+
+
+print(f"Dialect: {db.dialect}")
+print(f"Available tables: {db.get_usable_table_names()}")
+print(f"Sample output: {db.run('SELECT * FROM Artist LIMIT 5;')}")
+
+
+toolkit = SQLDatabaseToolkit(db=db, llm=model)
+
+sql_tools = toolkit.get_tools()
 
 
 class SkillState(AgentState):
@@ -44,129 +58,207 @@ class Skill(TypedDict):
 
 SKILLS: list[Skill] = [
     {
-        "name": "sales_analytics",
-        "description": "Database schema and business logic for sales data analysis including customers, orders, and revenue.",
+        "name": "music_catalog_analytics",
+        "description": "Database schema and business logic for digital music store analytics including artists, albums, tracks, genres, media types, and playlists.",
         "content": """
-# Sales Analytics Schema
+# Music Catalog Analytics Schema
 
 ## Tables
 
-### customers
-- customer_id (PRIMARY KEY)
-- name
-- email
-- signup_date
-- status (active/inactive)
-- customer_tier (bronze/silver/gold/platinum)
+### Artist
+- ArtistId (PRIMARY KEY)
+- Name
 
-### orders
-- order_id (PRIMARY KEY)
-- customer_id (FOREIGN KEY -> customers)
-- order_date
-- status (pending/completed/cancelled/refunded)
-- total_amount
-- sales_region (north/south/east/west)
+### Album
+- AlbumId (PRIMARY KEY)
+- Title
+- ArtistId (FOREIGN KEY -> Artist.ArtistId)
 
-### order_items
-- item_id (PRIMARY KEY)
-- order_id (FOREIGN KEY -> orders)
-- product_id
-- quantity
-- unit_price
-- discount_percent
+### Track
+- TrackId (PRIMARY KEY)
+- Name
+- AlbumId (FOREIGN KEY -> Album.AlbumId)
+- MediaTypeId (FOREIGN KEY -> MediaType.MediaTypeId)
+- GenreId (FOREIGN KEY -> Genre.GenreId)
+- Composer
+- Milliseconds
+- Bytes
+- UnitPrice
+
+### Genre
+- GenreId (PRIMARY KEY)
+- Name
+
+### MediaType
+- MediaTypeId (PRIMARY KEY)
+- Name
+
+### Playlist
+- PlaylistId (PRIMARY KEY)
+- Name
+
+### PlaylistTrack
+- PlaylistId (FOREIGN KEY -> Playlist.PlaylistId)
+- TrackId (FOREIGN KEY -> Track.TrackId)
+- COMPOSITE PRIMARY KEY (PlaylistId, TrackId)
 
 ## Business Logic
 
-**Active customers**: status = 'active' AND signup_date <= CURRENT_DATE - INTERVAL '90 days'
+**Track duration conversion**:  
+Milliseconds / 60000.0 = minutes  
+Milliseconds / 3600000.0 = hours  
 
-**Revenue calculation**: Only count orders with status = 'completed'. Use total_amount from orders table, which already accounts for discounts.
+**Album value**: Sum of UnitPrice for all tracks in an album.
 
-**Customer lifetime value (CLV)**: Sum of all completed order amounts for a customer.
+**Popular genres**: Count tracks per Genre.
 
-**High-value orders**: Orders with total_amount > 1000
+**Artist catalog size**: Count albums per Artist and tracks per Artist.
 
-## Example Query
+**Long tracks**: Milliseconds > 300000.
 
--- Get top 10 customers by revenue in the last quarter
-SELECT
-    c.customer_id,
-    c.name,
-    c.customer_tier,
-    SUM(o.total_amount) as total_revenue
-FROM customers c
-JOIN orders o ON c.customer_id = o.customer_id
-WHERE o.status = 'completed'
-  AND o.order_date >= CURRENT_DATE - INTERVAL '3 months'
-GROUP BY c.customer_id, c.name, c.customer_tier
-ORDER BY total_revenue DESC
+**High-value tracks**: UnitPrice > 0.99.
+
+## Example Queries
+
+-- Top 10 artists by total track count and catalog value
+SELECT 
+    ar.Name AS artist_name,
+    COUNT(DISTINCT al.AlbumId) AS album_count,
+    COUNT(t.TrackId) AS track_count,
+    SUM(t.UnitPrice) AS catalog_value,
+    SUM(t.Milliseconds) / 3600000.0 AS total_hours
+FROM Artist ar
+JOIN Album al ON ar.ArtistId = al.ArtistId
+JOIN Track t ON al.AlbumId = t.AlbumId
+GROUP BY ar.ArtistId, ar.Name
+ORDER BY track_count DESC
 LIMIT 10;
+
+-- Find tracks longer than 5 minutes in a specific genre
+SELECT 
+    t.Name AS track_name,
+    ar.Name AS artist,
+    al.Title AS album,
+    ROUND(t.Milliseconds / 60000.0, 2) AS duration_minutes,
+    t.UnitPrice
+FROM Track t
+JOIN Album al ON t.AlbumId = al.AlbumId
+JOIN Artist ar ON al.ArtistId = ar.ArtistId
+JOIN Genre g ON t.GenreId = g.GenreId
+WHERE t.Milliseconds > 300000
+ORDER BY t.Milliseconds DESC;
 """,
     },
     {
-        "name": "inventory_management",
-        "description": "Database schema and business logic for inventory tracking including products, warehouses, and stock levels.",
+        "name": "sales_customer_analytics",
+        "description": "Database schema and business logic for sales analysis including customers, invoices, invoice lines, and employees.",
         "content": """
-# Inventory Management Schema
+# Sales & Customer Analytics Schema
 
 ## Tables
 
-### products
-- product_id (PRIMARY KEY)
-- product_name
-- sku
-- category
-- unit_cost
-- reorder_point (minimum stock level before reordering)
-- discontinued (boolean)
+### Customer
+- CustomerId (PRIMARY KEY)
+- FirstName
+- LastName
+- Company
+- Address
+- City
+- State
+- Country
+- PostalCode
+- Phone
+- Fax
+- Email
+- SupportRepId (FOREIGN KEY -> Employee.EmployeeId)
 
-### warehouses
-- warehouse_id (PRIMARY KEY)
-- warehouse_name
-- location
-- capacity
+### Invoice
+- InvoiceId (PRIMARY KEY)
+- CustomerId (FOREIGN KEY -> Customer.CustomerId)
+- InvoiceDate
+- BillingAddress
+- BillingCity
+- BillingState
+- BillingCountry
+- BillingPostalCode
+- Total
 
-### inventory
-- inventory_id (PRIMARY KEY)
-- product_id (FOREIGN KEY -> products)
-- warehouse_id (FOREIGN KEY -> warehouses)
-- quantity_on_hand
-- last_updated
+### InvoiceLine
+- InvoiceLineId (PRIMARY KEY)
+- InvoiceId (FOREIGN KEY -> Invoice.InvoiceId)
+- TrackId (FOREIGN KEY -> Track.TrackId)
+- UnitPrice
+- Quantity
 
-### stock_movements
-- movement_id (PRIMARY KEY)
-- product_id (FOREIGN KEY -> products)
-- warehouse_id (FOREIGN KEY -> warehouses)
-- movement_type (inbound/outbound/transfer/adjustment)
-- quantity (positive for inbound, negative for outbound)
-- movement_date
-- reference_number
+### Employee
+- EmployeeId (PRIMARY KEY)
+- LastName
+- FirstName
+- Title
+- ReportsTo (FOREIGN KEY -> Employee.EmployeeId)
+- BirthDate
+- HireDate
+- Address
+- City
+- State
+- Country
+- PostalCode
+- Phone
+- Fax
+- Email
 
 ## Business Logic
 
-**Available stock**: quantity_on_hand from inventory table where quantity_on_hand > 0
+**Customer lifetime value (CLV)**: SUM(Invoice.Total) grouped by CustomerId.
 
-**Products needing reorder**: Products where total quantity_on_hand across all warehouses is less than or equal to the product's reorder_point
+**Average order value (AOV)**: AVG(Invoice.Total).
 
-**Active products only**: Exclude products where discontinued = true unless specifically analyzing discontinued items
+**Sales by period**: Group by year or month using strftime on InvoiceDate.
 
-**Stock valuation**: quantity_on_hand * unit_cost for each product
+**Support rep performance**: Sum of Invoice totals for customers assigned to each Employee.
 
-## Example Query
+**Geographic sales**: Group by BillingCountry or BillingState.
 
--- Find products below reorder point across all warehouses
-SELECT
-    p.product_id,
-    p.product_name,
-    p.reorder_point,
-    SUM(i.quantity_on_hand) as total_stock,
-    p.unit_cost,
-    (p.reorder_point - SUM(i.quantity_on_hand)) as units_to_reorder
-FROM products p
-JOIN inventory i ON p.product_id = i.product_id
-WHERE p.discontinued = false
-GROUP BY p.product_id, p.product_name, p.reorder_point, p.unit_cost
-HAVING SUM(i.quantity_on_hand) <= p.reorder_point
-ORDER BY units_to_reorder DESC;
+**Repeat customers**: Customers with COUNT(InvoiceId) >= 2.
+
+## Example Queries
+
+-- Monthly sales trend
+SELECT 
+    strftime('%Y', InvoiceDate) AS year,
+    strftime('%m', InvoiceDate) AS month,
+    COUNT(*) AS invoice_count,
+    ROUND(SUM(Total), 2) AS revenue,
+    COUNT(DISTINCT CustomerId) AS unique_customers
+FROM Invoice
+GROUP BY year, month
+ORDER BY year, month;
+
+-- Support rep performance ranking
+SELECT 
+    e.FirstName || ' ' || e.LastName AS support_rep,
+    e.Title,
+    COUNT(DISTINCT c.CustomerId) AS assigned_customers,
+    COUNT(i.InvoiceId) AS total_orders,
+    ROUND(SUM(i.Total), 2) AS total_revenue,
+    ROUND(SUM(i.Total) / COUNT(DISTINCT c.CustomerId), 2) AS revenue_per_customer
+FROM Employee e
+LEFT JOIN Customer c ON e.EmployeeId = c.SupportRepId
+LEFT JOIN Invoice i ON c.CustomerId = i.CustomerId
+GROUP BY e.EmployeeId, e.FirstName, e.LastName, e.Title
+ORDER BY total_revenue DESC;
+
+-- Country sales analysis
+SELECT 
+    BillingCountry AS country,
+    COUNT(DISTINCT CustomerId) AS unique_customers,
+    COUNT(*) AS total_orders,
+    ROUND(SUM(Total), 2) AS total_revenue,
+    ROUND(AVG(Total), 2) AS avg_order_value,
+    ROUND(SUM(Total) / COUNT(DISTINCT CustomerId), 2) AS revenue_per_customer
+FROM Invoice
+GROUP BY BillingCountry
+ORDER BY total_revenue DESC;
 """,
     },
 ]
@@ -180,6 +272,15 @@ Write queries against business databases.
 
 @tool
 def load_skill(skill_name: str, runtime: ToolRuntime) -> Command:
+    """Load the full content of a skill into the agent's context.
+
+    Use this when you need detailed information about how to handle a specific
+    type of request. This will provide you with comprehensive instructions,
+    policies, and guidelines for the skill area.
+
+    Args:
+        skill_name: The name of the skill to load
+    """
     for skill in SKILLS:
         if skill["name"] == skill_name:
             skill_content = f"Loaded skill: {skill_name}\n\n{skill['content']}"
@@ -209,32 +310,7 @@ def load_skill(skill_name: str, runtime: ToolRuntime) -> Command:
     )
 
 
-@tool
-def write_sql_query(
-    query: str,
-    skill: str,
-    runtime: ToolRuntime,
-) -> str:
-    skills_loaded = runtime.state.get("skills_loaded", [])
-
-    if skill not in skills_loaded:
-        return (
-            f"Error: You must load the '{skill}' skill first "
-            f"to understand the database schema before writing queries. "
-            f"Use load_skill('{skill}') to load the schema."
-        )
-
-    return (
-        f"SQL Query for {skill}:\n\n"
-        f"```sql\n{query}\n```\n\n"
-        f"✓ Query validated against {skill} schema\n"
-        f"Ready to execute against the database."
-    )
-
-
 class SkillMiddleware(AgentMiddleware[SkillState]):
-    tools = [load_skill, write_sql_query()]
-
     def __init__(self):
         skills_list = []
         for skill in SKILLS:
@@ -264,6 +340,7 @@ class SkillMiddleware(AgentMiddleware[SkillState]):
 agent = create_agent(
     model,
     system_prompt=system_prompt,
+    tools=[load_skill, *sql_tools],
     middleware=[
         SkillMiddleware(),
         # HumanInTheLoopMiddleware(
@@ -274,51 +351,40 @@ agent = create_agent(
     checkpointer=InMemorySaver(),
 )
 
-question = """Write a SQL query to find all customers?.
-who made orders over $1000 in the last month
+question = """
+Write a SQL query to find all customers who made at least one purchase over $20 in 2013.
+Then execute the query and return the results.
 """
+
 config = {"configurable": {"thread_id": "1"}}
 
 
-# Ask for a SQL query
-result = agent.invoke(
+for step in agent.stream(
     {"messages": [{"role": "user", "content": question}]},
     config,
-)
-
-# Print the conversation
-for message in result["messages"]:
-    if hasattr(message, "pretty_print"):
-        message.pretty_print()
+    stream_mode="values",
+):
+    if "__interrupt__" in step:
+        print("INTERRUPTED:")
+        interrupt = step["__interrupt__"][0]
+        for request in interrupt.value["action_requests"]:
+            print(request["description"])
+    elif "messages" in step:
+        step["messages"][-1].pretty_print()
     else:
-        print(f"{message.type}: {message.content}")
+        pass
 
-# for step in agent.stream(
-#     {"messages": [{"role": "user", "content": question}]},
-#     config,
-#     stream_mode="values",
-# ):
-#     if "__interrupt__" in step:
-#         print("INTERRUPTED:")
-#         interrupt = step["__interrupt__"][0]
-#         for request in interrupt.value["action_requests"]:
-#             print(request["description"])
-#     elif "messages" in step:
-#         step["messages"][-1].pretty_print()
-#     else:
-#         pass
-#
-# for step in agent.stream(
-#     Command(resume={"decisions": [{"type": "approve"}]}),
-#     config,
-#     stream_mode="values",
-# ):
-#     if "__interrupt__" in step:
-#         print("INTERRUPTED:")
-#         interrupt = step["__interrupt__"][0]
-#         for request in interrupt.value["action_requests"]:
-#             print(request["description"])
-#     elif "messages" in step:
-#         step["messages"][-1].pretty_print()
-#     else:
-#         pass
+for step in agent.stream(
+    Command(resume={"decisions": [{"type": "approve"}]}),
+    config,
+    stream_mode="values",
+):
+    if "__interrupt__" in step:
+        print("INTERRUPTED:")
+        interrupt = step["__interrupt__"][0]
+        for request in interrupt.value["action_requests"]:
+            print(request["description"])
+    elif "messages" in step:
+        step["messages"][-1].pretty_print()
+    else:
+        pass
