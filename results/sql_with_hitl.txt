@@ -109,5 +109,5 @@ The genre with the longest average track duration is **Sci Fi & Fantasy**, with 
 
 Total Tokens Cost : 17.4K
 Input Tokens (Cached + Uncached): 11.5K
-Outut Tokens  : 5.9K
+Output Tokens  : 5.9K
 
