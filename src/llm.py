@@ -5,17 +5,14 @@ from langchain.agents import create_agent
 from langchain.agents.middleware import (
     AgentMiddleware,
     AgentState,
-    HumanInTheLoopMiddleware,
     ModelRequest,
     ModelResponse,
 )
 from langchain.messages import SystemMessage, ToolMessage
 from langchain.tools import ToolRuntime, tool
-from langchain_community.agent_toolkits import SQLDatabaseToolkit
-from langchain_community.utilities import SQLDatabase
 from langchain_groq import ChatGroq
 from langgraph.checkpoint.memory import InMemorySaver
-from langgraph.types import Command, interrupt
+from langgraph.types import Command
 
 from utils.env_config import MyConfig
 
@@ -33,21 +30,10 @@ model = ChatGroq(
     max_retries=2,
 )
 
-db = SQLDatabase.from_uri(f"sqlite:///{db_path}")
-
-
-print(f"Dialect: {db.dialect}")
-print(f"Available tables: {db.get_usable_table_names()}")
-print(f"Sample output: {db.run('SELECT * FROM Artist LIMIT 5;')}")
-
-
-toolkit = SQLDatabaseToolkit(db=db, llm=model)
-
-sql_tools = toolkit.get_tools()
-
 
 class SkillState(AgentState):
     skills_loaded: NotRequired[list[str]]
+    generated_sql: NotRequired[str]
 
 
 class Skill(TypedDict):
@@ -61,7 +47,7 @@ SKILLS: list[Skill] = [
         "name": "music_catalog_analytics",
         "description": "Database schema and business logic for digital music store analytics including artists, albums, tracks, genres, media types, and playlists.",
         "content": """
-# Music Catalog Analytics Schema
+# Music Catalog Analytics Schema (SQLite)
 
 ## Tables
 
@@ -153,7 +139,7 @@ ORDER BY t.Milliseconds DESC;
         "name": "sales_customer_analytics",
         "description": "Database schema and business logic for sales analysis including customers, invoices, invoice lines, and employees.",
         "content": """
-# Sales & Customer Analytics Schema
+# Sales & Customer Analytics Schema(SQLite)
 
 ## Tables
 
@@ -266,7 +252,7 @@ ORDER BY total_revenue DESC;
 
 system_prompt = """
 You are a SQL query assistant that helps users.
-Write queries against business databases.
+Write queries against music store databases.
 """
 
 
@@ -310,7 +296,64 @@ def load_skill(skill_name: str, runtime: ToolRuntime) -> Command:
     )
 
 
+@tool
+def generate_sql(
+    query: str,
+    vertical: str,
+    runtime: ToolRuntime,
+) -> Command:
+    """Write and validate a SQL query for a specific business vertical.
+
+    This tool helps format and validate SQL queries. You must load the
+    appropriate skill first to understand the database schema.
+
+    Args:
+        query: The SQL query to write
+        vertical: The business vertical (sales_analytics or inventory_management)
+    """
+    skills_loaded = runtime.state.get("skills_loaded", [])
+
+    if vertical not in skills_loaded:
+        return Command(
+            update={
+                "messages": [
+                    ToolMessage(
+                        content=(
+                            f"Error: You must load the '{vertical}' skill first "
+                            f"to understand the database schema before writing queries. "
+                            f"Use load_skill('{vertical}') to load the schema."
+                        ),
+                        tool_call_id=runtime.tool_call_id,
+                    )
+                ]
+            }
+        )
+
+    return Command(
+        update={
+            "generated_sql": query,
+            "messages": [
+                ToolMessage(
+                    content=f"SQL query for {vertical} saved to agent state.",
+                    tool_call_id=runtime.tool_call_id,
+                )
+            ],
+        },
+        goto=execute_sql,
+    )
+
+
+def execute_sql() -> str:
+    # SQLPARSER
+    # SQLALCHEMY
+
+    return
+
+
 class SkillMiddleware(AgentMiddleware[SkillState]):
+    state_schema = SkillState
+    tools = [load_skill, generate_sql]
+
     def __init__(self):
         skills_list = []
         for skill in SKILLS:
@@ -340,20 +383,14 @@ class SkillMiddleware(AgentMiddleware[SkillState]):
 agent = create_agent(
     model,
     system_prompt=system_prompt,
-    tools=[load_skill, *sql_tools],
     middleware=[
         SkillMiddleware(),
-        # HumanInTheLoopMiddleware(
-        #     interrupt_on={"sql_db_query": True},  # I can remove the edit option later
-        #     description_prefix="DB Query Tool is pending approval",
-        # ),
     ],
     checkpointer=InMemorySaver(),
 )
 
 question = """
 Write a SQL query to find all customers who made at least one purchase over $20 in 2013.
-Then execute the query and return the results.
 """
 
 config = {"configurable": {"thread_id": "1"}}
@@ -364,27 +401,4 @@ for step in agent.stream(
     config,
     stream_mode="values",
 ):
-    if "__interrupt__" in step:
-        print("INTERRUPTED:")
-        interrupt = step["__interrupt__"][0]
-        for request in interrupt.value["action_requests"]:
-            print(request["description"])
-    elif "messages" in step:
-        step["messages"][-1].pretty_print()
-    else:
-        pass
-
-for step in agent.stream(
-    Command(resume={"decisions": [{"type": "approve"}]}),
-    config,
-    stream_mode="values",
-):
-    if "__interrupt__" in step:
-        print("INTERRUPTED:")
-        interrupt = step["__interrupt__"][0]
-        for request in interrupt.value["action_requests"]:
-            print(request["description"])
-    elif "messages" in step:
-        step["messages"][-1].pretty_print()
-    else:
-        pass
+    step["messages"][-1].pretty_print()
