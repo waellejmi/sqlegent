@@ -1,14 +1,7 @@
 # Market Analysis
 ## Open-Source Solutions
-- [vanna](https://github.com/vanna-ai/vanna)
-```
-+ RBAC (admin = more rights, user see only what he is concerend with) 
-+ oss 
-+ visulisations
-- DB prober (Select DB from multiple that are running )
-- DB provider supports (Cloud, Docker , Local , Distrubeted )
-```
 - [WrenAI](https://github.com/Canner/WrenAI)
+
 [Documentation](https://docs.getwren.ai/oss/concept/wren_ai_service) 
 ```
 + visulisations saved to a seperate dashboard tab. (maybe add a cron job to update the graph for the saved request )
@@ -16,17 +9,12 @@
 + Modeling Definition Language (MDL) for structured output 
 + Clear Documentation
 ```
-- [sqlchat](https://github.com/sqlchat/sqlchat)
+- [vanna](https://github.com/vanna-ai/vanna)
 ```
-+ multiple DB support
-+ confirmation before executing the generated SQL
-+ token limit for converstation prompt 
-- db schema is in the prompt (We Let THE LLM decide = risk of hallucinations and TOkens wasted )
-```
-- [dataherald](https://github.com/Dataherald/dataherald/tree/main)
-```
-+ core sepreration: Engine(core lang2sql), enterprise (for auth, orgs, usrs), admin console (GUI) , slackbot (for slack integration) {not needed but good for context}
-- missing normal user GUI 
++ RBAC (admin = more rights, user see only what he is concerend with) 
++ visulisations
+- DB prober (Select DB from multiple that are running )
+- DB provider supports (Cloud, Docker , Local , Distrubeted )
 ```
 - [nao](https://github.com/getnao/nao)
 ```
@@ -34,6 +22,13 @@
 + fetches 10 rows from dataset to show examples for the moodel 
 + exctracts db schema and transform it to md.
 - relying too much on the LLM to understand the schema if not specified in the prompt
+```
+- [sqlchat](https://github.com/sqlchat/sqlchat)
+```
++ multiple DB support
++ confirmation before executing the generated SQL
++ token limit for converstation prompt 
+- db schema is in the prompt (We Let THE LLM decide = risk of hallucinations and TOkens wasted )
 ```
 ### Benchmarks on Datasets
 - [list of Text-to-SQL Models](https://github.com/eosphoros-ai/Awesome-Text2SQL)
