@@ -1,12 +1,17 @@
+import json
 import pathlib
 from typing import Literal
 
 from langchain.messages import AIMessage
+from langchain.tools import tool
 from langchain_community.agent_toolkits import SQLDatabaseToolkit
 from langchain_community.utilities import SQLDatabase
+from langchain_core.runnables import RunnableConfig
 from langchain_groq import ChatGroq
+from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, START, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode
+from langgraph.types import Command, interrupt
 
 from utils.env_config import MyConfig
 
@@ -42,10 +47,41 @@ get_schema_tool = next(tool for tool in tools if tool.name == "sql_db_schema")
 get_schema_node = ToolNode([get_schema_tool], name="get_schema")
 
 run_query_tool = next(tool for tool in tools if tool.name == "sql_db_query")
-run_query_node = ToolNode([run_query_tool], name="run_query")
+# run_query_node = ToolNode([run_query_tool], name="run_query")
 
 
-# Example: create a predetermined tool call
+@tool(
+    run_query_tool.name,
+    description=run_query_tool.description,
+    args_schema=run_query_tool.args_schema,
+)
+def run_query_tool_with_interrupt(config: RunnableConfig, **tool_input):
+    request = {
+        "action": run_query_tool.name,
+        "args": tool_input,
+        "description": "Please review the tool call",
+    }
+    response = interrupt([request])
+    if response["type"] == "accept":
+        tool_response = run_query_tool.invoke(tool_input, config)
+    elif response["type"] == "edit":
+        tool_input = response["args"]["args"]
+        tool_response = run_query_tool.invoke(tool_input, config)
+    elif response["type"] == "response":
+        user_feedback = response["args"]
+        tool_response = user_feedback
+
+    elif response["type"] == "reject":
+        raise RuntimeError("User rejected the tool call")
+    else:
+        raise ValueError(f"Unsupported interrupt response type: {response['type']}")
+
+    return tool_response
+
+
+run_query_node = ToolNode([run_query_tool_with_interrupt], name="run_query")
+
+
 def list_tables(state: MessagesState):
     tool_call = {
         "name": "sql_db_list_tables",
@@ -62,10 +98,7 @@ def list_tables(state: MessagesState):
     return {"messages": [tool_call_message, tool_message, response]}
 
 
-# Example: force a model to create a tool call
 def call_get_schema(state: MessagesState):
-    # Note that LangChain enforces that all models accept `tool_choice="any"`
-    # as well as `tool_choice=<string name of tool>`.
     llm_with_tools = model.bind_tools([get_schema_tool], tool_choice="any")
     response = llm_with_tools.invoke(state["messages"])
 
@@ -95,9 +128,7 @@ def generate_query(state: MessagesState):
         "role": "system",
         "content": generate_query_system_prompt,
     }
-    # We do not force a tool call here, to allow the model to
-    # respond naturally when it obtains the solution.
-    llm_with_tools = model.bind_tools([run_query_tool])
+    llm_with_tools = model.bind_tools([run_query_tool_with_interrupt])
     response = llm_with_tools.invoke([system_message] + state["messages"])
 
     return {"messages": [response]}
@@ -128,10 +159,11 @@ def check_query(state: MessagesState):
         "content": check_query_system_prompt,
     }
 
-    # Generate an artificial user message to check
     tool_call = state["messages"][-1].tool_calls[0]
     user_message = {"role": "user", "content": tool_call["args"]["query"]}
-    llm_with_tools = model.bind_tools([run_query_tool], tool_choice="any")
+    llm_with_tools = model.bind_tools(
+        [run_query_tool_with_interrupt], tool_choice="any"
+    )
     response = llm_with_tools.invoke([system_message, user_message])
     response.id = state["messages"][-1].id
 
@@ -166,7 +198,8 @@ builder.add_conditional_edges(
 builder.add_edge("check_query", "run_query")
 builder.add_edge("run_query", "generate_query")
 
-agent = builder.compile()
+checkpointer = InMemorySaver()
+agent = builder.compile(checkpointer=checkpointer)
 
 
 question = "Which genre on average has the longest tracks?"
@@ -175,7 +208,36 @@ config = {"configurable": {"thread_id": "1"}}
 
 for step in agent.stream(
     {"messages": [{"role": "user", "content": question}]},
+    config,
     stream_mode="values",
-    config=config,
 ):
-    step["messages"][-1].pretty_print()
+    if "__interrupt__" in step:
+        action = step["__interrupt__"][0]
+        print(30 * "=")
+        print("INTERRUPTED:")
+
+        for request in action.value:
+            print(json.dumps(request, indent=2))
+    elif "messages" in step:
+        step["messages"][-1].pretty_print()
+    else:
+        pass
+
+for step in agent.stream(
+    Command(resume={"type": "accept"}),
+    # Command(resume={"type": "edit", "args": {"query": "SELECT * FROM ..."}}),
+    # Command(resume={"type": "response", "args": {"This is wrong, I asked for something else ..."}),
+    # Command(resume={"type": "reject"),
+    config,
+    stream_mode="values",
+):
+    if "__interrupt__" in step:
+        action = step["__interrupt__"][0]
+        print(30 * "=")
+        print("INTERRUPTED:")
+        for request in action.value:
+            print(json.dumps(request, indent=2))
+    elif "messages" in step:
+        step["messages"][-1].pretty_print()
+    else:
+        pass
