@@ -1,7 +1,5 @@
-from typing import Literal
-
 from langchain.messages import AIMessage
-from langgraph.graph import END, MessagesState
+from langgraph.graph import MessagesState
 from langgraph.prebuilt import ToolNode
 
 from agent.prompts import CHECK_QUERY, GENERATE_QUERY
@@ -70,10 +68,10 @@ def check_query(state: MessagesState):
     return {"messages": [response]}
 
 
-def should_continue(state: MessagesState) -> Literal["check_query", END]:
+def should_continue(state: MessagesState):
     messages = state["messages"]
     last_message = messages[-1]
     if last_message.tool_calls:
         return "check_query"
     else:
-        return END
+        return "END"

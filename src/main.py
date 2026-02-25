@@ -1,5 +1,7 @@
 import json
+import uuid
 
+from langchain_core.callbacks import UsageMetadataCallbackHandler
 from langgraph.types import Command
 
 from agent.graph import agent
@@ -19,9 +21,7 @@ def handle_stream(stream_iterator):
             pass
 
 
-def run_agent():
-    question = "Which genre on average has the longest tracks?"
-    config = {"configurable": {"thread_id": "1"}}
+def run_agent(question: str, config: dict):
 
     print("--- Starting Agent ---")
     initial_stream = agent.stream(
@@ -30,9 +30,9 @@ def run_agent():
         stream_mode="values",
     )
     handle_stream(initial_stream)
-    print("\n--- Resuming Agent ---")
 
     # Resume Stream
+    print("\n--- Resuming Agent ---")
     resume_stream = agent.stream(
         Command(resume={"type": "accept"}),
         # Command(resume={"type": "edit", "args": {"query": "SELECT * FROM ..."}}),
@@ -43,6 +43,20 @@ def run_agent():
     )
     handle_stream(resume_stream)
 
+    # history of all nodes/checkpoints passed
+    print("\n--- Full Node History ---")
+    for i, state in enumerate(agent.get_state_history(config)):
+        print(f"Checkpoint {i}: next={state.next} ")
+
 
 if __name__ == "__main__":
-    run_agent()
+    question = "Which genre on average has the longest tracks?"
+    usage_callback = UsageMetadataCallbackHandler()
+    config = {
+        "configurable": {"thread_id": str(uuid.uuid4())},
+        "callbacks": [usage_callback],
+    }
+    run_agent(question, config)
+
+    print("\n--- Token Usage ---")
+    print(usage_callback.usage_metadata)

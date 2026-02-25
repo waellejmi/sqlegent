@@ -1,7 +1,30 @@
-❯ python src/llm.py
-Dialect: sqlite
-Available tables: ['Album', 'Artist', 'Customer', 'Employee', 'Genre', 'Invoice', 'InvoiceLine', 'MediaType', 'Playlist', 'PlaylistTrack', 'Track']
-Sample output: [(1, 'AC/DC'), (2, 'Accept'), (3, 'Aerosmith'), (4, 'Alanis Morissette'), (5, 'Alice In Chains')]
+---
+config:
+  flowchart:
+    curve: linear
+---
+graph TD;
+	__start__([<p>__start__</p>]):::first
+	list_tables(list_tables)
+	call_get_schema(call_get_schema)
+	get_schema(get_schema)
+	generate_query(generate_query)
+	check_query(check_query)
+	run_query(run_query)
+	__end__([<p>__end__</p>]):::last
+	__start__ --> list_tables;
+	call_get_schema --> get_schema;
+	check_query --> run_query;
+	generate_query -. &nbsp;END&nbsp; .-> __end__;
+	generate_query -.-> check_query;
+	get_schema --> generate_query;
+	list_tables --> call_get_schema;
+	run_query --> generate_query;
+	classDef default fill:#f2f0ff,line-height:1.2
+	classDef first fill-opacity:0
+	classDef last fill:#bfb6fc
+
+--- Starting Agent ---
 ================================ Human Message =================================
 
 Which genre on average has the longest tracks?
@@ -10,17 +33,17 @@ Which genre on average has the longest tracks?
 Available tables: Album, Artist, Customer, Employee, Genre, Invoice, InvoiceLine, MediaType, Playlist, PlaylistTrack, Track
 ================================== Ai Message ==================================
 Tool Calls:
-  sql_db_schema (xp6nxq4n2)
- Call ID: xp6nxq4n2
+  sql_db_schema (nc4dc4kae)
+ Call ID: nc4dc4kae
   Args:
-    table_names: Genre, Track
+    table_names: Track, Genre
 ================================= Tool Message =================================
 Name: sql_db_schema
 
 
 CREATE TABLE "Genre" (
-	"GenreId" INTEGER NOT NULL,
-	"Name" NVARCHAR(120),
+	"GenreId" INTEGER NOT NULL, 
+	"Name" NVARCHAR(120), 
 	PRIMARY KEY ("GenreId")
 )
 
@@ -34,18 +57,18 @@ GenreId	Name
 
 
 CREATE TABLE "Track" (
-	"TrackId" INTEGER NOT NULL,
-	"Name" NVARCHAR(200) NOT NULL,
-	"AlbumId" INTEGER,
-	"MediaTypeId" INTEGER NOT NULL,
-	"GenreId" INTEGER,
-	"Composer" NVARCHAR(220),
-	"Milliseconds" INTEGER NOT NULL,
-	"Bytes" INTEGER,
-	"UnitPrice" NUMERIC(10, 2) NOT NULL,
-	PRIMARY KEY ("TrackId"),
-	FOREIGN KEY("MediaTypeId") REFERENCES "MediaType" ("MediaTypeId"),
-	FOREIGN KEY("GenreId") REFERENCES "Genre" ("GenreId"),
+	"TrackId" INTEGER NOT NULL, 
+	"Name" NVARCHAR(200) NOT NULL, 
+	"AlbumId" INTEGER, 
+	"MediaTypeId" INTEGER NOT NULL, 
+	"GenreId" INTEGER, 
+	"Composer" NVARCHAR(220), 
+	"Milliseconds" INTEGER NOT NULL, 
+	"Bytes" INTEGER, 
+	"UnitPrice" NUMERIC(10, 2) NOT NULL, 
+	PRIMARY KEY ("TrackId"), 
+	FOREIGN KEY("MediaTypeId") REFERENCES "MediaType" ("MediaTypeId"), 
+	FOREIGN KEY("GenreId") REFERENCES "Genre" ("GenreId"), 
 	FOREIGN KEY("AlbumId") REFERENCES "Album" ("AlbumId")
 )
 
@@ -58,38 +81,51 @@ TrackId	Name	AlbumId	MediaTypeId	GenreId	Composer	Milliseconds	Bytes	UnitPrice
 */
 ================================== Ai Message ==================================
 Tool Calls:
-  sql_db_query (r0tq8wqrs)
- Call ID: r0tq8wqrs
+  sql_db_query (yw92bmfm1)
+ Call ID: yw92bmfm1
   Args:
-    query: SELECT Genre.Name, AVG(Track.Milliseconds) AS AverageDuration FROM Track INNER JOIN Genre ON Track.GenreId = Genre.GenreId GROUP BY Genre.Name ORDER BY AverageDuration DESC LIMIT 5;
+    query: SELECT Genre.Name, AVG(Track.Milliseconds) AS AvgLength FROM Track INNER JOIN Genre ON Track.GenreId = Genre.GenreId WHERE Track.GenreId IS NOT NULL GROUP BY Genre.Name ORDER BY AvgLength DESC LIMIT 1;
 ================================== Ai Message ==================================
 Tool Calls:
-  sql_db_query (spw7v5cqa)
- Call ID: spw7v5cqa
+  sql_db_query (r50k9evzf)
+ Call ID: r50k9evzf
   Args:
-    query: SELECT Genre.Name, AVG(Track.Milliseconds) AS AverageDuration FROM Track INNER JOIN Genre ON Track.GenreId = Genre.GenreId GROUP BY Genre.Name ORDER BY AverageDuration DESC LIMIT 5;
+    query: SELECT Genre.Name, AVG(Track.Milliseconds) AS AvgLength FROM Track INNER JOIN Genre ON Track.GenreId = Genre.GenreId WHERE Track.GenreId IS NOT NULL GROUP BY Genre.Name ORDER BY AvgLength DESC LIMIT 1;
 ==============================
 INTERRUPTED:
 {
   "action": "sql_db_query",
   "args": {
-    "query": "SELECT Genre.Name, AVG(Track.Milliseconds) AS AverageDuration FROM Track INNER JOIN Genre ON Track.GenreId = Genre.GenreId GROUP BY Genre.Name ORDER BY AverageDuration DESC LIMIT 5;"
+    "query": "SELECT Genre.Name, AVG(Track.Milliseconds) AS AvgLength FROM Track INNER JOIN Genre ON Track.GenreId = Genre.GenreId WHERE Track.GenreId IS NOT NULL GROUP BY Genre.Name ORDER BY AvgLength DESC LIMIT 1;"
   },
   "description": "Please review the tool call"
 }
+
+--- Resuming Agent ---
 ================================== Ai Message ==================================
 Tool Calls:
-  sql_db_query (spw7v5cqa)
- Call ID: spw7v5cqa
+  sql_db_query (r50k9evzf)
+ Call ID: r50k9evzf
   Args:
-    query: SELECT Genre.Name, AVG(Track.Milliseconds) AS AverageDuration FROM Track INNER JOIN Genre ON Track.GenreId = Genre.GenreId GROUP BY Genre.Name ORDER BY AverageDuration DESC LIMIT 5;
+    query: SELECT Genre.Name, AVG(Track.Milliseconds) AS AvgLength FROM Track INNER JOIN Genre ON Track.GenreId = Genre.GenreId WHERE Track.GenreId IS NOT NULL GROUP BY Genre.Name ORDER BY AvgLength DESC LIMIT 1;
 ================================= Tool Message =================================
 Name: sql_db_query
 
-[('Sci Fi & Fantasy', 2911783.0384615385), ('Science Fiction', 2625549.076923077), ('Drama', 2575283.78125), ('TV Shows', 2145041.0215053763), ('Comedy', 1585263.705882353)]
+[('Sci Fi & Fantasy', 2911783.0384615385)]
 ================================== Ai Message ==================================
 
-The genre with the longest average track duration is **Sci Fi & Fantasy** at approximately **2,911,783 milliseconds** (about 48.5 minutes). This is followed by Science Fiction and Drama.
+The genre with the longest average track length is **Sci Fi & Fantasy**, with an average duration of approximately **2,911,783 milliseconds** (about 48.5 minutes). This result is derived from averaging the `Milliseconds` column in the `Track` table, joined with the `Genre` table, and grouping by genre.
 
-If you meant musical genres, note that these results might include non-music categories (e.g., podcasts, audiobooks), as the database schema does not explicitly separate media types. Let me know if you'd like to refine the query further!
+--- Full Node History ---
+Checkpoint 0: next=() 
+Checkpoint 1: next=('generate_query',) 
+Checkpoint 2: next=('run_query',) 
+Checkpoint 3: next=('check_query',) 
+Checkpoint 4: next=('generate_query',) 
+Checkpoint 5: next=('get_schema',) 
+Checkpoint 6: next=('call_get_schema',) 
+Checkpoint 7: next=('list_tables',) 
+Checkpoint 8: next=('__start__',) 
 
+--- Token Usage ---
+{'qwen/qwen3-32b': {'total_tokens': 4414, 'output_token_details': {'reasoning': 1552}, 'input_tokens': 2610, 'output_tokens': 1804}}
