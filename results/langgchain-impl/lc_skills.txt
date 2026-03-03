@@ -1,4 +1,3 @@
-(sql-agent) ❯ python src/llm.py
 Dialect: sqlite
 Available tables: ['Album', 'Artist', 'Customer', 'Employee', 'Genre', 'Invoice', 'InvoiceLine', 'MediaType', 'Playlist', 'PlaylistTrack', 'Track']
 Sample output: [(1, 'AC/DC'), (2, 'Accept'), (3, 'Aerosmith'), (4, 'Alanis Morissette'), (5, 'Alice In Chains')]
@@ -176,8 +175,4 @@ The SQL query executed successfully and returned 1 customer who made a purchase 
 **Support Rep ID:** 5
 
 This is the complete result set for the query.
-(sql-agent)
 
-Total Tokens Cost : 31.7K
-Input Tokens (Cached + Uncached): 17.8K
-Outut Tokens  : 14k

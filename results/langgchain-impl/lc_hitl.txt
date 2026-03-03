@@ -1,5 +1,3 @@
-(sql-agent) ❯ python src/llm.py
-
 Dialect: sqlite
 Available tables: ['Album', 'Artist', 'Customer', 'Employee', 'Genre', 'Invoice', 'InvoiceLine', 'MediaType', 'Playlist', 'PlaylistTrack', 'Track']
 Sample output: [(1, 'AC/DC'), (2, 'Accept'), (3, 'Aerosmith'), (4, 'Alanis Morissette'), (5, 'Alice In Chains')]
@@ -106,8 +104,3 @@ Name: sql_db_query
 ================================== Ai Message ==================================
 
 The genre with the longest average track duration is **Sci Fi & Fantasy**, with an average track length of approximately **2911.78 seconds** (48 minutes and 31 seconds).
-
-Total Tokens Cost : 17.4K
-Input Tokens (Cached + Uncached): 11.5K
-Output Tokens  : 5.9K
-

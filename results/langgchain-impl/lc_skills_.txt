@@ -1,4 +1,3 @@
-(sql-agent) ❯ python src/llm.py
 ================================ Human Message =================================
 
 Write a SQL query to find all customers?.
