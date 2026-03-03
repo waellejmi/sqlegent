@@ -1,5 +1,6 @@
 import asyncio
 import json
+import readline
 import uuid
 
 from langchain_core.callbacks import UsageMetadataCallbackHandler
@@ -21,14 +22,36 @@ async def get_user_input(interrupt_info) -> dict:
     except TypeError:
         print(interrupt_info)
 
-    prompt = "\nHow would you like to proceed?\n[a]ccept  [e]dit  [r]eject\nChoice: "
+    prompt = "\nHow would you like to proceed?\n[a]ccept  [e]dit  [r]eject [f]eedback\nChoice: "
     choice = (await asyncio.to_thread(input, prompt)).strip().lower()
 
     if choice.startswith("e"):
-        new_query = await asyncio.to_thread(input, "New query: ")
-        return {"type": "edit", "args": {"query": new_query}}
-    if choice.startswith("r"):
+        current_query = interrupt_info[0].get("args").get("query")
+
+        def input_with_prefill(prompt, text):
+            def hook():
+                readline.insert_text(text)
+                readline.redisplay()
+
+            readline.set_pre_input_hook(hook)
+            try:
+                return input(prompt)
+            finally:
+                readline.set_pre_input_hook(None)
+
+        new_query = await asyncio.to_thread(
+            input_with_prefill, "Edit query: ", current_query
+        )
+
+        return {"type": "edit", "edited_query": new_query}
+
+    elif choice.startswith("f"):
+        feedback = await asyncio.to_thread(input, "Feedback for the agent: \n")
+        return {"type": "response", "feedback": feedback}
+
+    elif choice.startswith("r"):
         return {"type": "reject"}
+
     return {"type": "accept"}
 
 
@@ -38,7 +61,7 @@ async def run_agent(question: str, config: dict):
 
     while True:
         resume_required = False
-        async for _, mode, chunk in agent.astream(
+        async for mode, chunk in agent.astream(
             next_input,
             stream_mode=["messages", "updates"],
             config=config,

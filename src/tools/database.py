@@ -26,7 +26,6 @@ run_query_tool = next(tool for tool in tools if tool.name == "sql_db_query")
 list_tables_tool = next(tool for tool in tools if tool.name == "sql_db_list_tables")
 
 
-# Wrapper around run_query_tool to allow interruption
 @tool(
     run_query_tool.name,
     description=run_query_tool.description,
@@ -40,17 +39,23 @@ def run_query_tool_with_interrupt(config: RunnableConfig, **tool_input):
     }
     response = interrupt([request])
     if response["type"] == "accept":
-        tool_response = run_query_tool.invoke(tool_input, config)
+        final_query_input = tool_input
     elif response["type"] == "edit":
-        tool_input = response["args"]["args"]
-        tool_response = run_query_tool.invoke(tool_input, config)
+        tool_input = response["edited_query"]
+        final_query_input = {"query": tool_input}
     elif response["type"] == "response":
-        user_feedback = response["args"]
-        tool_response = user_feedback
+        return f"User cancelled the query and provided this feedback: {response['feedback']}"
 
     elif response["type"] == "reject":
         raise RuntimeError("User rejected the tool call")
     else:
         raise ValueError(f"Unsupported interrupt response type: {response['type']}")
+    try:
+        tool_response = run_query_tool.invoke(final_query_input, config)
+        return tool_response
 
-    return tool_response
+    except Exception as e:
+        return (
+            f"Error executing SQL: {str(e)}\n"
+            "Please analyze this error, correct the query, and try again."
+        )
