@@ -1,33 +1,48 @@
 from langgraph.checkpoint.memory import InMemorySaver
-from langgraph.graph import END, START, MessagesState, StateGraph
+from langgraph.graph import END, START, StateGraph
 
 from agent.nodes import (
+    analyze_result,
     call_get_schema,
     check_query,
+    explain_result,
     generate_query,
     get_schema_node,
     list_tables,
     run_query_node,
-    should_continue,
+    should_retry,
 )
+from agent.state import AgentState
 
-builder = StateGraph(MessagesState)
+builder = StateGraph(AgentState)
 builder.add_node(list_tables)
 builder.add_node(call_get_schema)
 builder.add_node(get_schema_node, "get_schema")
 builder.add_node(generate_query)
 builder.add_node(check_query)
 builder.add_node(run_query_node, "run_query")
+builder.add_node(analyze_result)
+builder.add_node(explain_result)
 
 builder.add_edge(START, "list_tables")
 builder.add_edge("list_tables", "call_get_schema")
 builder.add_edge("call_get_schema", "get_schema")
 builder.add_edge("get_schema", "generate_query")
-builder.add_conditional_edges(
-    "generate_query", should_continue, {"check_query": "check_query", "END": END}
-)
+builder.add_edge("generate_query", "check_query")
 builder.add_edge("check_query", "run_query")
-builder.add_edge("run_query", "generate_query")
+builder.add_edge("run_query", "analyze_result")
+
+builder.add_conditional_edges(
+    "analyze_result",
+    should_retry,
+    {
+        "explain_result": "explain_result",
+        "call_get_schema": "call_get_schema",
+        "generate_query": "generate_query",
+    },
+)
+
+builder.add_edge("explain_result", END)
 
 checkpointer = InMemorySaver()
 agent = builder.compile(checkpointer=checkpointer)

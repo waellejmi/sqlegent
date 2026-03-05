@@ -1,8 +1,8 @@
 from langchain_groq import ChatGroq
 
-from utils.env_config import MyConfig
+from config.env_config import EnvConfig
 
-config = MyConfig()
+config = EnvConfig()
 
 model = ChatGroq(
     model="qwen/qwen3-32b",

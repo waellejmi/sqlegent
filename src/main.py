@@ -14,6 +14,8 @@ def display_streaming_content(content: str) -> None:
     print(content, end="", flush=True)
 
 
+# FIX:fix prefilled text not working some environments (Different behavior of readline in Linux/Windows and terminal emulators )
+# TODO: Implement direct input, for example press e to edit directly
 async def get_user_input(interrupt_info) -> dict:
     print("\n" + "=" * 30)
     print("INTERRUPTED:")
@@ -22,7 +24,7 @@ async def get_user_input(interrupt_info) -> dict:
     except TypeError:
         print(interrupt_info)
 
-    prompt = "\nHow would you like to proceed?\n[a]ccept  [e]dit  [r]eject [f]eedback\nChoice: "
+    prompt = "\nHow would you like to proceed? \n[a]ccept  [e]dit  [r]eject [f]eedback \nChoice: "
     choice = (await asyncio.to_thread(input, prompt)).strip().lower()
 
     if choice.startswith("e"):
@@ -55,26 +57,28 @@ async def get_user_input(interrupt_info) -> dict:
     return {"type": "accept"}
 
 
-async def run_agent(question: str, config: dict):
+async def run_agent(input_state: dict, config: dict):
     print("--- Starting Agent ---")
-    next_input = {"messages": [{"role": "user", "content": question}]}
 
     while True:
         resume_required = False
         async for mode, chunk in agent.astream(
-            next_input,
+            input_state,
             stream_mode=["messages", "updates"],
             config=config,
         ):
             if mode == "messages":
-                msg, _ = chunk
+                msg, metadata = chunk
                 if isinstance(msg, AIMessageChunk) and msg.content:
+                    # tags = metadata.get("tags", [])
+                    # if "nostream" not in tags:
+                    #     display_streaming_content(msg.content)
                     display_streaming_content(msg.content)
             elif mode == "updates":
                 if "__interrupt__" in chunk:
                     interrupt_info = chunk["__interrupt__"][0].value
                     user_response = await get_user_input(interrupt_info)
-                    next_input = Command(resume=user_response)
+                    input_state = Command(resume=user_response)
                     resume_required = True
                     print("\n--- Resuming Agent ---")
                     break
@@ -85,15 +89,33 @@ async def run_agent(question: str, config: dict):
         if not resume_required:
             break
 
+    print("\n--- Full Node History ---")
+    for i, state in enumerate(agent.get_state_history(config)):
+        print(f"Checkpoint {i}: next={state.next} ")
+
 
 if __name__ == "__main__":
-    question = "Which genre on average has the longest tracks?"
     usage_callback = UsageMetadataCallbackHandler()
     config = {
         "configurable": {"thread_id": str(uuid.uuid4())},
         "callbacks": [usage_callback],
     }
-    asyncio.run(run_agent(question, config))
+    questions = {
+        0: "Which genre on average has the longest tracks?",
+        1: "give me the names of all employees born after 1990-01-01",
+    }
+    question = questions[1]
+
+    initial_state = {
+        "messages": [{"role": "user", "content": question}],
+        "user_question": question,
+        "last_query": None,
+        "previous_queries": [],
+        "analysis_result": None,
+        "retry_count": 0,
+    }
+
+    asyncio.run(run_agent(initial_state, config))
 
     print("\n--- Token Usage ---")
     print(usage_callback.usage_metadata)

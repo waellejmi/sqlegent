@@ -4,10 +4,10 @@ from langchain_community.utilities import SQLDatabase
 from langchain_core.runnables import RunnableConfig
 from langgraph.types import interrupt
 
+from config.db_config import DBConfig
 from llm.model import model
-from utils.env_config import MyConfig
 
-db = SQLDatabase.from_uri(f"sqlite:///{MyConfig().DB_PATH}")
+db = SQLDatabase.from_uri(f"sqlite:///{DBConfig().DB_PATH}")
 
 
 def get_db_stats():
@@ -21,9 +21,9 @@ def get_db_stats():
 toolkit = SQLDatabaseToolkit(db=db, llm=model)
 tools = toolkit.get_tools()
 
+list_tables_tool = next(tool for tool in tools if tool.name == "sql_db_list_tables")
 get_schema_tool = next(tool for tool in tools if tool.name == "sql_db_schema")
 run_query_tool = next(tool for tool in tools if tool.name == "sql_db_query")
-list_tables_tool = next(tool for tool in tools if tool.name == "sql_db_list_tables")
 
 
 @tool(
