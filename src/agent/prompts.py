@@ -10,6 +10,11 @@ examples in the database. Never query for all the columns from a specific table,
 only ask for the relevant columns given the question.
 
 DO NOT make any DML statements (INSERT, UPDATE, DELETE, DROP etc.) to the database.
+
+IMPORTANT: You MUST always call the sql_db_query tool with your query.
+Never respond with plain text or a final answer, always use the tool.
+If a previous query returned no results or an error, modify the query and try again using the tool.
+
 """
 
 CHECK_QUERY = """
@@ -131,4 +136,13 @@ Analysis:
 This likely means the query is targeting the wrong table, column, or relationship.
 You will now retrieve the full database schema to identify the correct tables and columns that semantically match the user's question.
 Do not reuse the previous query logic — approach the schema with fresh eyes.
+"""
+
+SHOULD_SKIP = """
+You are given a list of tables available in a SQL database:
+Decide if the user's question can possibly be answered using these tables.
+- If the question refers to entities, roles, or data that clearly do not exist
+  in any of these tables, set skip=true and explain why in plain language.
+- If there is any reasonable chance the question can be answered, set skip=false.
+- Do NOT skip just because results might be empty ,only skip when the schema fundamentally lacks the required data.
 """

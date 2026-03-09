@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 import readline
 import uuid
 
@@ -8,6 +9,8 @@ from langchain_core.messages import AIMessageChunk
 from langgraph.types import Command
 
 from agent.graph import agent
+
+logging.basicConfig(level=logging.INFO, format=" %(levelname)s - %(message)s")
 
 
 def display_streaming_content(content: str) -> None:
@@ -64,17 +67,14 @@ async def run_agent(input_state: dict, config: dict):
         resume_required = False
         async for mode, chunk in agent.astream(
             input_state,
-            stream_mode=["messages", "updates"],
+            stream_mode=["updates", "messages"],
             config=config,
         ):
             if mode == "messages":
-                msg, metadata = chunk
+                msg, _ = chunk
                 if isinstance(msg, AIMessageChunk) and msg.content:
-                    # tags = metadata.get("tags", [])
-                    # if "nostream" not in tags:
-                    #     display_streaming_content(msg.content)
                     display_streaming_content(msg.content)
-            elif mode == "updates":
+            if mode == "updates":
                 if "__interrupt__" in chunk:
                     interrupt_info = chunk["__interrupt__"][0].value
                     user_response = await get_user_input(interrupt_info)
@@ -101,10 +101,11 @@ if __name__ == "__main__":
         "callbacks": [usage_callback],
     }
     questions = {
-        0: "Which genre on average has the longest tracks?",
-        1: "give me the names of all employees born after 1990-01-01",
+        "success": "Which genre on average has the longest tracks?",
+        "empty_result": "give me the names of all employees born after 1990-01-01",
+        "skipped": "What is the airspeed velocity of an unladen swallow?",
     }
-    question = questions[1]
+    question = questions["success"]
 
     initial_state = {
         "messages": [{"role": "user", "content": question}],

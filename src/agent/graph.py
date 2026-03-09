@@ -11,11 +11,13 @@ from agent.nodes import (
     list_tables,
     run_query_node,
     should_retry,
+    should_skip,
 )
 from agent.state import AgentState
 
 builder = StateGraph(AgentState)
 builder.add_node(list_tables)
+builder.add_node(should_skip)
 builder.add_node(call_get_schema)
 builder.add_node(get_schema_node, "get_schema")
 builder.add_node(generate_query)
@@ -25,7 +27,7 @@ builder.add_node(analyze_result)
 builder.add_node(explain_result)
 
 builder.add_edge(START, "list_tables")
-builder.add_edge("list_tables", "call_get_schema")
+builder.add_edge("list_tables", "should_skip")
 builder.add_edge("call_get_schema", "get_schema")
 builder.add_edge("get_schema", "generate_query")
 builder.add_edge("generate_query", "check_query")

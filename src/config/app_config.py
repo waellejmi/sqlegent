@@ -7,4 +7,4 @@ load_dotenv()
 
 @dataclass
 class AppConfig:
-    MAX_SQL_RETRIES: int = 2
+    MAX_SQL_RETRIES: int = 1

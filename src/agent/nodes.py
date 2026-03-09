@@ -1,5 +1,6 @@
 from langchain.messages import AIMessage
 from langgraph.prebuilt import ToolNode
+from langgraph.types import Command
 
 from agent.prompts import (
     ANALYZE_RESULT,
@@ -9,8 +10,9 @@ from agent.prompts import (
     HANDLE_IRRELEVANT_RESULT,
     REGENERATE_QUERY_ON_EMPTY_RESULT,
     REGENERATE_QUERY_ON_ERROR,
+    SHOULD_SKIP,
 )
-from agent.state import AgentState, AnalysisResult
+from agent.state import AgentState, AnalysisResult, SkipDecision
 from config.app_config import AppConfig
 from llm.model import model
 from tools.database import (
@@ -19,7 +21,9 @@ from tools.database import (
     list_tables_tool,
     run_query_tool_with_interrupt,
 )
+from utils.logger_setup import LoggerSetup
 
+logger = LoggerSetup.get_logger(__name__)
 REGEN_PROMPTS = {
     "error": REGENERATE_QUERY_ON_ERROR,
     "empty_result": REGENERATE_QUERY_ON_EMPTY_RESULT,
@@ -42,8 +46,21 @@ def list_tables(state: AgentState):
     return {"messages": [tool_call_message, tool_message, response]}
 
 
+def should_skip(state: AgentState):
+    system_message = {
+        "role": "system",
+        "content": SHOULD_SKIP,
+    }
+    structured_model = model.with_structured_output(SkipDecision)
+    result = structured_model.invoke([system_message] + state["messages"])
+
+    logger.debug(f"Skip Decision: {result}")
+    goto = "explain_result" if result.skip else "call_get_schema"
+    return Command(update={"skip_decision": result}, goto=goto)
+
+
 def call_get_schema(state: AgentState):
-    llm_with_tools = model.bind_tools([get_schema_tool], tool_choice="any")
+    llm_with_tools = model.bind_tools([get_schema_tool])
 
     if (
         state["analysis_result"] is not None
@@ -63,7 +80,7 @@ def call_get_schema(state: AgentState):
         return {"messages": [response], "retry_count": current_retry_count}
 
     response = llm_with_tools.invoke(state["messages"])
-
+    logger.debug(f"Schema Tool Response: {response}")
     return {"messages": [response]}
 
 
@@ -75,12 +92,15 @@ def generate_query(state: AgentState):
             top_k=5,
         ),
     }
-    llm_with_tools = model.bind_tools([run_query_tool_with_interrupt])
+    llm_with_tools = model.bind_tools(
+        [run_query_tool_with_interrupt], tool_choice="any"
+    )
 
     if state["analysis_result"] is not None and state["analysis_result"].status in [
         "error",
         "empty_result",
     ]:
+        original_messages = [m for m in state["messages"] if m.type == "human"]
         user_message = {
             "role": "user",
             "content": REGEN_PROMPTS[state["analysis_result"].status].format(
@@ -90,13 +110,14 @@ def generate_query(state: AgentState):
         }
 
         response = llm_with_tools.invoke(
-            [system_message, user_message] + state["messages"]
+            [system_message] + original_messages + [user_message]
         )
 
         current_retry_count = state["retry_count"] + 1
         return {"messages": [response], "retry_count": current_retry_count}
 
     response = llm_with_tools.invoke([system_message] + state["messages"])
+    logger.debug(f"Generated Query: {response}")
 
     return {"messages": [response]}
 
@@ -116,6 +137,9 @@ def check_query(state: AgentState):
     response.id = state["messages"][-1].id
     last_query = response.tool_calls[0]["args"]["query"]
 
+    logger.debug(f"Check Query Response: {response}")
+    logger.debug(f"Checked Query: {last_query}")
+
     return {
         "messages": [response],
         "last_query": last_query,
@@ -127,7 +151,7 @@ run_query_node = ToolNode([run_query_tool_with_interrupt], name="run_query")
 
 
 def analyze_result(state: AgentState):
-    db_output = state["messages"][-1].content
+    db_output = state["messages"][-1].content or "Empty, 0 rows returned"
 
     system_message = {
         "role": "system",
@@ -141,6 +165,8 @@ def analyze_result(state: AgentState):
     structured_llm = model.with_structured_output(AnalysisResult)
 
     response = structured_llm.invoke([system_message])
+
+    logger.debug(f"Analysis Result: {response.model_dump_json()}")
 
     return {
         "db_output": db_output,
@@ -167,6 +193,11 @@ def should_retry(state: AgentState):
 
 
 def explain_result(state: AgentState):
+    if state["skip_decision"] and state["skip_decision"].skip:
+        explanation = f"The agent decided to skip executing the query because: {state['skip_decision'].reason}"
+        logger.debug(f"Skip Explanation: {explanation}")
+        return {"messages": [AIMessage(content=explanation)]}
+
     system_message = {
         "role": "system",
         "content": EXPLAIN_RESULT.format(
@@ -178,4 +209,5 @@ def explain_result(state: AgentState):
         ),
     }
     response = model.invoke([system_message] + state["messages"])
+    logger.debug(f"Explanation: {response}")
     return {"messages": [response]}
