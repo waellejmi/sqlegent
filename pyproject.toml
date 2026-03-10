@@ -11,12 +11,11 @@ dependencies = [
     "langchain-groq>=1.1.2",
     "langgraph>=1.0.8",
     "python-dotenv>=1.2.1",
+    "sqlglot>=29.0.1",
 ]
 
 [dependency-groups]
-dev = [
-    "debugpy>=1.8.20",
-]
+dev = []
 
 
 # [tool.pyright]

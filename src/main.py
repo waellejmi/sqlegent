@@ -104,8 +104,10 @@ if __name__ == "__main__":
         "success": "Which genre on average has the longest tracks?",
         "empty_result": "give me the names of all employees born after 1990-01-01",
         "skipped": "What is the airspeed velocity of an unladen swallow?",
+        "complex1": "Which 5 artists generated the most revenue, and what is their total revenue and number of tracks sold?",
+        "complex2": "Which customers spent more than the average customer spending, and what is their total amount spent?",
     }
-    question = questions["success"]
+    question = questions["complex1"]
 
     initial_state = {
         "messages": [{"role": "user", "content": question}],

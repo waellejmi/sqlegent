@@ -3,9 +3,33 @@ from langchain_community.agent_toolkits import SQLDatabaseToolkit
 from langchain_community.utilities import SQLDatabase
 from langchain_core.runnables import RunnableConfig
 from langgraph.types import interrupt
+from sqlglot import exp, parse
 
 from config.db_config import DBConfig
 from llm.model import model
+
+ALLOWED = (
+    exp.Select,
+    exp.With,
+)
+
+
+def validate_sql(query: str) -> bool:
+    try:
+        statements = parse(query)
+    except Exception:
+        return False
+
+    if len(statements) != 1:
+        return False
+
+    ast = statements[0]
+
+    if not isinstance(ast, ALLOWED):
+        return False
+
+    return True
+
 
 db = SQLDatabase.from_uri(f"sqlite:///{DBConfig().DB_PATH}")
 
@@ -21,17 +45,23 @@ def get_db_stats():
 toolkit = SQLDatabaseToolkit(db=db, llm=model)
 tools = toolkit.get_tools()
 
+
 list_tables_tool = next(tool for tool in tools if tool.name == "sql_db_list_tables")
 get_schema_tool = next(tool for tool in tools if tool.name == "sql_db_schema")
 run_query_tool = next(tool for tool in tools if tool.name == "sql_db_query")
 
 
+# TODO: Add a validate sql func for SQL injection
 @tool(
     run_query_tool.name,
     description=run_query_tool.description,
     args_schema=run_query_tool.args_schema,
 )
 def run_query_tool_with_interrupt(config: RunnableConfig, **tool_input):
+    # static check
+    if not validate_sql(tool_input["query"]):
+        return "Failed the static check. Only SELECT and WITH statements are allowed. No multiple statements allowed."
+    # human interruption
     request = {
         "action": run_query_tool.name,
         "args": tool_input,
