@@ -18,7 +18,6 @@ def display_streaming_content(content: str) -> None:
 
 
 # FIX:fix prefilled text not working some environments (Different behavior of readline in Linux/Windows and terminal emulators )
-# TODO: Implement direct input, for example press e to edit directly
 async def get_user_input(interrupt_info) -> dict:
     print("\n" + "=" * 30)
     print("INTERRUPTED:")

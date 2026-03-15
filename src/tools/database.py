@@ -51,7 +51,6 @@ get_schema_tool = next(tool for tool in tools if tool.name == "sql_db_schema")
 run_query_tool = next(tool for tool in tools if tool.name == "sql_db_query")
 
 
-# TODO: Add a validate sql func for SQL injection
 @tool(
     run_query_tool.name,
     description=run_query_tool.description,

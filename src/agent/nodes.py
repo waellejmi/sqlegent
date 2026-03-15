@@ -25,7 +25,7 @@ from tools.database import (
 )
 from utils.logger_setup import LoggerSetup
 
-logger = LoggerSetup.get_logger(__name__, logging.INFO)
+logger = LoggerSetup.get_logger(__name__, logging.DEBUG)
 
 REGEN_PROMPTS = {
     "error": REGENERATE_QUERY_ON_ERROR,
@@ -49,7 +49,7 @@ def list_tables(state: AgentState):
     return {"messages": [tool_call_message, tool_message, response]}
 
 
-def should_skip(state: AgentState):
+def skip_pipeline(state: AgentState):
     system_message = {
         "role": "system",
         "content": SHOULD_SKIP,
@@ -58,8 +58,16 @@ def should_skip(state: AgentState):
     result = structured_model.invoke([system_message] + state["messages"])
 
     logger.debug(f"Skip Decision: {result}")
-    goto = "explain_result" if result.skip else "call_get_schema"
-    return Command(update={"skip_decision": result}, goto=goto)
+    return {
+        "skip_decision": result,
+    }
+
+
+def should_skip(state: AgentState):
+    if state["skip_decision"] and state["skip_decision"].skip:
+        return "explain_result"
+
+    return "call_get_schema"
 
 
 def call_get_schema(state: AgentState):
@@ -150,6 +158,12 @@ def check_query(state: AgentState):
     }
 
 
+def should_execute(state: AgentState):
+    if not AppConfig().EXECUTE_SQL_QUERIES:
+        return "explain_result"
+    return "run_query"
+
+
 run_query_node = ToolNode([run_query_tool_with_interrupt], name="run_query")
 
 
@@ -196,6 +210,13 @@ def should_retry(state: AgentState):
 
 
 def explain_result(state: AgentState):
+    if not AppConfig().EXECUTE_SQL_QUERIES:
+        logger.debug(
+            "SQL execution is disabled. Skipping query execution and explanation."
+        )
+        logger.debug(f"Last Query: {state['last_query']}")
+        return {"query": state["last_query"]}
+
     if state["skip_decision"] and state["skip_decision"].skip:
         explanation = f"The agent decided to skip executing the query because: {state['skip_decision'].reason}"
         logger.debug(f"Skip Explanation: {explanation}")
