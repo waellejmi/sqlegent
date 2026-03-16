@@ -2,7 +2,6 @@ import logging
 
 from langchain.messages import AIMessage
 from langgraph.prebuilt import ToolNode
-from langgraph.types import Command
 
 from agent.prompts import (
     ANALYZE_RESULT,
@@ -25,7 +24,7 @@ from tools.database import (
 )
 from utils.logger_setup import LoggerSetup
 
-logger = LoggerSetup.get_logger(__name__, logging.DEBUG)
+logger = LoggerSetup.get_logger(__name__, logging.INFO)
 
 REGEN_PROMPTS = {
     "error": REGENERATE_QUERY_ON_ERROR,

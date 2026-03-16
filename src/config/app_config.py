@@ -7,5 +7,5 @@ load_dotenv()
 
 @dataclass
 class AppConfig:
-    EXECUTE_SQL_QUERIES = False
+    EXECUTE_SQL_QUERIES: bool = True
     MAX_SQL_RETRIES: int = 1

@@ -62,6 +62,7 @@ builder.add_conditional_edges(
 builder.add_edge("explain_result", END)
 
 checkpointer = InMemorySaver()
+
 agent = builder.compile(checkpointer=checkpointer)
 
 # Go to mermaid.live to visualize the graph
