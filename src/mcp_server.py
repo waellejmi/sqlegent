@@ -1,6 +1,7 @@
 import logging
 import uuid
 
+from langchain_core.callbacks.usage import UsageMetadataCallbackHandler
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.types import Command
@@ -42,13 +43,15 @@ def _build_initial_state(question: str) -> AgentState:
 
 
 def _make_config() -> RunnableConfig:
-    return RunnableConfig(configurable={"thread_id": str(uuid.uuid4())})
+    return RunnableConfig(
+        configurable={"thread_id": str(uuid.uuid4())},
+        callbacks=[UsageMetadataCallbackHandler()],
+    )
 
 
 def _extract_content(msg: AIMessage) -> str:
     if isinstance(msg.content, str):
         return msg.content
-    # content can be a list of blocks — join text parts
     parts = [
         block if isinstance(block, str) else block.get("text", "")
         for block in msg.content

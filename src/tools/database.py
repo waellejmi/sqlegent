@@ -5,6 +5,7 @@ from langchain_core.runnables import RunnableConfig
 from langgraph.types import interrupt
 from sqlglot import exp, parse
 
+from config.app_config import AppConfig
 from config.db_config import DBConfig
 from llm.model import model
 
@@ -61,24 +62,27 @@ def run_query_tool_with_interrupt(config: RunnableConfig, **tool_input):
     if not validate_sql(tool_input["query"]):
         return "Failed the static check. Only SELECT and WITH statements are allowed. No multiple statements allowed."
     # human interruption
-    request = {
-        "action": run_query_tool.name,
-        "args": tool_input,
-        "description": "Please review the tool call",
-    }
-    response = interrupt([request])
-    if response["type"] == "accept":
+    if not AppConfig().HUMAN_SQL_REVIEW:
         final_query_input = tool_input
-    elif response["type"] == "edit":
-        tool_input = response["edited_query"]
-        final_query_input = {"query": tool_input}
-    elif response["type"] == "response":
-        return f"User cancelled the query and provided this feedback: {response['feedback']}"
-
-    elif response["type"] == "reject":
-        raise RuntimeError("User rejected the tool call")
     else:
-        raise ValueError(f"Unsupported interrupt response type: {response['type']}")
+        request = {
+            "action": run_query_tool.name,
+            "args": tool_input,
+            "description": "Please review the tool call",
+        }
+        response = interrupt([request])
+        if response["type"] == "accept":
+            final_query_input = tool_input
+        elif response["type"] == "edit":
+            tool_input = response["edited_query"]
+            final_query_input = {"query": tool_input}
+        elif response["type"] == "response":
+            return f"User cancelled the query and provided this feedback: {response['feedback']}"
+
+        elif response["type"] == "reject":
+            raise RuntimeError("User rejected the tool call")
+        else:
+            raise ValueError(f"Unsupported interrupt response type: {response['type']}")
     try:
         tool_response = run_query_tool.invoke(final_query_input, config)
         return tool_response

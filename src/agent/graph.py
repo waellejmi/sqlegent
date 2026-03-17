@@ -16,6 +16,7 @@ from agent.nodes import (
     skip_pipeline,
 )
 from agent.state import AgentState
+from config.app_config import AppConfig
 
 builder = StateGraph(AgentState)
 builder.add_node(list_tables)
@@ -66,4 +67,5 @@ checkpointer = InMemorySaver()
 agent = builder.compile(checkpointer=checkpointer)
 
 # Go to mermaid.live to visualize the graph
-print(agent.get_graph().draw_mermaid())
+if AppConfig().SHOW_AGENT_GRAPH:
+    print(agent.get_graph().draw_mermaid())

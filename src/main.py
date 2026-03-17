@@ -4,7 +4,7 @@ import logging
 import readline
 import uuid
 
-from langchain_core.callbacks import UsageMetadataCallbackHandler
+from langchain_core.callbacks.usage import UsageMetadataCallbackHandler
 from langchain_core.messages import AIMessageChunk
 from langgraph.types import Command
 
