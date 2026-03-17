@@ -34,7 +34,7 @@ REGEN_PROMPTS = {
 get_schema_node = ToolNode([get_schema_tool], name="get_schema")
 
 
-def list_tables(state: AgentState):
+def list_tables(_state: AgentState):
     tool_call = {
         "name": "sql_db_list_tables",
         "args": {},
@@ -157,7 +157,7 @@ def check_query(state: AgentState):
     }
 
 
-def should_execute(state: AgentState):
+def should_execute(_state: AgentState):
     if not AppConfig().EXECUTE_SQL_QUERIES:
         return "explain_result"
     return "run_query"
@@ -210,11 +210,9 @@ def should_retry(state: AgentState):
 
 def explain_result(state: AgentState):
     if not AppConfig().EXECUTE_SQL_QUERIES:
-        logger.debug(
-            "SQL execution is disabled. Skipping query execution and explanation."
-        )
-        logger.debug(f"Last Query: {state['last_query']}")
-        return {"query": state["last_query"]}
+        explanation = f"SQL execution is disabled. Skipping query . Here is last generated query: {state['last_query']}"
+        logger.debug(f"No Execution:{explanation}")
+        return {"messages": [AIMessage(content=explanation)]}
 
     if state["skip_decision"] and state["skip_decision"].skip:
         explanation = f"The agent decided to skip executing the query because: {state['skip_decision'].reason}"
