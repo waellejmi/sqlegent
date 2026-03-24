@@ -24,7 +24,7 @@ from tools.database import (
 )
 from utils.logger_setup import LoggerSetup
 
-logger = LoggerSetup.get_logger(__name__, logging.INFO)
+logger = LoggerSetup.get_logger(__name__, logging.DEBUG)
 
 REGEN_PROMPTS = {
     "error": REGENERATE_QUERY_ON_ERROR,

@@ -32,7 +32,20 @@ def validate_sql(query: str) -> bool:
     return True
 
 
-db = SQLDatabase.from_uri(f"sqlite:///{DBConfig().DB_PATH}")
+def _build_database_components():
+    database_uri = DBConfig().get_database_uri()
+    database = SQLDatabase.from_uri(database_uri)
+    toolkit_instance = SQLDatabaseToolkit(db=database, llm=model)
+    toolkit_tools = toolkit_instance.get_tools()
+    list_tables = next(
+        tool for tool in toolkit_tools if tool.name == "sql_db_list_tables"
+    )
+    get_schema = next(tool for tool in toolkit_tools if tool.name == "sql_db_schema")
+    run_query = next(tool for tool in toolkit_tools if tool.name == "sql_db_query")
+    return database, list_tables, get_schema, run_query
+
+
+db, list_tables_tool, get_schema_tool, run_query_tool = _build_database_components()
 
 
 def get_db_stats():
@@ -41,15 +54,6 @@ def get_db_stats():
         "tables": db.get_usable_table_names(),
         "sample": db.run("SELECT * FROM Artist LIMIT 5;"),
     }
-
-
-toolkit = SQLDatabaseToolkit(db=db, llm=model)
-tools = toolkit.get_tools()
-
-
-list_tables_tool = next(tool for tool in tools if tool.name == "sql_db_list_tables")
-get_schema_tool = next(tool for tool in tools if tool.name == "sql_db_schema")
-run_query_tool = next(tool for tool in tools if tool.name == "sql_db_query")
 
 
 @tool(

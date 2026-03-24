@@ -1,0 +1,41 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: chinook-postgres
+    environment:
+      POSTGRES_USER: chinook_user
+      POSTGRES_PASSWORD: ChinookPass123!
+      POSTGRES_DB: chinook
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chinook_user -d chinook"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    tmpfs:
+      - /var/lib/postgresql/data
+    volumes:
+      - ../../data/Chinook_PostgreSql.sql:/docker-entrypoint-initdb.d/chinookpg.sql:ro
+
+  mysql:
+    image: mysql:8.0
+    container_name: chinook-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ChinookPass123!
+      MYSQL_USER: chinook_user
+      MYSQL_PASSWORD: ChinookPass123!
+      MYSQL_DATABASE: chinook
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "chinook_user", "-pChinookPass123!"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    tmpfs:
+      - /var/lib/mysql
+    volumes:
+      - ../../data/Chinook_MySql.sql:/docker-entrypoint-initdb.d/chinookmysql.sql:ro

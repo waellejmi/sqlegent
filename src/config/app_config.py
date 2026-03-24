@@ -8,6 +8,6 @@ load_dotenv()
 @dataclass
 class AppConfig:
     EXECUTE_SQL_QUERIES: bool = True
-    HUMAN_SQL_REVIEW: bool = False
+    HUMAN_SQL_REVIEW: bool = True
     MAX_SQL_RETRIES: int = 1
     SHOW_AGENT_GRAPH: bool = False
