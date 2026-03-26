@@ -11,3 +11,4 @@ class AppConfig:
     HUMAN_SQL_REVIEW: bool = True
     MAX_SQL_RETRIES: int = 1
     SHOW_AGENT_GRAPH: bool = False
+    SHOW_NODE_HISTORY: bool = True

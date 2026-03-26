@@ -1,5 +1,8 @@
 from langchain.tools import tool
-from langchain_community.agent_toolkits import SQLDatabaseToolkit
+from langchain_community.tools.sql_database.tool import (
+    InfoSQLDatabaseTool,
+    QuerySQLDatabaseTool,
+)
 from langchain_community.utilities import SQLDatabase
 from langchain_core.runnables import RunnableConfig
 from langgraph.types import interrupt
@@ -7,7 +10,6 @@ from sqlglot import exp, parse
 
 from config.app_config import AppConfig
 from config.db_config import DBConfig
-from llm.model import model
 
 ALLOWED = (
     exp.Select,
@@ -35,25 +37,13 @@ def validate_sql(query: str) -> bool:
 def _build_database_components():
     database_uri = DBConfig().get_database_uri()
     database = SQLDatabase.from_uri(database_uri)
-    toolkit_instance = SQLDatabaseToolkit(db=database, llm=model)
-    toolkit_tools = toolkit_instance.get_tools()
-    list_tables = next(
-        tool for tool in toolkit_tools if tool.name == "sql_db_list_tables"
-    )
-    get_schema = next(tool for tool in toolkit_tools if tool.name == "sql_db_schema")
-    run_query = next(tool for tool in toolkit_tools if tool.name == "sql_db_query")
-    return database, list_tables, get_schema, run_query
+    get_schema = InfoSQLDatabaseTool(db=database)
+    run_query = QuerySQLDatabaseTool(db=database)
+
+    return database, get_schema, run_query
 
 
-db, list_tables_tool, get_schema_tool, run_query_tool = _build_database_components()
-
-
-def get_db_stats():
-    return {
-        "dialect": db.dialect,
-        "tables": db.get_usable_table_names(),
-        "sample": db.run("SELECT * FROM Artist LIMIT 5;"),
-    }
+db, get_schema_tool, run_query_tool = _build_database_components()
 
 
 @tool(

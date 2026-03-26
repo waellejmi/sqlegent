@@ -19,33 +19,31 @@ from llm.model import model
 from tools.database import (
     db,
     get_schema_tool,
-    list_tables_tool,
     run_query_tool_with_interrupt,
 )
 from utils.logger_setup import LoggerSetup
 
-logger = LoggerSetup.get_logger(__name__, logging.DEBUG)
+logger = LoggerSetup.get_logger(__name__, logging.INFO)
 
 REGEN_PROMPTS = {
     "error": REGENERATE_QUERY_ON_ERROR,
     "empty_result": REGENERATE_QUERY_ON_EMPTY_RESULT,
 }
 
-get_schema_node = ToolNode([get_schema_tool], name="get_schema")
-
 
 def list_tables(_state: AgentState):
-    tool_call = {
-        "name": "sql_db_list_tables",
-        "args": {},
-        "id": "abc123",
-        "type": "tool_call",
-    }
-    tool_call_message = AIMessage(content="", tool_calls=[tool_call])
-    tool_message = list_tables_tool.invoke(tool_call)
-    response = AIMessage(f"Available tables: {tool_message.content}")
 
-    return {"messages": [tool_call_message, tool_message, response]}
+    result = db.get_usable_table_names()
+    logger.debug(f"List of tables in the database: {result}")
+    if not result:
+        raise ValueError("Failed to retrieve table names from the database.")
+
+    response = AIMessage(f"Available tables: {', '.join(result)}")
+
+    return {"messages": [response]}
+
+
+get_schema_node = ToolNode([get_schema_tool], name="get_schema")
 
 
 def skip_pipeline(state: AgentState):

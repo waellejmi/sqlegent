@@ -6,7 +6,7 @@ config = EnvConfig()
 
 model = ChatGroq(
     model="qwen/qwen3-32b",
-    # model="openai/gpt-oss-20b",
+    # model="openai/gpt-oss-120b",
     api_key=config.LLM_API_KEY,
     temperature=0,
     max_tokens=None,

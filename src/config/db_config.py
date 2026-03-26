@@ -21,6 +21,10 @@ class DBConfig:
     def _ensure_config_dir(self) -> None:
         self.CONFIG_DIR.mkdir(parents=True, exist_ok=True)
 
+    def save_config(self, data: dict) -> None:
+        self._ensure_config_dir()
+        self.CONFIG_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
     def load_config(self) -> dict:
         if not self.CONFIG_FILE.exists():
             return {}
@@ -33,9 +37,6 @@ class DBConfig:
             return {}
         return {}
 
-    def save_config(self, data: dict) -> None:
-        self._ensure_config_dir()
-        self.CONFIG_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
     def get_database_uri(self) -> str:
         config = self.load_config()

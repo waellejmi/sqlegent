@@ -2,7 +2,7 @@
 name = "sql-agent"
 version = "0.1.0"
 author = "wael.lejmi02@gmail.com"
-description = "Agent to transform human messages to sql requests "
+description = "Agent to transform human messages to sql requests , then can execute them and return the results to the user"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
@@ -13,17 +13,32 @@ dependencies = [
     "langchain-groq>=1.1.2",
     "langgraph>=1.0.8",
     "mcp[cli]>=1.26.0",
-    "psycopg2-binary>=2.9.0",
-    "pymysql>=1.1.0",
     "python-dotenv>=1.2.1",
     "sqlglot>=29.0.1",
 ]
+
+
+
+[project.optional-dependencies]
+all = [
+    "psycopg2-binary>=2.9.0",
+    "PyMySQL>=1.1.0",
+]
+postgres = ["psycopg2-binary>=2.9.0"]
+mysql = ["mysqlclient>=2.2.8"]
+mariadb = ["mariadb>=1.1.0"]
+
+cockroachdb = ["psycopg2-binary>=2.9.0"]
+mssql = ["mssql-python>=1.1.0"]
+oracle = ["oracledb>=2.0.0"]
+ssh = [
+    "sshtunnel>=0.4.0",
+    "paramiko>=2.0.0,<4.0.0",
+]
+
 
 [dependency-groups]
 dev = []
 
 
-# [tool.pyright]
-# include = ["src"]
-# extraPaths = ["src"]
-# pythonVersion = "3.13"
+

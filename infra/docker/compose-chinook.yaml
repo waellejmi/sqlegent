@@ -39,3 +39,24 @@ services:
       - /var/lib/mysql
     volumes:
       - ../../data/Chinook_MySql.sql:/docker-entrypoint-initdb.d/chinookmysql.sql:ro
+  mariadb:
+    image: mariadb:lts
+    container_name: chinook-mariadb
+    environment:
+      MARIADB_ROOT_PASSWORD: ChinookPass123!
+      MARIADB_USER: chinook_user
+      MARIADB_PASSWORD: ChinookPass123!
+      MARIADB_DATABASE: chinook
+    ports:
+      - "${MYSQL_PORT:-3310}:3306"
+    healthcheck:
+      test: ["CMD", "mariadb-admin", "ping", "-h", "localhost", "-u", "chinook_user", "-pChinookPass123!"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    tmpfs:
+      - /var/lib/mysql
+    volumes:
+      - ../../data/Chinook_MySql.sql:/docker-entrypoint-initdb.d/chinookmysql.sql:ro
+
