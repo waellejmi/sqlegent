@@ -5,7 +5,7 @@ from __future__ import annotations
 import time
 from typing import Any
 
-from sqlit.domains.connections.providers.adapters.base import (
+from dbcore.connections.providers.adapters.base import (
     ColumnInfo,
     DatabaseAdapter,
     IndexInfo,

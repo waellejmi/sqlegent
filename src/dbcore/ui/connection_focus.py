@@ -7,9 +7,9 @@ from typing import Any
 from textual.containers import Container
 from textual.widgets import Button, Input, OptionList, Select, TabbedContent
 
-from sqlit.domains.connections.ui.connection_form import ConnectionFormController
-from sqlit.domains.connections.providers.schema_helpers import FieldType
-from sqlit.domains.connections.ui.fields import FieldDefinition
+from dbcore.ui.connection_form import ConnectionFormController
+from dbcore.connections.providers.schema_helpers import FieldType
+from dbcore.ui.fields import FieldDefinition
 
 
 class ConnectionFocusController:

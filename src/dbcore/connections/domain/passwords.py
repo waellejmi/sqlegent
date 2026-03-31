@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from sqlit.domains.connections.domain.config import ConnectionConfig
-from sqlit.domains.connections.providers.metadata import is_file_based, requires_auth
+from dbcore.connections.domain.config import ConnectionConfig
+from dbcore.connections.providers.metadata import is_file_based, requires_auth
 
 
 def needs_db_password(config: ConnectionConfig) -> bool:

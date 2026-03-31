@@ -11,10 +11,10 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from sqlit.domains.connections.providers.schema_helpers import FieldType, SelectOption
+from dbcore.connections.providers.schema_helpers import FieldType, SelectOption
 
 if TYPE_CHECKING:
-    from sqlit.domains.connections.providers.schema_helpers import ConnectionSchema, SchemaField
+    from dbcore.connections.providers.schema_helpers import ConnectionSchema, SchemaField
 
 
 @dataclass

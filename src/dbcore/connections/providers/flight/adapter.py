@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from sqlit.domains.connections.providers.adapters.base import (
+from dbcore.connections.providers.adapters.base import (
     ColumnInfo,
     DatabaseAdapter,
     IndexInfo,
@@ -14,7 +14,7 @@ from sqlit.domains.connections.providers.adapters.base import (
 )
 
 if TYPE_CHECKING:
-    from sqlit.domains.connections.domain.config import ConnectionConfig
+    from dbcore.connections.domain.config import ConnectionConfig
 
 
 class FlightSQLAdapter(DatabaseAdapter):
@@ -89,7 +89,7 @@ class FlightSQLAdapter(DatabaseAdapter):
         try:
             import adbc_driver_flightsql.dbapi as flight_sql
         except ImportError as e:
-            from sqlit.domains.connections.providers.exceptions import MissingDriverError
+            from dbcore.connections.providers.exceptions import MissingDriverError
 
             raise MissingDriverError(
                 self.name, self.install_extra, self.install_package

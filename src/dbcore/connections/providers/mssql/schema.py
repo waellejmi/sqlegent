@@ -1,6 +1,6 @@
 """Connection schema for SQL Server."""
 
-from sqlit.domains.connections.providers.schema_helpers import (
+from dbcore.connections.providers.schema_helpers import (
     SSH_FIELDS,
     TLS_MODE_FIELD,
     ConnectionSchema,

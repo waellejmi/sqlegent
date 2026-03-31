@@ -20,7 +20,7 @@ from ..base import (
 from ..registry import register_provider
 
 if TYPE_CHECKING:
-    from sqlit.domains.connections.domain.config import ConnectionConfig
+    from dbcore.connections.domain.config import ConnectionConfig
 
 
 @dataclass
@@ -718,7 +718,7 @@ class AWSProvider:
 
     def _rds_to_config(self, instance: AWSRDSInstance) -> ConnectionConfig:
         """Convert an RDS instance to a connection config."""
-        from sqlit.domains.connections.domain.config import ConnectionConfig
+        from dbcore.connections.domain.config import ConnectionConfig
 
         db_type = self.ENGINE_MAP.get(instance.engine, "postgresql")
 
@@ -745,7 +745,7 @@ class AWSProvider:
 
     def _redshift_to_config(self, cluster: AWSRedshiftCluster) -> ConnectionConfig:
         """Convert a Redshift cluster to a connection config."""
-        from sqlit.domains.connections.domain.config import ConnectionConfig
+        from dbcore.connections.domain.config import ConnectionConfig
 
         return ConnectionConfig.from_dict(
             {

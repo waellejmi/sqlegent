@@ -1,14 +1,14 @@
 """Deprecated registry shim.
 
-Prefer sqlit.domains.connections.providers.catalog/metadata/validation.
+Prefer dbcore.connections.providers.catalog/metadata/validation.
 """
 
 from __future__ import annotations
 
 from typing import Any, cast
 
-from sqlit.domains.connections.providers.adapters.base import DatabaseAdapter
-from sqlit.domains.connections.providers.catalog import (
+from dbcore.connections.providers.adapters.base import DatabaseAdapter
+from dbcore.connections.providers.catalog import (
     get_all_schemas,
     get_db_type_for_scheme,
     get_provider,
@@ -20,11 +20,11 @@ from sqlit.domains.connections.providers.catalog import (
     iter_provider_schemas,
     register_provider,
 )
-from sqlit.domains.connections.providers.config_service import (
+from dbcore.connections.providers.config_service import (
     normalize_connection_config,
     validate_database_required,
 )
-from sqlit.domains.connections.providers.metadata import (
+from dbcore.connections.providers.metadata import (
     get_badge_label,
     get_connection_display_info,
     get_default_port,

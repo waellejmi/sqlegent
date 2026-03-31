@@ -6,9 +6,9 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Protocol
 
-from sqlit.domains.connections.domain.config import ConnectionConfig
-from sqlit.domains.connections.domain.passwords import needs_db_password, needs_ssh_password
-from sqlit.shared.app import AppServices
+from dbcore.connections.domain.config import ConnectionConfig
+from dbcore.connections.domain.passwords import needs_db_password, needs_ssh_password
+from dbcore.shared.app import AppServices
 
 
 class ConnectionPrompter(Protocol):

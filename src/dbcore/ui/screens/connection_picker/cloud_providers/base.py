@@ -6,8 +6,8 @@ from typing import Any, Protocol
 
 from textual.widgets.tree import TreeNode
 
-from sqlit.domains.connections.discovery.cloud import ProviderState
-from sqlit.domains.connections.domain.config import ConnectionConfig
+from dbcore.connections.discovery.cloud import ProviderState
+from dbcore.connections.domain.config import ConnectionConfig
 
 
 class CloudProviderUIAdapter(Protocol):

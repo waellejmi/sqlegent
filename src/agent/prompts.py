@@ -146,3 +146,9 @@ Decide if the user's question can possibly be answered using these tables.
 - If there is any reasonable chance the question can be answered, set skip=false.
 - Do NOT skip just because results might be empty ,only skip when the schema fundamentally lacks the required data.
 """
+
+
+REGEN_PROMPTS = {
+    "error": REGENERATE_QUERY_ON_ERROR,
+    "empty_result": REGENERATE_QUERY_ON_EMPTY_RESULT,
+}

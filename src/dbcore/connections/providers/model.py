@@ -8,11 +8,11 @@ from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from sqlit.domains.connections.domain.config import ConnectionConfig
-    from sqlit.domains.connections.providers.docker import DockerDetector
-    from sqlit.domains.connections.providers.driver import DriverDescriptor
-    from sqlit.domains.connections.providers.explorer_nodes import ExplorerNodeProvider
-    from sqlit.domains.connections.providers.schema_helpers import ConnectionSchema
+    from dbcore.connections.domain.config import ConnectionConfig
+    from dbcore.connections.providers.docker import DockerDetector
+    from dbcore.connections.providers.driver import DriverDescriptor
+    from dbcore.connections.providers.explorer_nodes import ExplorerNodeProvider
+    from dbcore.connections.providers.schema_helpers import ConnectionSchema
 
 
 @dataclass(frozen=True)

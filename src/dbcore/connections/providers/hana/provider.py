@@ -1,13 +1,13 @@
 """Provider registration."""
 
-from sqlit.domains.connections.providers.adapter_provider import build_adapter_provider
-from sqlit.domains.connections.providers.catalog import register_provider
-from sqlit.domains.connections.providers.hana.schema import SCHEMA
-from sqlit.domains.connections.providers.model import DatabaseProvider, ProviderSpec
+from dbcore.connections.providers.adapter_provider import build_adapter_provider
+from dbcore.connections.providers.catalog import register_provider
+from dbcore.connections.providers.hana.schema import SCHEMA
+from dbcore.connections.providers.model import DatabaseProvider, ProviderSpec
 
 
 def _provider_factory(spec: ProviderSpec) -> DatabaseProvider:
-    from sqlit.domains.connections.providers.hana.adapter import HanaAdapter
+    from dbcore.connections.providers.hana.adapter import HanaAdapter
 
     return build_adapter_provider(spec, SCHEMA, HanaAdapter())
 
@@ -15,7 +15,7 @@ def _provider_factory(spec: ProviderSpec) -> DatabaseProvider:
 SPEC = ProviderSpec(
     db_type="hana",
     display_name="SAP HANA",
-    schema_path=("sqlit.domains.connections.providers.hana.schema", "SCHEMA"),
+    schema_path=("dbcore.connections.providers.hana.schema", "SCHEMA"),
     supports_ssh=True,
     is_file_based=False,
     has_advanced_auth=False,

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from sqlit.domains.connections.providers.adapters.base import (
+from dbcore.connections.providers.adapters.base import (
     ColumnInfo,
     DatabaseAdapter,
     IndexInfo,
@@ -12,7 +12,7 @@ from sqlit.domains.connections.providers.adapters.base import (
     TableInfo,
     TriggerInfo,
 )
-from sqlit.domains.connections.providers.tls import (
+from dbcore.connections.providers.tls import (
     TLS_MODE_DEFAULT,
     TLS_MODE_DISABLE,
     TLS_MODE_REQUIRE,
@@ -21,7 +21,7 @@ from sqlit.domains.connections.providers.tls import (
 )
 
 if TYPE_CHECKING:
-    from sqlit.domains.connections.domain.config import ConnectionConfig
+    from dbcore.connections.domain.config import ConnectionConfig
 
 
 class ClickHouseAdapter(DatabaseAdapter):
@@ -97,7 +97,7 @@ class ClickHouseAdapter(DatabaseAdapter):
         try:
             import clickhouse_connect
         except ImportError as e:
-            from sqlit.domains.connections.providers.exceptions import MissingDriverError
+            from dbcore.connections.providers.exceptions import MissingDriverError
 
             if not self.install_extra or not self.install_package:
                 raise e

@@ -1,14 +1,14 @@
 """Provider registration for Apache Arrow Flight SQL."""
 
-from sqlit.domains.connections.providers.adapter_provider import build_adapter_provider
-from sqlit.domains.connections.providers.catalog import register_provider
-from sqlit.domains.connections.providers.docker import DockerDetector
-from sqlit.domains.connections.providers.flight.schema import SCHEMA
-from sqlit.domains.connections.providers.model import DatabaseProvider, ProviderSpec
+from dbcore.connections.providers.adapter_provider import build_adapter_provider
+from dbcore.connections.providers.catalog import register_provider
+from dbcore.connections.providers.docker import DockerDetector
+from dbcore.connections.providers.flight.schema import SCHEMA
+from dbcore.connections.providers.model import DatabaseProvider, ProviderSpec
 
 
 def _provider_factory(spec: ProviderSpec) -> DatabaseProvider:
-    from sqlit.domains.connections.providers.flight.adapter import FlightSQLAdapter
+    from dbcore.connections.providers.flight.adapter import FlightSQLAdapter
 
     return build_adapter_provider(spec, SCHEMA, FlightSQLAdapter())
 
@@ -16,7 +16,7 @@ def _provider_factory(spec: ProviderSpec) -> DatabaseProvider:
 SPEC = ProviderSpec(
     db_type="flight",
     display_name="Arrow Flight SQL",
-    schema_path=("sqlit.domains.connections.providers.flight.schema", "SCHEMA"),
+    schema_path=("dbcore.connections.providers.flight.schema", "SCHEMA"),
     supports_ssh=True,
     is_file_based=False,
     has_advanced_auth=True,

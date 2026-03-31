@@ -2,11 +2,11 @@
 
 from collections.abc import Mapping
 
-from sqlit.domains.connections.providers.adapter_provider import build_adapter_provider
-from sqlit.domains.connections.providers.catalog import register_provider
-from sqlit.domains.connections.providers.docker import DockerCredentials, DockerDetector
-from sqlit.domains.connections.providers.mariadb.schema import SCHEMA
-from sqlit.domains.connections.providers.model import DatabaseProvider, ProviderSpec
+from dbcore.connections.providers.adapter_provider import build_adapter_provider
+from dbcore.connections.providers.catalog import register_provider
+from dbcore.connections.providers.docker import DockerCredentials, DockerDetector
+from dbcore.connections.providers.mariadb.schema import SCHEMA
+from dbcore.connections.providers.model import DatabaseProvider, ProviderSpec
 
 
 def _mariadb_post_process(creds: DockerCredentials, env_vars: Mapping[str, str]) -> DockerCredentials:
@@ -17,7 +17,7 @@ def _mariadb_post_process(creds: DockerCredentials, env_vars: Mapping[str, str])
 
 
 def _provider_factory(spec: ProviderSpec) -> DatabaseProvider:
-    from sqlit.domains.connections.providers.mariadb.adapter import MariaDBAdapter
+    from dbcore.connections.providers.mariadb.adapter import MariaDBAdapter
 
     return build_adapter_provider(spec, SCHEMA, MariaDBAdapter())
 
@@ -25,7 +25,7 @@ def _provider_factory(spec: ProviderSpec) -> DatabaseProvider:
 SPEC = ProviderSpec(
     db_type="mariadb",
     display_name="MariaDB",
-    schema_path=("sqlit.domains.connections.providers.mariadb.schema", "SCHEMA"),
+    schema_path=("dbcore.connections.providers.mariadb.schema", "SCHEMA"),
     supports_ssh=True,
     is_file_based=False,
     has_advanced_auth=False,

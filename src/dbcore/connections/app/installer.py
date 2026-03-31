@@ -9,8 +9,8 @@ import time
 from collections.abc import Callable
 from typing import Any, Protocol
 
-from sqlit.domains.connections.app.install_strategy import detect_strategy
-from sqlit.domains.connections.providers.exceptions import MissingDriverError
+from dbcore.connections.app.install_strategy import detect_strategy
+from dbcore.connections.providers.exceptions import MissingDriverError
 from sqlit.shared.core.processes import SubprocessRunner, SyncProcess, SyncProcessRunner
 
 
@@ -32,7 +32,7 @@ class Installer:
 
     def install(self, error: MissingDriverError) -> None:
         """Push a loading screen and run installation in a background thread."""
-        from sqlit.shared.ui.screens.loading import LoadingScreen
+        from dbcore.ui.screens.loading import LoadingScreen
 
         cancel_event = threading.Event()
         self.app.push_screen(
@@ -144,7 +144,7 @@ class Installer:
         """
         from textual.css.stylesheet import StylesheetParseError
 
-        from sqlit.shared.ui.screens.message import MessageScreen
+        from dbcore.ui.screens.message import MessageScreen
 
         success, _output, error = result
         self.app.pop_screen()  # Pop the LoadingScreen

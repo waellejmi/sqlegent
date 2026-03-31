@@ -31,6 +31,11 @@ def _connection_config_to_uri(connection, db_config: DBConfig) -> str:
     if username:
         auth_segment = username
         if password:
+            if db_type == "oracle":
+                from urllib.parse import quote
+
+                password = quote(password)
+
             auth_segment = f"{auth_segment}:{password}"
         auth_segment = f"{auth_segment}@"
 
@@ -46,13 +51,25 @@ def _connection_config_to_uri(connection, db_config: DBConfig) -> str:
             database = "mysql"
         return f"mysql+pymysql://{auth_segment}{host_segment}/{database}"
 
+    if db_type == "oracle":
+        if not database:
+            database = "oracle"
+        return (
+            f"oracle+oracledb://{auth_segment}{host_segment}/?service_name={database}"
+        )
+
+    if db_type == "mssql":
+        if not database:
+            database = "mssql"
+        return f"mssql+pymssql://{auth_segment}{host_segment}/{database}"
+
     raise ValueError(
         f"Docker/connection URI conversion is not implemented for db_type='{db_type}'."
     )
 
 
 def _pick_docker_connection_uri(db_config: DBConfig) -> str:
-    from sqlit.domains.connections.discovery.docker_detector import (
+    from dbcore.connections.discovery.docker_detector import (
         DockerStatus,
         container_to_connection_config,
         detect_database_containers,
@@ -72,7 +89,14 @@ def _pick_docker_connection_uri(db_config: DBConfig) -> str:
         )
 
     running = [c for c in containers if c.is_running and c.connectable]
-    supported_db_types = {"sqlite", "duckdb", "postgresql", "mysql", "mariadb"}
+    supported_db_types = {
+        "sqlite",
+        "duckdb",
+        "postgresql",
+        "mysql",
+        "mariadb",
+        "oracle",
+    }
     running = [c for c in running if c.db_type in supported_db_types]
     if not running:
         raise RuntimeError(
@@ -123,7 +147,7 @@ def configure_database_target(db_config: DBConfig) -> str:
                     input(f"SQLite file path [{default_path}]: ").strip()
                     or default_path
                 )
-                selected_uri = _normalize_sqlite_uri_from_input(raw_path)
+                selected_uri = _normalize_sqlite_uri_from_input(raw_path, db_config)
             elif choice == "2":
                 raw_uri = input("SQLAlchemy URI: ").strip()
                 if not raw_uri:
@@ -133,7 +157,6 @@ def configure_database_target(db_config: DBConfig) -> str:
                 selected_uri = _pick_docker_connection_uri(db_config)
             else:
                 raise ValueError("Unsupported choice.")
-
             db_config.set_database_uri(selected_uri)
             print(
                 f"Saved active database URI to {db_config.CONFIG_FILE}: {selected_uri}"

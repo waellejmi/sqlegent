@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from sqlit.domains.connections.domain.config import ConnectionConfig
+    from dbcore.connections.domain.config import ConnectionConfig
 
 SELECT_KEYWORDS = frozenset(["SELECT", "WITH", "SHOW", "DESCRIBE", "EXPLAIN", "PRAGMA"])
 
@@ -109,7 +109,7 @@ class DatabaseAdapter(ABC):
         extra_name: str | None,
         package_name: str | None,
     ) -> Any:
-        from sqlit.domains.connections.providers.driver import import_driver_module
+        from dbcore.connections.providers.driver import import_driver_module
 
         return import_driver_module(
             module_name,

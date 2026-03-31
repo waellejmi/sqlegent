@@ -4,16 +4,16 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, cast
 
-from sqlit.domains.connections.app.connection_flow import ConnectionFlow, ConnectionPrompter
-from sqlit.domains.connections.app.session import ConnectionSession
-from sqlit.domains.explorer.ui.tree import builder as tree_builder
-from sqlit.domains.explorer.ui.tree import db_switching as tree_db_switching
-from sqlit.shared.ui.protocols import ConnectionMixinHost
-from sqlit.shared.ui.spinner import Spinner
+from dbcore.connections.app.connection_flow import ConnectionFlow, ConnectionPrompter
+from dbcore.connections.app.session import ConnectionSession
+from dbcore.domains.explorer.ui.tree import builder as tree_builder
+from dbcore.domains.explorer.ui.tree import db_switching as tree_db_switching
+from dbcore.ui.protocols import ConnectionMixinHost
+from dbcore.ui.spinner import Spinner
 
 if TYPE_CHECKING:
-    from sqlit.domains.connections.domain.config import ConnectionConfig
-    from sqlit.domains.connections.providers.model import DatabaseProvider
+    from dbcore.connections.domain.config import ConnectionConfig
+    from dbcore.connections.providers.model import DatabaseProvider
 
 
 class _ScreenPrompter(ConnectionPrompter):
@@ -105,7 +105,7 @@ class ConnectionMixin:
             tree_builder.refresh_tree_chunked(self, on_done=after_refresh)
 
         try:
-            from sqlit.domains.shell.app.idle_scheduler import Priority, get_idle_scheduler
+            from dbcore.domains.shell.app.idle_scheduler import Priority, get_idle_scheduler
         except Exception:
             scheduler = None
         else:
@@ -139,7 +139,7 @@ class ConnectionMixin:
             return None
         getter = getattr(data, "get_connection_config", None)
         if callable(getter):
-            from sqlit.domains.connections.domain.config import ConnectionConfig
+            from dbcore.connections.domain.config import ConnectionConfig
 
             value = getter()
             return value if isinstance(value, ConnectionConfig) else None
@@ -332,7 +332,7 @@ class ConnectionMixin:
                     setattr(self, "_defer_schema_load", True)
                 else:
                     try:
-                        from sqlit.domains.shell.app.idle_scheduler import (
+                        from dbcore.domains.shell.app.idle_scheduler import (
                             Priority,
                             get_idle_scheduler,
                         )
@@ -367,7 +367,7 @@ class ConnectionMixin:
                 return
 
             self._set_connecting_state(None, refresh=True)
-            from sqlit.shared.ui.screens.error import ErrorScreen
+            from dbcore.ui.screens.error import ErrorScreen
 
             from ..connection_error_handlers import handle_connection_error
 
@@ -499,7 +499,7 @@ class ConnectionMixin:
         self.push_screen(ConnectionScreen(config, editing=True), self._wrap_connection_result)
 
     def _set_connection_screen_footer(self: ConnectionMixinHost) -> None:
-        from sqlit.shared.ui.widgets import ContextFooter
+        from dbcore.ui.widgets import ContextFooter
 
         try:
             footer = self.query_one(ContextFooter)
@@ -512,13 +512,13 @@ class ConnectionMixin:
         self.handle_connection_result(result)
 
     def handle_connection_result(self: ConnectionMixinHost, result: tuple | None) -> None:
-        from sqlit.domains.connections.app.credentials import (
+        from dbcore.connections.app.credentials import (
             ALLOW_PLAINTEXT_CREDENTIALS_SETTING,
             build_credentials_service,
             is_keyring_usable,
             reset_credentials_service,
         )
-        from sqlit.shared.ui.screens.confirm import ConfirmScreen
+        from dbcore.ui.screens.confirm import ConfirmScreen
 
         if not result:
             return
@@ -528,8 +528,8 @@ class ConnectionMixin:
 
         if action == "save":
             def do_save(with_config: ConnectionConfig, orig_name: str | None = None) -> None:
-                from sqlit.domains.connections.app.credentials import CredentialsPersistError
-                from sqlit.shared.ui.screens.error import ErrorScreen
+                from dbcore.connections.app.credentials import CredentialsPersistError
+                from dbcore.ui.screens.error import ErrorScreen
 
                 credentials_error: CredentialsPersistError | None = None
                 # When editing, remove by original name to properly update renamed connections
@@ -798,10 +798,10 @@ class ConnectionMixin:
         self._update_footer_bindings()
 
     def action_move_connection_to_folder(self: ConnectionMixinHost) -> None:
-        from sqlit.domains.connections.app.credentials import CredentialsPersistError
-        from sqlit.domains.connections.domain.config import normalize_folder_path
-        from sqlit.domains.connections.ui.screens import FolderInputScreen
-        from sqlit.shared.ui.screens.error import ErrorScreen
+        from dbcore.connections.app.credentials import CredentialsPersistError
+        from dbcore.connections.domain.config import normalize_folder_path
+        from dbcore.ui.screens import FolderInputScreen
+        from dbcore.ui.screens.error import ErrorScreen
 
         selected = self._get_selected_connection_configs()
         if selected:
@@ -906,10 +906,10 @@ class ConnectionMixin:
         )
 
     def action_rename_connection_folder(self: ConnectionMixinHost) -> None:
-        from sqlit.domains.connections.app.credentials import CredentialsPersistError
-        from sqlit.domains.connections.domain.config import normalize_folder_path
-        from sqlit.domains.connections.ui.screens import FolderInputScreen
-        from sqlit.shared.ui.screens.error import ErrorScreen
+        from dbcore.connections.app.credentials import CredentialsPersistError
+        from dbcore.connections.domain.config import normalize_folder_path
+        from dbcore.ui.screens import FolderInputScreen
+        from dbcore.ui.screens.error import ErrorScreen
 
         node = self.object_tree.cursor_node
         folder_path = self._get_connection_folder_path(node)
@@ -969,9 +969,9 @@ class ConnectionMixin:
         )
 
     def action_delete_connection_folder(self: ConnectionMixinHost) -> None:
-        from sqlit.domains.connections.app.credentials import CredentialsPersistError
-        from sqlit.shared.ui.screens.confirm import ConfirmScreen
-        from sqlit.shared.ui.screens.error import ErrorScreen
+        from dbcore.connections.app.credentials import CredentialsPersistError
+        from dbcore.ui.screens.confirm import ConfirmScreen
+        from dbcore.ui.screens.error import ErrorScreen
 
         node = self.object_tree.cursor_node
         folder_path = self._get_connection_folder_path(node)
@@ -1025,7 +1025,7 @@ class ConnectionMixin:
         )
 
     def action_delete_connection(self: ConnectionMixinHost) -> None:
-        from sqlit.shared.ui.screens.confirm import ConfirmScreen
+        from dbcore.ui.screens.confirm import ConfirmScreen
 
         selected = self._get_selected_connection_configs()
         if selected:
@@ -1035,8 +1035,8 @@ class ConnectionMixin:
             )
 
             def do_delete(confirmed: bool | None) -> None:
-                from sqlit.domains.connections.app.credentials import CredentialsPersistError
-                from sqlit.shared.ui.screens.error import ErrorScreen
+                from dbcore.connections.app.credentials import CredentialsPersistError
+                from dbcore.ui.screens.error import ErrorScreen
 
                 if not confirmed:
                     return
@@ -1090,8 +1090,8 @@ class ConnectionMixin:
         )
 
     def _do_delete_connection(self: ConnectionMixinHost, config: ConnectionConfig) -> None:
-        from sqlit.domains.connections.app.credentials import CredentialsPersistError
-        from sqlit.shared.ui.screens.error import ErrorScreen
+        from dbcore.connections.app.credentials import CredentialsPersistError
+        from dbcore.ui.screens.error import ErrorScreen
 
         credentials_error: CredentialsPersistError | None = None
         self.connections = [c for c in self.connections if c.name != config.name]
@@ -1141,7 +1141,7 @@ class ConnectionMixin:
             self.action_new_connection()
             return
 
-        from sqlit.domains.connections.domain.config import ConnectionConfig
+        from dbcore.connections.domain.config import ConnectionConfig
 
         if isinstance(result, ConnectionConfig):
             config = result

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from textual.widgets.option_list import Option
 
-from sqlit.domains.connections.domain.config import ConnectionConfig
-from sqlit.domains.connections.providers.metadata import get_connection_display_info
+from dbcore.connections.domain.config import ConnectionConfig
+from dbcore.connections.providers.metadata import get_connection_display_info
 from sqlit.shared.core.utils import fuzzy_match, highlight_matches
 
 

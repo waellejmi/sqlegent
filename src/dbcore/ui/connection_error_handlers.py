@@ -5,10 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol, cast
 
-from sqlit.shared.ui.protocols import ConnectionsProtocol, TextualAppProtocol
+from dbcore.ui.protocols import ConnectionsProtocol, TextualAppProtocol
 
 if TYPE_CHECKING:
-    from sqlit.domains.connections.domain.config import ConnectionConfig
+    from dbcore.connections.domain.config import ConnectionConfig
 
 
 class ConnectionErrorApp(TextualAppProtocol, ConnectionsProtocol, Protocol):
@@ -30,12 +30,12 @@ class ConnectionErrorHandler(Protocol):
 @dataclass(frozen=True)
 class MissingDriverHandler:
     def can_handle(self, error: Exception) -> bool:
-        from sqlit.domains.connections.providers.exceptions import MissingDriverError
+        from dbcore.connections.providers.exceptions import MissingDriverError
 
         return isinstance(error, MissingDriverError)
 
     def handle(self, app: ConnectionErrorApp, error: Exception, config: ConnectionConfig) -> None:
-        from sqlit.domains.connections.providers.exceptions import MissingDriverError
+        from dbcore.connections.providers.exceptions import MissingDriverError
         from sqlit.shared.core.debug_events import emit_debug_event
 
         from .restart_cache import write_pending_connection_cache
@@ -58,12 +58,12 @@ class AzureFirewallHandler:
     """Handle Azure SQL firewall errors by offering to add a firewall rule."""
 
     def can_handle(self, error: Exception) -> bool:
-        from sqlit.domains.connections.discovery.cloud.azure.firewall import is_firewall_error
+        from dbcore.connections.discovery.cloud.azure.firewall import is_firewall_error
 
         return is_firewall_error(str(error))
 
     def handle(self, app: ConnectionErrorApp, error: Exception, config: ConnectionConfig) -> None:
-        from sqlit.domains.connections.discovery.cloud.azure.firewall import (
+        from dbcore.connections.discovery.cloud.azure.firewall import (
             lookup_azure_sql_server,
             parse_ip_from_firewall_error,
             parse_server_name_from_hostname,

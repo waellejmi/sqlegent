@@ -5,10 +5,10 @@ from __future__ import annotations
 import copy
 from typing import TYPE_CHECKING
 
-from sqlit.domains.connections.domain.config import ConnectionConfig
+from dbcore.connections.domain.config import ConnectionConfig
 
 if TYPE_CHECKING:
-    from sqlit.domains.connections.app.credentials import CredentialsService
+    from dbcore.connections.app.credentials import CredentialsService
 
 
 class InMemoryConnectionStore:

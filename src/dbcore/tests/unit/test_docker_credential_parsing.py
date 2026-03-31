@@ -8,11 +8,11 @@ from __future__ import annotations
 
 import pytest
 
-from sqlit.domains.connections.discovery.docker_detector import (
+from dbcore.connections.discovery.docker_detector import (
     _get_db_type_from_image,
 )
-from sqlit.domains.connections.providers.catalog import get_provider
-from sqlit.domains.connections.providers.docker import DockerCredentials
+from dbcore.connections.providers.catalog import get_provider
+from dbcore.connections.providers.docker import DockerCredentials
 
 
 def _get_container_credentials(db_type: str, env_vars: dict[str, str]) -> DockerCredentials:

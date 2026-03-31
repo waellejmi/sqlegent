@@ -1,7 +1,9 @@
 [project]
 name = "sql-agent"
 version = "0.1.0"
-author = "wael.lejmi02@gmail.com"
+authors = [
+    { name = "Wael Lejmi", email = "wael.lejmi02@gmail.com" }
+]
 description = "Agent to transform human messages to sql requests , then can execute them and return the results to the user"
 readme = "README.md"
 requires-python = ">=3.13"
@@ -25,14 +27,16 @@ all = [
     "PyMySQL>=1.1.0",
 ]
 postgres = ["psycopg2-binary>=2.9.0"]
-mysql = ["mysqlclient>=2.2.8"]
-mariadb = ["mariadb>=1.1.0"]
+mysql = ["PyMySQL>=1.1.0"]
+mariadb = ["PyMySQL>=1.1.0"]
+oracle= ["oracledb>=2.0.0"]
+mssql = ["mssql-python>=1.1.0"]
+
+mysql-native = ["mysqlclient>=2.2.8"]
+mariadb-native = ["mariadb>=1.1.0"]
 
 cockroachdb = ["psycopg2-binary>=2.9.0"]
-mssql = ["mssql-python>=1.1.0"]
-oracle = ["oracledb>=2.0.0"]
-ssh = [
-    "sshtunnel>=0.4.0",
+ssh = [ "sshtunnel>=0.4.0",
     "paramiko>=2.0.0,<4.0.0",
 ]
 

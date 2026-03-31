@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlit.domains.connections.domain.config import ConnectionConfig
-from sqlit.domains.connections.providers.catalog import get_provider
+from dbcore.connections.domain.config import ConnectionConfig
+from dbcore.connections.providers.catalog import get_provider
 
 
 def normalize_connection_config(config: ConnectionConfig) -> ConnectionConfig:

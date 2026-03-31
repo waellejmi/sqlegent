@@ -6,16 +6,16 @@ from typing import Any, cast
 
 from textual.widgets.tree import TreeNode
 
-from sqlit.domains.connections.discovery.cloud import ProviderState, ProviderStatus
-from sqlit.domains.connections.domain.config import ConnectionConfig
-from sqlit.domains.connections.ui.screens.connection_picker.cloud_nodes import CloudNodeData
-from sqlit.domains.connections.ui.screens.connection_picker.cloud_providers.base import (
+from dbcore.connections.discovery.cloud import ProviderState, ProviderStatus
+from dbcore.connections.domain.config import ConnectionConfig
+from dbcore.ui.screens.connection_picker.cloud_nodes import CloudNodeData
+from dbcore.ui.screens.connection_picker.cloud_providers.base import (
     CloudProviderUIAdapter,
 )
-from sqlit.domains.connections.ui.screens.connection_picker.cloud_providers.utils import (
+from dbcore.ui.screens.connection_picker.cloud_providers.utils import (
     format_saved_label,
 )
-from sqlit.domains.connections.ui.screens.connection_picker.constants import TAB_CLOUD
+from dbcore.ui.screens.connection_picker.constants import TAB_CLOUD
 
 
 class AzureCloudUIAdapter(CloudProviderUIAdapter):
@@ -166,7 +166,7 @@ class AzureCloudUIAdapter(CloudProviderUIAdapter):
             screen._rebuild_list()
 
     def _load_databases_worker(self, screen: Any, server: Any) -> None:
-        from sqlit.domains.connections.discovery.cloud.azure.discovery import load_databases_for_server
+        from dbcore.connections.discovery.cloud.azure.discovery import load_databases_for_server
 
         databases = load_databases_for_server(server, use_cache=True)
         screen.app.call_from_thread(self._on_databases_loaded, screen, server, databases)
@@ -212,10 +212,10 @@ class AzureCloudUIAdapter(CloudProviderUIAdapter):
         subscription_id: str,
         new_index: int,
     ) -> None:
-        from sqlit.domains.connections.discovery.cloud.azure.cache import (
+        from dbcore.connections.discovery.cloud.azure.cache import (
             cache_subscriptions_and_servers,
         )
-        from sqlit.domains.connections.discovery.cloud.azure.discovery import (
+        from dbcore.connections.discovery.cloud.azure.discovery import (
             detect_azure_sql_resources,
         )
 

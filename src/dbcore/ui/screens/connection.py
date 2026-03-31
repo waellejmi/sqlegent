@@ -21,26 +21,26 @@ from textual.widgets import (
     TabPane,
 )
 
-from sqlit.domains.connections.domain.config import (
+from dbcore.connections.domain.config import (
     DATABASE_TYPE_DISPLAY_ORDER,
     ConnectionConfig,
     DatabaseType,
     get_database_type_labels,
 )
-from sqlit.domains.connections.providers.catalog import get_provider_schema
-from sqlit.domains.connections.providers.driver import ensure_provider_driver_available
-from sqlit.domains.connections.providers.exceptions import MissingDriverError
-from sqlit.domains.connections.providers.metadata import has_advanced_auth, is_file_based, supports_ssh
-from sqlit.domains.connections.ui.connection_focus import ConnectionFocusController
-from sqlit.domains.connections.ui.connection_form import ConnectionFormController
-from sqlit.domains.connections.ui.connection_test_controller import ConnectionTestController
-from sqlit.domains.connections.ui.driver_status_controller import DriverStatusController
-from sqlit.domains.connections.ui.restart_cache import clear_restart_cache, write_restart_cache
-from sqlit.domains.connections.ui.screens.connection_styles import CONNECTION_SCREEN_CSS
-from sqlit.domains.connections.ui.validation import ValidationState, validate_connection_form
-from sqlit.domains.connections.ui.validation_ui_binder import ConnectionValidationBinder
-from sqlit.shared.ui.protocols import AppProtocol
-from sqlit.shared.ui.widgets import Dialog
+from dbcore.connections.providers.catalog import get_provider_schema
+from dbcore.connections.providers.driver import ensure_provider_driver_available
+from dbcore.connections.providers.exceptions import MissingDriverError
+from dbcore.connections.providers.metadata import has_advanced_auth, is_file_based, supports_ssh
+from dbcore.ui.connection_focus import ConnectionFocusController
+from dbcore.ui.connection_form import ConnectionFormController
+from dbcore.ui.connection_test_controller import ConnectionTestController
+from dbcore.ui.driver_status_controller import DriverStatusController
+from dbcore.ui.restart_cache import clear_restart_cache, write_restart_cache
+from dbcore.ui.screens.connection_styles import CONNECTION_SCREEN_CSS
+from dbcore.ui.validation import ValidationState, validate_connection_form
+from dbcore.ui.validation_ui_binder import ConnectionValidationBinder
+from dbcore.ui.protocols import AppProtocol
+from dbcore.ui.widgets import Dialog
 
 
 class ConnectionScreen(ModalScreen):
@@ -157,8 +157,8 @@ class ConnectionScreen(ModalScreen):
 
     def _on_browse_file(self, field_name: str) -> None:
         """Open file picker for a file field."""
-        from sqlit.shared.ui.screens.file_picker import FilePickerMode, FilePickerScreen
-        from sqlit.domains.connections.ui.fields import FieldType
+        from dbcore.ui.screens.file_picker import FilePickerMode, FilePickerScreen
+        from dbcore.ui.fields import FieldType
 
         # Get current value from the field
         current_value = ""
@@ -668,7 +668,7 @@ class ConnectionScreen(ModalScreen):
             config_data["folder_path"] = getattr(self.config, "folder_path", "")
 
         config = ConnectionConfig.from_dict(config_data)
-        from sqlit.domains.connections.providers.config_service import normalize_connection_config
+        from dbcore.connections.providers.config_service import normalize_connection_config
 
         return normalize_connection_config(config)
 

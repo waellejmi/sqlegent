@@ -12,14 +12,14 @@ from __future__ import annotations
 from typing import Protocol
 from urllib.parse import ParseResult, parse_qs, unquote, urlparse
 
-from sqlit.domains.connections.domain.config import ConnectionConfig
-from sqlit.domains.connections.providers.catalog import (
+from dbcore.connections.domain.config import ConnectionConfig
+from dbcore.connections.providers.catalog import (
     get_db_type_for_scheme,
     get_provider_schema,
     get_url_scheme_map,
 )
-from sqlit.domains.connections.providers.config_service import normalize_connection_config
-from sqlit.domains.connections.providers.metadata import get_display_name
+from dbcore.connections.providers.config_service import normalize_connection_config
+from dbcore.connections.providers.metadata import get_display_name
 
 
 class UrlParseStrategy(Protocol):

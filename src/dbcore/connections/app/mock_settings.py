@@ -5,10 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from sqlit.domains.connections.app.mocks import MockDatabaseAdapter, MockProfile, get_mock_profile
-from sqlit.domains.connections.discovery.docker_detector import ContainerStatus, DetectedContainer
-from sqlit.domains.connections.domain.config import ConnectionConfig
-from sqlit.domains.connections.providers.adapters.base import ColumnInfo
+from dbcore.connections.app.mocks import MockDatabaseAdapter, MockProfile, get_mock_profile
+from dbcore.connections.discovery.docker_detector import ContainerStatus, DetectedContainer
+from dbcore.connections.domain.config import ConnectionConfig
+from dbcore.connections.providers.adapters.base import ColumnInfo
 
 
 @dataclass
@@ -35,7 +35,7 @@ def parse_mock_settings(settings: dict[str, Any]) -> MockSettings | None:
     if isinstance(drivers, dict):
         missing_all = drivers.get("missing_all")
         if missing_all is True:
-            from sqlit.domains.connections.providers.catalog import get_supported_db_types
+            from dbcore.connections.providers.catalog import get_supported_db_types
 
             missing_drivers = {t for t in get_supported_db_types()}
         else:

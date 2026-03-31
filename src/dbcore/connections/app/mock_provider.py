@@ -5,12 +5,12 @@ from __future__ import annotations
 from collections.abc import Iterable
 from typing import Any, cast
 
-from sqlit.domains.connections.domain.config import ConnectionConfig
-from sqlit.domains.connections.providers.adapter_provider import AdapterConfigValidator
-from sqlit.domains.connections.providers.catalog import get_provider, get_provider_schema, get_provider_spec
-from sqlit.domains.connections.providers.explorer_nodes import DefaultExplorerNodeProvider
-from sqlit.domains.connections.providers.model import DatabaseProvider, ProviderMetadata, SchemaCapabilities
-from sqlit.domains.connections.providers.schema_helpers import ConnectionSchema
+from dbcore.connections.domain.config import ConnectionConfig
+from dbcore.connections.providers.adapter_provider import AdapterConfigValidator
+from dbcore.connections.providers.catalog import get_provider, get_provider_schema, get_provider_spec
+from dbcore.connections.providers.explorer_nodes import DefaultExplorerNodeProvider
+from dbcore.connections.providers.model import DatabaseProvider, ProviderMetadata, SchemaCapabilities
+from dbcore.connections.providers.schema_helpers import ConnectionSchema
 
 from .mock_adapter_core import MockDatabaseAdapter
 

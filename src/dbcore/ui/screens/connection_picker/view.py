@@ -8,25 +8,25 @@ from textual.widgets import OptionList, Tree
 from textual.widgets.option_list import Option
 from textual.widgets.tree import TreeNode
 
-from sqlit.domains.connections.app.cloud_actions import CloudActionService
-from sqlit.domains.connections.discovery.cloud import ProviderState
-from sqlit.domains.connections.domain.config import ConnectionConfig
-from sqlit.domains.connections.ui.screens.connection_picker.constants import (
+from dbcore.connections.app.cloud_actions import CloudActionService
+from dbcore.connections.discovery.cloud import ProviderState
+from dbcore.connections.domain.config import ConnectionConfig
+from dbcore.ui.screens.connection_picker.constants import (
     TAB_CLOUD,
     TAB_CONNECTIONS,
     TAB_DOCKER,
 )
-from sqlit.domains.connections.ui.screens.connection_picker.shortcuts import build_picker_shortcuts
-from sqlit.domains.connections.ui.screens.connection_picker.tabs import (
+from dbcore.ui.screens.connection_picker.shortcuts import build_picker_shortcuts
+from dbcore.ui.screens.connection_picker.tabs import (
     build_cloud_tree,
     build_connections_options,
     build_docker_options,
 )
-from sqlit.shared.ui.widgets import Dialog, FilterInput
+from dbcore.ui.widgets import Dialog, FilterInput
 
 if TYPE_CHECKING:
-    from sqlit.domains.connections.discovery.docker_detector import DetectedContainer
-    from sqlit.domains.connections.ui.screens.connection_picker.screen import ConnectionPickerScreen
+    from dbcore.connections.discovery.docker_detector import DetectedContainer
+    from dbcore.ui.screens.connection_picker.screen import ConnectionPickerScreen
 
 
 class PickerView:

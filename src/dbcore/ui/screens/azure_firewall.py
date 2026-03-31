@@ -7,8 +7,8 @@ from textual.binding import Binding
 from textual.screen import ModalScreen
 from textual.widgets import Static
 
-from sqlit.shared.ui.spinner import Spinner
-from sqlit.shared.ui.widgets import Dialog
+from dbcore.ui.spinner import Spinner
+from dbcore.ui.widgets import Dialog
 
 
 class AzureFirewallScreen(ModalScreen[bool]):
@@ -93,7 +93,7 @@ class AzureFirewallScreen(ModalScreen[bool]):
         self.run_worker(self._add_rule_worker, thread=True)
 
     def _add_rule_worker(self) -> None:
-        from sqlit.domains.connections.discovery.cloud.azure.firewall import add_azure_firewall_rule
+        from dbcore.connections.discovery.cloud.azure.firewall import add_azure_firewall_rule
 
         success, message = add_azure_firewall_rule(
             server_name=self.server_name,

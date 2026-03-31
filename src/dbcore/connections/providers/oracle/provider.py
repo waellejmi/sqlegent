@@ -2,11 +2,11 @@
 
 from collections.abc import Mapping
 
-from sqlit.domains.connections.providers.adapter_provider import build_adapter_provider
-from sqlit.domains.connections.providers.catalog import register_provider
-from sqlit.domains.connections.providers.docker import DockerCredentials, DockerDetector
-from sqlit.domains.connections.providers.model import DatabaseProvider, ProviderSpec
-from sqlit.domains.connections.providers.oracle.schema import SCHEMA
+from dbcore.connections.providers.adapter_provider import build_adapter_provider
+from dbcore.connections.providers.catalog import register_provider
+from dbcore.connections.providers.docker import DockerCredentials, DockerDetector
+from dbcore.connections.providers.model import DatabaseProvider, ProviderSpec
+from dbcore.connections.providers.oracle.schema import SCHEMA
 
 
 def _oracle_post_process(creds: DockerCredentials, env_vars: Mapping[str, str]) -> DockerCredentials:
@@ -27,7 +27,7 @@ def _oracle_post_process(creds: DockerCredentials, env_vars: Mapping[str, str]) 
 
 
 def _provider_factory(spec: ProviderSpec) -> DatabaseProvider:
-    from sqlit.domains.connections.providers.oracle.adapter import OracleAdapter
+    from dbcore.connections.providers.oracle.adapter import OracleAdapter
 
     return build_adapter_provider(spec, SCHEMA, OracleAdapter())
 
@@ -35,7 +35,7 @@ def _provider_factory(spec: ProviderSpec) -> DatabaseProvider:
 SPEC = ProviderSpec(
     db_type="oracle",
     display_name="Oracle",
-    schema_path=("sqlit.domains.connections.providers.oracle.schema", "SCHEMA"),
+    schema_path=("dbcore.connections.providers.oracle.schema", "SCHEMA"),
     supports_ssh=True,
     is_file_based=False,
     has_advanced_auth=False,

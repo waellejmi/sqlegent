@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from sqlit.domains.connections.discovery.docker_detector import (
+from dbcore.connections.discovery.docker_detector import (
     DockerStatus,
     detect_database_containers,
     get_docker_status,
@@ -119,7 +119,7 @@ class TestContainerDetectionIntegration:
             print("\nNo database containers currently running")
 
         # Verify container structure if any found
-        from sqlit.domains.connections.providers.catalog import get_provider, get_supported_db_types
+        from dbcore.connections.providers.catalog import get_provider, get_supported_db_types
 
         allowed_types = {
             db_type
@@ -227,7 +227,7 @@ class TestWithTemporaryContainer:
 
     def test_container_to_connection_config(self, postgres_container):
         """Test converting detected container to ConnectionConfig."""
-        from sqlit.domains.connections.discovery.docker_detector import container_to_connection_config
+        from dbcore.connections.discovery.docker_detector import container_to_connection_config
 
         time.sleep(1)
 

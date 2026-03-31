@@ -1,6 +1,6 @@
 """Connection schema for Oracle legacy (11g and older)."""
 
-from sqlit.domains.connections.providers.schema_helpers import (
+from dbcore.connections.providers.schema_helpers import (
     SSH_FIELDS,
     ConnectionSchema,
     FieldType,

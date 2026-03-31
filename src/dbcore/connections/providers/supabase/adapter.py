@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from sqlit.domains.connections.providers.postgresql.adapter import PostgreSQLAdapter
+from dbcore.connections.providers.postgresql.adapter import PostgreSQLAdapter
 
 if TYPE_CHECKING:
-    from sqlit.domains.connections.domain.config import ConnectionConfig
+    from dbcore.connections.domain.config import ConnectionConfig
 
 
 class SupabaseAdapter(PostgreSQLAdapter):

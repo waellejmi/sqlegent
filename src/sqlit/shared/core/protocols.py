@@ -9,8 +9,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
-    from sqlit.domains.connections.app.credentials import CredentialsService
-    from sqlit.domains.connections.domain.config import ConnectionConfig
+    from dbcore.connections.app.credentials import CredentialsService
+    from dbcore.connections.domain.config import ConnectionConfig
 
 
 @runtime_checkable

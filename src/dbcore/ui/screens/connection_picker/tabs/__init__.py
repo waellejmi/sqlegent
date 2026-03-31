@@ -1,6 +1,6 @@
 """Tab modules for the connection picker."""
 
-from sqlit.domains.connections.ui.screens.connection_picker.cloud_nodes import CloudNodeData
+from dbcore.ui.screens.connection_picker.cloud_nodes import CloudNodeData
 
 from .cloud import build_cloud_tree
 from .connections import build_connections_options, find_connection_by_name

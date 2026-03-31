@@ -1,9 +1,9 @@
 """Provider registration for MotherDuck."""
 
-from sqlit.domains.connections.providers.adapter_provider import build_adapter_provider
-from sqlit.domains.connections.providers.catalog import register_provider
-from sqlit.domains.connections.providers.model import DatabaseProvider, ProviderSpec
-from sqlit.domains.connections.providers.motherduck.schema import SCHEMA
+from dbcore.connections.providers.adapter_provider import build_adapter_provider
+from dbcore.connections.providers.catalog import register_provider
+from dbcore.connections.providers.model import DatabaseProvider, ProviderSpec
+from dbcore.connections.providers.motherduck.schema import SCHEMA
 
 
 def _display_info(config) -> str:
@@ -15,7 +15,7 @@ def _display_info(config) -> str:
 
 
 def _provider_factory(spec: ProviderSpec) -> DatabaseProvider:
-    from sqlit.domains.connections.providers.motherduck.adapter import MotherDuckAdapter
+    from dbcore.connections.providers.motherduck.adapter import MotherDuckAdapter
 
     return build_adapter_provider(spec, SCHEMA, MotherDuckAdapter())
 
@@ -23,7 +23,7 @@ def _provider_factory(spec: ProviderSpec) -> DatabaseProvider:
 SPEC = ProviderSpec(
     db_type="motherduck",
     display_name="MotherDuck",
-    schema_path=("sqlit.domains.connections.providers.motherduck.schema", "SCHEMA"),
+    schema_path=("dbcore.connections.providers.motherduck.schema", "SCHEMA"),
     supports_ssh=False,
     is_file_based=False,
     has_advanced_auth=False,

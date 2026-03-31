@@ -1,6 +1,6 @@
 """Connection schema for DuckDB."""
 
-from sqlit.domains.connections.providers.schema_helpers import ConnectionSchema, _file_path_field
+from dbcore.connections.providers.schema_helpers import ConnectionSchema, _file_path_field
 
 SCHEMA = ConnectionSchema(
     db_type="duckdb",

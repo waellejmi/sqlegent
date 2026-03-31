@@ -1,7 +1,7 @@
 """Database provider interfaces and catalog."""
 
-from sqlit.domains.connections.providers.adapters.base import ColumnInfo, DatabaseAdapter, TableInfo
-from sqlit.domains.connections.providers.catalog import (
+from dbcore.connections.providers.adapters.base import ColumnInfo, DatabaseAdapter, TableInfo
+from dbcore.connections.providers.catalog import (
     get_all_schemas,
     get_db_type_for_scheme,
     get_provider,
@@ -13,8 +13,8 @@ from sqlit.domains.connections.providers.catalog import (
     iter_provider_schemas,
     register_provider,
 )
-from sqlit.domains.connections.providers.docker import DockerCredentials, DockerDetector
-from sqlit.domains.connections.providers.driver import (
+from dbcore.connections.providers.docker import DockerCredentials, DockerDetector
+from dbcore.connections.providers.driver import (
     ConfigurableDriverResolver,
     DefaultDriverResolver,
     DriverDescriptor,
@@ -24,7 +24,7 @@ from sqlit.domains.connections.providers.driver import (
     ensure_provider_driver_available,
     import_driver_module,
 )
-from sqlit.domains.connections.providers.metadata import (
+from dbcore.connections.providers.metadata import (
     get_badge_label,
     get_connection_display_info,
     get_default_port,
@@ -34,13 +34,13 @@ from sqlit.domains.connections.providers.metadata import (
     requires_auth,
     supports_ssh,
 )
-from sqlit.domains.connections.providers.model import ProviderSpec
-from sqlit.domains.connections.providers.registry import (
+from dbcore.connections.providers.model import ProviderSpec
+from dbcore.connections.providers.registry import (
     get_adapter,
     get_connection_schema,
     requires_database_selection,
 )
-from sqlit.domains.connections.providers.schema_helpers import ConnectionSchema, FieldType, SchemaField, SelectOption
+from dbcore.connections.providers.schema_helpers import ConnectionSchema, FieldType, SchemaField, SelectOption
 
 __all__ = [
     "ColumnInfo",

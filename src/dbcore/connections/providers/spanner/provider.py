@@ -4,17 +4,17 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from sqlit.domains.connections.providers.adapter_provider import build_adapter_provider
-from sqlit.domains.connections.providers.catalog import register_provider
-from sqlit.domains.connections.providers.model import DatabaseProvider, ProviderSpec
-from sqlit.domains.connections.providers.spanner.schema import SCHEMA
+from dbcore.connections.providers.adapter_provider import build_adapter_provider
+from dbcore.connections.providers.catalog import register_provider
+from dbcore.connections.providers.model import DatabaseProvider, ProviderSpec
+from dbcore.connections.providers.spanner.schema import SCHEMA
 
 if TYPE_CHECKING:
     pass
 
 
 def _provider_factory(spec: ProviderSpec) -> DatabaseProvider:
-    from sqlit.domains.connections.providers.spanner.adapter import SpannerAdapter
+    from dbcore.connections.providers.spanner.adapter import SpannerAdapter
 
     return build_adapter_provider(spec, SCHEMA, SpannerAdapter())
 
@@ -22,7 +22,7 @@ def _provider_factory(spec: ProviderSpec) -> DatabaseProvider:
 SPEC = ProviderSpec(
     db_type="spanner",
     display_name="Google Cloud Spanner",
-    schema_path=("sqlit.domains.connections.providers.spanner.schema", "SCHEMA"),
+    schema_path=("dbcore.connections.providers.spanner.schema", "SCHEMA"),
     supports_ssh=False,
     is_file_based=False,
     has_advanced_auth=True,

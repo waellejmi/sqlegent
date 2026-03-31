@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from sqlit.domains.connections.discovery.docker_detector import DetectedContainer, DockerStatus
+from dbcore.connections.discovery.docker_detector import DetectedContainer, DockerStatus
 
 if TYPE_CHECKING:
-    from sqlit.domains.connections.ui.screens.connection_picker.screen import ConnectionPickerScreen
-    from sqlit.domains.connections.ui.screens.connection_picker.state import DockerState
+    from dbcore.ui.screens.connection_picker.screen import ConnectionPickerScreen
+    from dbcore.ui.screens.connection_picker.state import DockerState
 
 
 class DockerController:

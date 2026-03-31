@@ -1,21 +1,21 @@
 """Provider registration."""
 
-from sqlit.domains.connections.providers.adapter_provider import build_adapter_provider
-from sqlit.domains.connections.providers.catalog import register_provider
-from sqlit.domains.connections.providers.clickhouse.schema import SCHEMA
-from sqlit.domains.connections.providers.docker import DockerDetector
-from sqlit.domains.connections.providers.model import DatabaseProvider, ProviderSpec
+from dbcore.connections.providers.adapter_provider import build_adapter_provider
+from dbcore.connections.providers.catalog import register_provider
+from dbcore.connections.providers.clickhouse.schema import SCHEMA
+from dbcore.connections.providers.docker import DockerDetector
+from dbcore.connections.providers.model import DatabaseProvider, ProviderSpec
 
 
 def _provider_factory(spec: ProviderSpec) -> DatabaseProvider:
-    from sqlit.domains.connections.providers.clickhouse.adapter import ClickHouseAdapter
+    from dbcore.connections.providers.clickhouse.adapter import ClickHouseAdapter
 
     return build_adapter_provider(spec, SCHEMA, ClickHouseAdapter())
 
 SPEC = ProviderSpec(
     db_type="clickhouse",
     display_name="ClickHouse",
-    schema_path=("sqlit.domains.connections.providers.clickhouse.schema", "SCHEMA"),
+    schema_path=("dbcore.connections.providers.clickhouse.schema", "SCHEMA"),
     supports_ssh=True,
     is_file_based=False,
     has_advanced_auth=False,

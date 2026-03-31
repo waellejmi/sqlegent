@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from typing import TYPE_CHECKING, Any, Iterable
 
-from sqlit.domains.connections.providers.adapters.base import (
+from dbcore.connections.providers.adapters.base import (
     ColumnInfo,
     CursorBasedAdapter,
     IndexInfo,
@@ -17,7 +17,7 @@ from sqlit.domains.connections.providers.adapters.base import (
 if TYPE_CHECKING:
     from google.cloud import bigquery
     from google.cloud.bigquery.dbapi import Connection as BigQueryConnection
-    from sqlit.domains.connections.domain.config import ConnectionConfig
+    from dbcore.connections.domain.config import ConnectionConfig
 
 
 class BigQueryAdapter(CursorBasedAdapter):

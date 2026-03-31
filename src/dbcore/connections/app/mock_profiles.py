@@ -6,9 +6,9 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from sqlit.domains.connections.domain.config import ConnectionConfig
-from sqlit.domains.connections.providers.adapters.base import ColumnInfo
-from sqlit.domains.connections.providers.model import DatabaseProvider
+from dbcore.connections.domain.config import ConnectionConfig
+from dbcore.connections.providers.adapters.base import ColumnInfo
+from dbcore.connections.providers.model import DatabaseProvider
 
 from .mock_adapter_core import MockDatabaseAdapter
 from .mock_default_adapters import (

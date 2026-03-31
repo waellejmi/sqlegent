@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from sqlit.domains.connections.providers.adapters.base import (
+from dbcore.connections.providers.adapters.base import (
     ColumnInfo,
     DatabaseAdapter,
     IndexInfo,
@@ -12,14 +12,14 @@ from sqlit.domains.connections.providers.adapters.base import (
     TableInfo,
     TriggerInfo,
 )
-from sqlit.domains.connections.providers.tls import (
+from dbcore.connections.providers.tls import (
     TLS_MODE_DEFAULT,
     TLS_MODE_DISABLE,
     get_tls_mode,
 )
 
 if TYPE_CHECKING:
-    from sqlit.domains.connections.domain.config import AuthType, ConnectionConfig
+    from dbcore.connections.domain.config import AuthType, ConnectionConfig
 
 
 class SQLServerAdapter(DatabaseAdapter):
@@ -68,7 +68,7 @@ class SQLServerAdapter(DatabaseAdapter):
         return self._build_connection_string(config)
 
     def get_auth_type(self, config: ConnectionConfig) -> AuthType:
-        from sqlit.domains.connections.domain.config import AuthType
+        from dbcore.connections.domain.config import AuthType
 
         auth_type = config.get_option("auth_type", "sql")
         try:
@@ -129,7 +129,7 @@ class SQLServerAdapter(DatabaseAdapter):
         Returns:
             semicolon-delimited key=value connection string.
         """
-        from sqlit.domains.connections.domain.config import AuthType
+        from dbcore.connections.domain.config import AuthType
 
         endpoint = config.tcp_endpoint
         if endpoint is None:

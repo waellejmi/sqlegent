@@ -10,7 +10,7 @@ from textual.containers import Container, Horizontal
 from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Static
 
-from sqlit.shared.ui.widgets import Dialog
+from dbcore.ui.widgets import Dialog
 
 
 class PasswordInputScreen(ModalScreen):

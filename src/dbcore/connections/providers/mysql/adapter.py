@@ -5,10 +5,10 @@ from __future__ import annotations
 import importlib.util
 from typing import TYPE_CHECKING, Any
 
-from sqlit.domains.connections.providers.mysql.base import MySQLBaseAdapter
-from sqlit.domains.connections.providers.exceptions import MissingDriverError
-from sqlit.domains.connections.providers.registry import get_default_port
-from sqlit.domains.connections.providers.tls import (
+from dbcore.connections.providers.mysql.base import MySQLBaseAdapter
+from dbcore.connections.providers.exceptions import MissingDriverError
+from dbcore.connections.providers.registry import get_default_port
+from dbcore.connections.providers.tls import (
     TLS_MODE_DEFAULT,
     TLS_MODE_DISABLE,
     get_tls_files,
@@ -18,7 +18,7 @@ from sqlit.domains.connections.providers.tls import (
 )
 
 if TYPE_CHECKING:
-    from sqlit.domains.connections.domain.config import ConnectionConfig
+    from dbcore.connections.domain.config import ConnectionConfig
 
 
 def _check_old_mysql_connector() -> bool:

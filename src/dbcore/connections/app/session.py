@@ -10,8 +10,8 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
-    from sqlit.domains.connections.domain.config import ConnectionConfig
-    from sqlit.domains.connections.providers.model import DatabaseProvider
+    from dbcore.connections.domain.config import ConnectionConfig
+    from dbcore.connections.providers.model import DatabaseProvider
 
     from .executor import DatabaseExecutor
 
@@ -87,11 +87,11 @@ class ConnectionSession:
             ImportError: If required database driver is not installed.
             Any database-specific connection errors.
         """
-        from sqlit.domains.connections.app.tunnel import create_ssh_tunnel
-        from sqlit.domains.connections.providers.adapter_provider import build_adapter_provider
-        from sqlit.domains.connections.providers.catalog import get_provider, get_provider_schema, get_provider_spec
-        from sqlit.domains.connections.providers.config_service import normalize_connection_config
-        from sqlit.domains.connections.providers.model import DatabaseProvider
+        from dbcore.connections.app.tunnel import create_ssh_tunnel
+        from dbcore.connections.providers.adapter_provider import build_adapter_provider
+        from dbcore.connections.providers.catalog import get_provider, get_provider_schema, get_provider_spec
+        from dbcore.connections.providers.config_service import normalize_connection_config
+        from dbcore.connections.providers.model import DatabaseProvider
 
         get_provider_fn = provider_factory or get_provider
         create_tunnel_fn = tunnel_factory or create_ssh_tunnel

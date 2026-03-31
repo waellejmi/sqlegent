@@ -6,7 +6,7 @@ import os
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, cast
 
-from sqlit.domains.connections.providers.adapters.base import (
+from dbcore.connections.providers.adapters.base import (
     ColumnInfo,
     DatabaseAdapter,
     IndexInfo,
@@ -18,7 +18,7 @@ from sqlit.domains.connections.providers.adapters.base import (
 if TYPE_CHECKING:
     import requests  # pyright: ignore[reportMissingModuleSource]
 
-    from sqlit.domains.connections.domain.config import ConnectionConfig
+    from dbcore.connections.domain.config import ConnectionConfig
 
 
 @dataclass

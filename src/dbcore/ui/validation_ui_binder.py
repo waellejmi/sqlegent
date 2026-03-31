@@ -7,8 +7,8 @@ from typing import Any
 from textual.containers import Container
 from textual.widgets import Static, TabbedContent, TabPane
 
-from sqlit.domains.connections.ui.fields import FieldDefinition
-from sqlit.domains.connections.ui.validation import ValidationState
+from dbcore.ui.fields import FieldDefinition
+from dbcore.ui.validation import ValidationState
 
 
 class ConnectionValidationBinder:

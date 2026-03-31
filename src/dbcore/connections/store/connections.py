@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from sqlit.domains.connections.app.credentials import CredentialsPersistError, CredentialsStoreError
+from dbcore.connections.app.credentials import CredentialsPersistError, CredentialsStoreError
 from sqlit.shared.core.store import CONFIG_DIR, JSONFileStore
 
 if TYPE_CHECKING:
-    from sqlit.domains.connections.app.credentials import CredentialsService
-    from sqlit.domains.connections.domain.config import ConnectionConfig
+    from dbcore.connections.app.credentials import CredentialsService
+    from dbcore.connections.domain.config import ConnectionConfig
 
 
 class ConnectionStore(JSONFileStore):
@@ -34,7 +34,7 @@ class ConnectionStore(JSONFileStore):
     def credentials_service(self) -> CredentialsService:
         """Get the credentials service (lazy-loaded)."""
         if self._credentials_service is None:
-            from sqlit.domains.connections.app.credentials import get_credentials_service
+            from dbcore.connections.app.credentials import get_credentials_service
 
             return get_credentials_service()
         return self._credentials_service
@@ -64,14 +64,14 @@ class ConnectionStore(JSONFileStore):
         Returns:
             List of ConnectionConfig objects, or empty list if none exist.
         """
-        from sqlit.domains.connections.domain.config import ConnectionConfig
+        from dbcore.connections.domain.config import ConnectionConfig
 
         data = self._read_json()
         if data is None:
             return []
         version, raw_connections, needs_migration = self._unpack_connections_payload(data)
         try:
-            from sqlit.domains.connections.providers.config_service import normalize_connection_config
+            from dbcore.connections.providers.config_service import normalize_connection_config
 
             configs = []
             for conn in raw_connections:
@@ -189,7 +189,7 @@ class ConnectionStore(JSONFileStore):
         Args:
             connections: List of ConnectionConfig objects to save.
         """
-        from sqlit.domains.connections.app.persist_utils import build_persist_connections
+        from dbcore.connections.app.persist_utils import build_persist_connections
 
         errors: list[CredentialsStoreError] = []
         persist_connections = build_persist_connections(connections, self.credentials_service)

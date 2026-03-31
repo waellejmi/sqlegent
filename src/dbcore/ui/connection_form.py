@@ -9,10 +9,10 @@ from textual.containers import Container
 from textual.widget import Widget
 from textual.widgets import Input, OptionList, Select, TabbedContent
 
-from sqlit.domains.connections.domain.config import DATABASE_TYPE_DISPLAY_ORDER, ConnectionConfig, DatabaseType
-from sqlit.domains.connections.providers.catalog import get_provider_schema
-from sqlit.domains.connections.ui.field_widgets import FieldWidgetBuilder
-from sqlit.domains.connections.ui.fields import FieldDefinition, FieldGroup, FieldType, schema_to_field_definitions
+from dbcore.connections.domain.config import DATABASE_TYPE_DISPLAY_ORDER, ConnectionConfig, DatabaseType
+from dbcore.connections.providers.catalog import get_provider_schema
+from dbcore.ui.field_widgets import FieldWidgetBuilder
+from dbcore.ui.fields import FieldDefinition, FieldGroup, FieldType, schema_to_field_definitions
 
 
 class ConnectionFormController:

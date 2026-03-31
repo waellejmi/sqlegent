@@ -7,13 +7,13 @@ from typing import Any
 
 from textual.widgets import Static
 
-from sqlit.domains.connections.domain.config import DatabaseType
-from sqlit.domains.connections.providers.driver import ensure_provider_driver_available
-from sqlit.domains.connections.providers.exceptions import MissingDriverError
-from sqlit.domains.connections.providers.metadata import supports_ssh
-from sqlit.domains.connections.ui.driver_status import build_driver_status_display
-from sqlit.shared.ui.protocols import AppProtocol
-from sqlit.shared.ui.widgets import Dialog
+from dbcore.connections.domain.config import DatabaseType
+from dbcore.connections.providers.driver import ensure_provider_driver_available
+from dbcore.connections.providers.exceptions import MissingDriverError
+from dbcore.connections.providers.metadata import supports_ssh
+from dbcore.ui.driver_status import build_driver_status_display
+from dbcore.ui.protocols import AppProtocol
+from dbcore.ui.widgets import Dialog
 
 
 class DriverStatusController:
@@ -42,7 +42,7 @@ class DriverStatusController:
             self._missing_driver_error = e
 
     def check_ssh_driver_availability(self, db_type: DatabaseType) -> None:
-        from sqlit.domains.connections.app.tunnel import ensure_ssh_tunnel_available
+        from dbcore.connections.app.tunnel import ensure_ssh_tunnel_available
 
         self._missing_ssh_driver_error = None
         if not supports_ssh(db_type.value):
@@ -83,7 +83,7 @@ class DriverStatusController:
         write_restart_cache: Callable[[str | None], None],
         restart_app: Callable[[], None] | None,
     ) -> None:
-        from sqlit.domains.connections.ui.screens.package_setup import PackageSetupScreen
+        from dbcore.ui.screens.package_setup import PackageSetupScreen
 
         if not isinstance(error, MissingDriverError):
             return
@@ -130,6 +130,6 @@ class DriverStatusController:
             return None
 
     def _format_install_hint(self, strategy: Any) -> str:
-        from sqlit.domains.connections.ui.driver_status import _format_install_hint
+        from dbcore.ui.driver_status import _format_install_hint
 
         return _format_install_hint(strategy)

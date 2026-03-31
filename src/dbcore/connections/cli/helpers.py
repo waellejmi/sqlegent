@@ -7,13 +7,13 @@ from collections.abc import Iterable
 from functools import lru_cache
 from typing import Any
 
-from sqlit.domains.connections.domain.config import ConnectionConfig
-from sqlit.domains.connections.providers.schema_helpers import ConnectionSchema, FieldType
+from dbcore.connections.domain.config import ConnectionConfig
+from dbcore.connections.providers.schema_helpers import ConnectionSchema, FieldType
 
 
 @lru_cache(maxsize=1)
 def _get_connection_arg_names() -> set[str]:
-    from sqlit.domains.connections.providers.catalog import get_all_schemas
+    from dbcore.connections.providers.catalog import get_all_schemas
 
     names = {
         field.name
@@ -77,7 +77,7 @@ def build_connection_config_from_args(
     strict: bool = True,
 ) -> ConnectionConfig:
     """Build a ConnectionConfig from CLI args based on a provider schema."""
-    from sqlit.domains.connections.providers.config_service import normalize_connection_config
+    from dbcore.connections.providers.config_service import normalize_connection_config
 
     raw_values = _extract_raw_values(schema, args)
 

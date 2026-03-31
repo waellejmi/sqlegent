@@ -11,10 +11,10 @@ from textual.screen import ModalScreen
 from textual.widgets import OptionList, Static
 from textual.widgets.option_list import Option
 
-from sqlit.domains.connections.app.install_strategy import InstallOption
-from sqlit.domains.connections.providers.exceptions import MissingDriverError
-from sqlit.shared.app.services import InstallStrategyProvider
-from sqlit.shared.ui.widgets import Dialog
+from dbcore.connections.app.install_strategy import InstallOption
+from dbcore.connections.providers.exceptions import MissingDriverError
+from dbcore.shared.app.services import InstallStrategyProvider
+from dbcore.ui.widgets import Dialog
 
 
 class PackageSetupScreen(ModalScreen):
@@ -159,7 +159,7 @@ class PackageSetupScreen(ModalScreen):
             )
 
     def action_yank(self) -> None:
-        from sqlit.shared.ui.widgets import flash_widget
+        from dbcore.ui.widgets import flash_widget
 
         command = self._get_selected_option()
         if command:

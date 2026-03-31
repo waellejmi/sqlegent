@@ -9,12 +9,12 @@ from __future__ import annotations
 
 import pytest
 
-from sqlit.domains.connections.discovery.docker_detector import (
+from dbcore.connections.discovery.docker_detector import (
     ContainerStatus,
     DetectedContainer,
 )
-from sqlit.domains.connections.domain.config import ConnectionConfig, TcpEndpoint
-from sqlit.domains.connections.ui.screens.connection_picker.tabs.docker import (
+from dbcore.connections.domain.config import ConnectionConfig, TcpEndpoint
+from dbcore.ui.screens.connection_picker.tabs.docker import (
     build_docker_options,
     find_matching_saved_connection,
     is_container_saved,

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from sqlit.domains.connections.ui.screens.connection_picker.cloud_providers.base import (
+from dbcore.ui.screens.connection_picker.cloud_providers.base import (
     CloudProviderUIAdapter,
 )
 
@@ -17,13 +17,13 @@ def _load_adapters() -> dict[str, CloudProviderUIAdapter]:
     if _ADAPTERS is not None:
         return _ADAPTERS
     try:
-        from sqlit.domains.connections.ui.screens.connection_picker.cloud_providers.aws import (
+        from dbcore.ui.screens.connection_picker.cloud_providers.aws import (
             AWSCloudUIAdapter,
         )
-        from sqlit.domains.connections.ui.screens.connection_picker.cloud_providers.azure import (
+        from dbcore.ui.screens.connection_picker.cloud_providers.azure import (
             AzureCloudUIAdapter,
         )
-        from sqlit.domains.connections.ui.screens.connection_picker.cloud_providers.gcp import (
+        from dbcore.ui.screens.connection_picker.cloud_providers.gcp import (
             GCPCloudUIAdapter,
         )
 

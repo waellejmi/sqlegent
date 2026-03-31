@@ -5,8 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from sqlit.domains.connections.discovery.cloud import CloudProvider, ProviderState, SelectionResult
-from sqlit.domains.connections.domain.config import ConnectionConfig
+from dbcore.connections.discovery.cloud import CloudProvider, ProviderState, SelectionResult
+from dbcore.connections.domain.config import ConnectionConfig
 
 
 @dataclass(frozen=True)

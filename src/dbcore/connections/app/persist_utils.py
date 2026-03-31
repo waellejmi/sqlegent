@@ -6,8 +6,8 @@ import copy
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from sqlit.domains.connections.app.credentials import CredentialsService
-    from sqlit.domains.connections.domain.config import ConnectionConfig
+    from dbcore.connections.app.credentials import CredentialsService
+    from dbcore.connections.domain.config import ConnectionConfig
 
 
 def build_persist_connections(

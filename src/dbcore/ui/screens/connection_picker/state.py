@@ -6,8 +6,8 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from sqlit.domains.connections.discovery.cloud import ProviderState
-    from sqlit.domains.connections.discovery.docker_detector import DetectedContainer
+    from dbcore.connections.discovery.cloud import ProviderState
+    from dbcore.connections.discovery.docker_detector import DetectedContainer
 
 
 @dataclass

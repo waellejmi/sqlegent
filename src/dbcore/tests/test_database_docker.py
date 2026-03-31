@@ -15,16 +15,16 @@ class DockerDiscoveryTests:
         containers for this database type in the connection picker.
         """
         # Skip for file-based databases (they don't use Docker containers)
-        from sqlit.domains.connections.providers.registry import is_file_based
+        from dbcore.connections.providers.registry import is_file_based
 
         if is_file_based(self.config.db_type):
             pytest.skip(f"{self.config.display_name} is file-based, no Docker container")
 
-        from sqlit.domains.connections.discovery.docker_detector import (
+        from dbcore.connections.discovery.docker_detector import (
             DockerStatus,
             detect_database_containers,
         )
-        from sqlit.domains.connections.providers.catalog import get_provider
+        from dbcore.connections.providers.catalog import get_provider
 
         # Skip if this database type has no Docker image patterns defined
         provider = get_provider(self.config.db_type)
@@ -66,12 +66,12 @@ class DockerDiscoveryTests:
         that don't need them.
         """
         # Skip for file-based databases (they don't use Docker containers)
-        from sqlit.domains.connections.providers.registry import is_file_based
+        from dbcore.connections.providers.registry import is_file_based
 
         if is_file_based(self.config.db_type):
             pytest.skip(f"{self.config.display_name} is file-based, no Docker container")
 
-        from sqlit.domains.connections.discovery.docker_detector import (
+        from dbcore.connections.discovery.docker_detector import (
             DockerStatus,
             container_to_connection_config,
             detect_database_containers,
@@ -95,7 +95,7 @@ class DockerDiscoveryTests:
 
         # Databases that don't require auth should have password="" not None
         # This prevents the UI from showing "Password Required" dialog
-        from sqlit.domains.connections.providers.registry import requires_auth
+        from dbcore.connections.providers.registry import requires_auth
 
         if not requires_auth(self.config.db_type):
             assert config.password is not None, (
@@ -120,17 +120,17 @@ class DockerDiscoveryTests:
         - Wrong port mappings
         """
         # Skip for file-based databases (they don't use Docker containers)
-        from sqlit.domains.connections.providers.registry import is_file_based
+        from dbcore.connections.providers.registry import is_file_based
 
         if is_file_based(self.config.db_type):
             pytest.skip(f"{self.config.display_name} is file-based, no Docker container")
 
-        from sqlit.domains.connections.discovery.docker_detector import (
+        from dbcore.connections.discovery.docker_detector import (
             DockerStatus,
             container_to_connection_config,
             detect_database_containers,
         )
-        from sqlit.domains.connections.providers.registry import get_adapter
+        from dbcore.connections.providers.registry import get_adapter
 
         status, containers = detect_database_containers()
 
@@ -154,7 +154,7 @@ class DockerDiscoveryTests:
 
         # Databases that don't require auth should have password="" not None
         # This prevents the UI from showing "Password Required" dialog
-        from sqlit.domains.connections.providers.registry import requires_auth
+        from dbcore.connections.providers.registry import requires_auth
 
         if not requires_auth(self.config.db_type):
             assert config.password is not None, (

@@ -8,8 +8,8 @@ from functools import cache, lru_cache
 from importlib import import_module
 from typing import cast
 
-from sqlit.domains.connections.providers.model import DatabaseProvider, ProviderSpec
-from sqlit.domains.connections.providers.schema_helpers import ConnectionSchema
+from dbcore.connections.providers.model import DatabaseProvider, ProviderSpec
+from dbcore.connections.providers.schema_helpers import ConnectionSchema
 
 _PROVIDERS: dict[str, ProviderSpec] = {}
 _DISCOVERED = False
@@ -24,7 +24,7 @@ def _discover_providers() -> None:
     if _DISCOVERED:
         return
 
-    from sqlit.shared.app.startup_profiler import span as startup_span
+    from dbcore.shared.app.startup_profiler import span as startup_span
 
     if __package__ is None:
         return

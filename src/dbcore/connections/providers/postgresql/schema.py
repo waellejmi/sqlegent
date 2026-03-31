@@ -1,6 +1,6 @@
 """Connection schema for PostgreSQL."""
 
-from sqlit.domains.connections.providers.schema_helpers import (
+from dbcore.connections.providers.schema_helpers import (
     SSH_FIELDS,
     TLS_FIELDS,
     ConnectionSchema,

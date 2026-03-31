@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import getpass
 
-from sqlit.domains.connections.domain.config import ConnectionConfig
-from sqlit.domains.connections.domain.passwords import needs_db_password, needs_ssh_password
+from dbcore.connections.domain.config import ConnectionConfig
+from dbcore.connections.domain.passwords import needs_db_password, needs_ssh_password
 
 
 def prompt_for_password(config: ConnectionConfig) -> ConnectionConfig:

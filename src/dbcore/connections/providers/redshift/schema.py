@@ -1,6 +1,6 @@
 """Connection schema for Amazon Redshift."""
 
-from sqlit.domains.connections.providers.schema_helpers import (
+from dbcore.connections.providers.schema_helpers import (
     TLS_FIELDS,
     ConnectionSchema,
     FieldType,

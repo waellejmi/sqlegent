@@ -7,19 +7,19 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
-    from sqlit.domains.connections.domain.config import ConnectionConfig
+    from dbcore.connections.domain.config import ConnectionConfig
 
-from sqlit.domains.connections.providers.driver import DriverDescriptor
-from sqlit.domains.connections.providers.explorer_nodes import DefaultExplorerNodeProvider
-from sqlit.domains.connections.providers.model import (
+from dbcore.connections.providers.driver import DriverDescriptor
+from dbcore.connections.providers.explorer_nodes import DefaultExplorerNodeProvider
+from dbcore.connections.providers.model import (
     ConfigValidator,
     DatabaseProvider,
     ProviderMetadata,
     ProviderSpec,
     SchemaCapabilities,
 )
-from sqlit.domains.connections.providers.schema_helpers import ConnectionSchema
-from sqlit.domains.connections.providers.validation import SchemaConfigValidator
+from dbcore.connections.providers.schema_helpers import ConnectionSchema
+from dbcore.connections.providers.validation import SchemaConfigValidator
 
 
 @dataclass

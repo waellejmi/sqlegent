@@ -6,13 +6,13 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from sqlit.domains.connections.providers.driver import (
+from dbcore.connections.providers.driver import (
     ConfigurableDriverResolver,
     DefaultDriverResolver,
     DriverResolver,
     attach_driver_resolver,
 )
-from sqlit.shared.app.runtime import RuntimeConfig
+from dbcore.shared.app.runtime import RuntimeConfig
 from sqlit.shared.core.processes import (
     AsyncProcessRunner,
     AsyncSubprocessRunner,
@@ -140,10 +140,10 @@ class AppServices:
 
     def apply_mock_profile(self, profile: Any | None) -> None:
         """Switch services into/out of mock profile mode."""
-        from sqlit.domains.connections.app.credentials import PlaintextCredentialsService
-        from sqlit.domains.connections.app.session import ConnectionSession
-        from sqlit.domains.connections.app.tunnel import create_noop_tunnel
-        from sqlit.domains.connections.store.memory import InMemoryConnectionStore
+        from dbcore.connections.app.credentials import PlaintextCredentialsService
+        from dbcore.connections.app.session import ConnectionSession
+        from dbcore.connections.app.tunnel import create_noop_tunnel
+        from dbcore.connections.store.memory import InMemoryConnectionStore
         from sqlit.domains.query.store.memory import InMemoryHistoryStore, InMemoryStarredStore
 
         self.runtime.mock.profile = profile
@@ -174,7 +174,7 @@ class AppServices:
 
     def apply_mock_settings(self, settings: dict[str, Any]) -> None:
         """Apply mock settings from settings.json into runtime/services."""
-        from sqlit.domains.connections.app.mock_settings import parse_mock_settings
+        from dbcore.connections.app.mock_settings import parse_mock_settings
 
         mock_settings = parse_mock_settings(settings)
         if mock_settings is None:
@@ -199,7 +199,7 @@ class AppServices:
 
         self.driver_resolver = build_driver_resolver(self.runtime)
         self.provider_factory = _wrap_provider_factory(self.provider_factory, self.driver_resolver)
-        from sqlit.domains.connections.discovery.docker_detector import (
+        from dbcore.connections.discovery.docker_detector import (
             DockerContainerScanner,
             StaticDockerContainerScanner,
         )
@@ -236,17 +236,17 @@ def build_app_services(
     async_process_runner: AsyncProcessRunner | None = None,
 ) -> AppServices:
     """Build the default service container for the app."""
-    from sqlit.domains.connections.app.credentials import build_credentials_service
-    from sqlit.domains.connections.app.session import ConnectionSession
-    from sqlit.domains.connections.app.tunnel import create_ssh_tunnel
-    from sqlit.domains.connections.providers.catalog import get_provider
-    from sqlit.domains.connections.store.connections import ConnectionStore
+    from dbcore.connections.app.credentials import build_credentials_service
+    from dbcore.connections.app.session import ConnectionSession
+    from dbcore.connections.app.tunnel import create_ssh_tunnel
+    from dbcore.connections.providers.catalog import get_provider
+    from dbcore.connections.store.connections import ConnectionStore
     from sqlit.domains.query.store.history import HistoryStore
     from sqlit.domains.query.store.starred import StarredStore
     from sqlit.domains.shell.store.settings import SettingsStore
-    from sqlit.shared.app.startup_profiler import configure as configure_startup_profiler
-    from sqlit.shared.app.startup_profiler import enable_import_timing
-    from sqlit.shared.app.startup_profiler import span as startup_span
+    from dbcore.shared.app.startup_profiler import configure as configure_startup_profiler
+    from dbcore.shared.app.startup_profiler import enable_import_timing
+    from dbcore.shared.app.startup_profiler import span as startup_span
 
     configure_startup_profiler(
         log_path=runtime.startup_log_path,
@@ -346,7 +346,7 @@ def build_app_services(
 
 def build_docker_detector(runtime: RuntimeConfig) -> Callable[[], tuple[Any, list[Any]]]:
     """Create a docker detector callable for the current runtime."""
-    from sqlit.domains.connections.discovery.docker_detector import (
+    from dbcore.connections.discovery.docker_detector import (
         DockerContainerScanner,
         StaticDockerContainerScanner,
     )
@@ -367,7 +367,7 @@ class EmptyCloudStateProvider:
 
 class MockCloudStateProvider:
     def __call__(self, providers: list[Any]) -> dict[str, Any] | None:
-        from sqlit.domains.connections.discovery.cloud.mock import get_mock_cloud_states
+        from dbcore.connections.discovery.cloud.mock import get_mock_cloud_states
 
         states = get_mock_cloud_states()
         return {p.id: states[p.id] for p in providers if p.id in states}
@@ -405,7 +405,7 @@ class InstallStrategyProvider:
         self._probe = probe
 
     def detect(self, *, extra_name: str, package_name: str) -> Any:
-        from sqlit.domains.connections.app.install_strategy import detect_strategy
+        from dbcore.connections.app.install_strategy import detect_strategy
 
         return detect_strategy(
             extra_name=extra_name,
@@ -414,14 +414,14 @@ class InstallStrategyProvider:
         )
 
     def detect_install_method(self) -> str:
-        from sqlit.domains.connections.app.install_strategy import detect_install_method
+        from dbcore.connections.app.install_strategy import detect_install_method
 
         return detect_install_method(
             probe=self._probe,
         )
 
     def get_install_options(self, *, extra_name: str | None, package_name: str) -> list[Any]:
-        from sqlit.domains.connections.app.install_strategy import get_install_options
+        from dbcore.connections.app.install_strategy import get_install_options
 
         return get_install_options(
             package_name=package_name,
@@ -430,7 +430,7 @@ class InstallStrategyProvider:
         )
 
     def format_manual_instructions(self, *, extra_name: str | None, package_name: str, reason: str) -> str:
-        from sqlit.domains.connections.app.install_strategy import _format_manual_instructions
+        from dbcore.connections.app.install_strategy import _format_manual_instructions
 
         return _format_manual_instructions(
             package_name=package_name,

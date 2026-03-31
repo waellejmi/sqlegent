@@ -9,7 +9,7 @@ from textual.containers import Container, Horizontal
 from textual.widgets import Button, Input, OptionList, Select, Static
 from textual.widgets.option_list import Option
 
-from sqlit.domains.connections.ui.fields import FieldDefinition, FieldGroup, FieldType
+from dbcore.ui.fields import FieldDefinition, FieldGroup, FieldType
 
 
 class FieldWidgetBuilder:

@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from sqlit.domains.connections.domain.config import ConnectionConfig
+    from dbcore.connections.domain.config import ConnectionConfig
 
 
 def ensure_ssh_tunnel_available() -> None:
@@ -15,7 +15,7 @@ def ensure_ssh_tunnel_available() -> None:
     try:
         import sshtunnel  # noqa: F401
     except Exception as e:
-        from sqlit.domains.connections.providers.exceptions import MissingDriverError
+        from dbcore.connections.providers.exceptions import MissingDriverError
 
         raise MissingDriverError(
             "SSH tunnel",

@@ -6,7 +6,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Protocol
 
-from sqlit.domains.connections.providers.model import (
+from dbcore.connections.providers.model import (
     IndexInspector,
     ProcedureInspector,
     SchemaCapabilities,

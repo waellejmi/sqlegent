@@ -5,8 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from sqlit.domains.connections.app.credentials import CredentialsPersistError
-from sqlit.domains.connections.domain.config import ConnectionConfig
+from dbcore.connections.app.credentials import CredentialsPersistError
+from dbcore.connections.domain.config import ConnectionConfig
 
 
 @dataclass

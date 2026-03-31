@@ -60,3 +60,34 @@ services:
     volumes:
       - ../../data/Chinook_MySql.sql:/docker-entrypoint-initdb.d/chinookmysql.sql:ro
 
+  oracle:
+    image: gvenzl/oracle-free:23-slim
+    container_name: chinook-oracle
+    environment:
+      ORACLE_PASSWORD: "ChinookPass123!"
+      APP_USER: "chinook_user"
+      APP_USER_PASSWORD: "ChinookPass123!"
+    ports:
+      - "${ORACLE_PORT:-1521}:1521"
+    healthcheck:
+      test: ["CMD", "healthcheck.sh"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+    tmpfs:
+      - /var/lib/oracle
+    volumes:
+      - ../../data/Chinook_Oracle.sql:/docker-entrypoint-initdb.d/chinookoracle.sql:ro
+
+
+  # oracle11g:
+  #   image: wnameless/oracle-xe-11g
+  #   container_name: sqlit-test-oracle11g
+  #   environment:
+  #     ORACLE_ALLOW_REMOTE: "true"
+  #   ports:
+  #     - "1522:1521"
+  #   profiles:
+  #     - enterprise
+  #

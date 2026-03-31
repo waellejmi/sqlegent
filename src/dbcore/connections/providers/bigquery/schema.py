@@ -1,6 +1,6 @@
 """Connection schema for Google BigQuery."""
 
-from sqlit.domains.connections.providers.schema_helpers import (
+from dbcore.connections.providers.schema_helpers import (
     ConnectionSchema,
     FieldType,
     SchemaField,

@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from sqlit.domains.connections.providers.postgresql.base import PostgresBaseAdapter
-from sqlit.domains.connections.providers.registry import get_default_port
-from sqlit.domains.connections.providers.tls import (
+from dbcore.connections.providers.postgresql.base import PostgresBaseAdapter
+from dbcore.connections.providers.registry import get_default_port
+from dbcore.connections.providers.tls import (
     TLS_MODE_DEFAULT,
     TLS_MODE_DISABLE,
     get_tls_files,
@@ -14,7 +14,7 @@ from sqlit.domains.connections.providers.tls import (
 )
 
 if TYPE_CHECKING:
-    from sqlit.domains.connections.domain.config import ConnectionConfig
+    from dbcore.connections.domain.config import ConnectionConfig
 
 
 class CockroachDBAdapter(PostgresBaseAdapter):

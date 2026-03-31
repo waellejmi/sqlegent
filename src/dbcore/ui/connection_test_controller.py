@@ -7,11 +7,11 @@ from typing import Any
 
 from textual.widgets import Static
 
-from sqlit.domains.connections.domain.config import ConnectionConfig
-from sqlit.domains.connections.providers.exceptions import MissingDriverError
-from sqlit.domains.connections.ui.driver_status_controller import DriverStatusController
-from sqlit.shared.ui.protocols import AppProtocol
-from sqlit.shared.ui.spinner import SPINNER_FRAMES, Spinner
+from dbcore.connections.domain.config import ConnectionConfig
+from dbcore.connections.providers.exceptions import MissingDriverError
+from dbcore.ui.driver_status_controller import DriverStatusController
+from dbcore.ui.protocols import AppProtocol
+from dbcore.ui.spinner import SPINNER_FRAMES, Spinner
 
 
 class ConnectionTestController:

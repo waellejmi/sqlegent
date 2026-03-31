@@ -11,7 +11,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any, Protocol, cast
 
 if TYPE_CHECKING:
-    from sqlit.domains.connections.domain.config import ConnectionConfig
+    from dbcore.connections.domain.config import ConnectionConfig
 
 
 class DockerStatus(Enum):
@@ -56,7 +56,7 @@ class DetectedContainer:
 
     def get_display_name(self) -> str:
         """Get a display name for the container."""
-        from sqlit.domains.connections.providers.metadata import get_display_name
+        from dbcore.connections.providers.metadata import get_display_name
 
         label = get_display_name(self.db_type)
         if label == self.db_type:
@@ -71,7 +71,7 @@ class DockerScanProtocol(Protocol):
 
 
 def _iter_docker_detectors() -> list[tuple[str, Any]]:
-    from sqlit.domains.connections.providers.catalog import get_provider, get_supported_db_types
+    from dbcore.connections.providers.catalog import get_provider, get_supported_db_types
 
     detectors: list[tuple[str, Any]] = []
     for db_type in get_supported_db_types():
@@ -245,7 +245,7 @@ def _detect_containers_with_status(
         if not db_type:
             continue
 
-        from sqlit.domains.connections.providers.catalog import get_provider
+        from dbcore.connections.providers.catalog import get_provider
 
         provider = get_provider(db_type)
         detector = provider.docker_detector
@@ -363,8 +363,8 @@ def container_to_connection_config(container: DetectedContainer) -> ConnectionCo
     Returns:
         ConnectionConfig ready for connection or saving.
     """
-    from sqlit.domains.connections.domain.config import ConnectionConfig, TcpEndpoint
-    from sqlit.domains.connections.providers.catalog import get_provider
+    from dbcore.connections.domain.config import ConnectionConfig, TcpEndpoint
+    from dbcore.connections.providers.catalog import get_provider
 
     server = container.host
     port = str(container.port) if container.port else ""

@@ -11,7 +11,7 @@ from textual.screen import ModalScreen
 from textual.widgets import RichLog, Static
 
 from sqlit.shared.core.processes import AsyncProcess, AsyncProcessRunner, AsyncSubprocessRunner
-from sqlit.shared.ui.widgets import Dialog
+from dbcore.ui.widgets import Dialog
 
 
 class InstallProgressScreen(ModalScreen[bool]):

@@ -72,7 +72,7 @@ def is_keyring_usable() -> bool:
     """Return True if a usable keyring backend appears to be available."""
     if os.environ.get("SQLIT_SKIP_KEYRING_PROBE") == "1":
         return False
-    from sqlit.shared.app.startup_profiler import span as startup_span
+    from dbcore.shared.app.startup_profiler import span as startup_span
 
     with startup_span("keyring_probe"):
         return _is_keyring_usable()

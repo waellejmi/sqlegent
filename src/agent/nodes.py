@@ -9,8 +9,7 @@ from agent.prompts import (
     EXPLAIN_RESULT,
     GENERATE_QUERY,
     HANDLE_IRRELEVANT_RESULT,
-    REGENERATE_QUERY_ON_EMPTY_RESULT,
-    REGENERATE_QUERY_ON_ERROR,
+    REGEN_PROMPTS,
     SHOULD_SKIP,
 )
 from agent.state import AgentState, AnalysisResult, SkipDecision
@@ -24,11 +23,6 @@ from tools.database import (
 from utils.logger_setup import LoggerSetup
 
 logger = LoggerSetup.get_logger(__name__, logging.INFO)
-
-REGEN_PROMPTS = {
-    "error": REGENERATE_QUERY_ON_ERROR,
-    "empty_result": REGENERATE_QUERY_ON_EMPTY_RESULT,
-}
 
 
 def list_tables(_state: AgentState):

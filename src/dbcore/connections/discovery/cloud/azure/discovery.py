@@ -11,7 +11,7 @@ from .cli import _run_az_command, get_azure_status, get_azure_subscriptions
 from .models import AzureSqlServer, AzureStatus
 
 if TYPE_CHECKING:
-    from sqlit.domains.connections.domain.config import ConnectionConfig
+    from dbcore.connections.domain.config import ConnectionConfig
 
 
 def check_entra_admin(
@@ -301,7 +301,7 @@ def azure_server_to_connection_config(
     Returns:
         ConnectionConfig ready for connection.
     """
-    from sqlit.domains.connections.domain.config import ConnectionConfig
+    from dbcore.connections.domain.config import ConnectionConfig
 
     # Common Azure metadata for firewall rule creation
     azure_options = {

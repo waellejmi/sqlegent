@@ -5,22 +5,22 @@ from __future__ import annotations
 import sys
 from typing import Any
 
-from sqlit.domains.connections.app.credentials import (
+from dbcore.connections.app.credentials import (
     ALLOW_PLAINTEXT_CREDENTIALS_SETTING,
     CredentialsPersistError,
     build_credentials_service,
     is_keyring_usable,
 )
-from sqlit.domains.connections.domain.config import (
+from dbcore.connections.domain.config import (
     AUTH_TYPE_LABELS,
     AuthType,
     ConnectionConfig,
     DatabaseType,
     get_database_type_labels,
 )
-from sqlit.domains.connections.providers.catalog import get_provider_schema
-from sqlit.shared.app.runtime import RuntimeConfig
-from sqlit.shared.app.services import AppServices, build_app_services
+from dbcore.connections.providers.catalog import get_provider_schema
+from dbcore.shared.app.runtime import RuntimeConfig
+from dbcore.shared.app.services import AppServices, build_app_services
 
 from .helpers import build_connection_config_from_args
 
@@ -131,7 +131,7 @@ def cmd_connection_list(args: Any, *, services: AppServices | None = None) -> in
 
 def cmd_connection_create(args: Any, *, services: AppServices | None = None) -> int:
     """Create a new connection."""
-    from sqlit.domains.connections.app.url_parser import is_connection_url, parse_connection_url
+    from dbcore.connections.app.url_parser import is_connection_url, parse_connection_url
 
     services = services or build_app_services(RuntimeConfig.from_env())
     connections = services.connection_store.load_all()
@@ -258,7 +258,7 @@ def cmd_connection_edit(args: Any, *, services: AppServices | None = None) -> in
         if conn.file_endpoint:
             conn.file_endpoint.path = file_path
         else:
-            from sqlit.domains.connections.domain.config import FileEndpoint
+            from dbcore.connections.domain.config import FileEndpoint
 
             conn.endpoint = FileEndpoint(path=file_path)
 
@@ -287,7 +287,7 @@ def cmd_connection_delete(args: Any, *, services: AppServices | None = None) -> 
 
 def cmd_docker_list(args: Any, *, services: AppServices | None = None) -> int:
     """List detected Docker database containers."""
-    from sqlit.domains.connections.discovery.docker_detector import (
+    from dbcore.connections.discovery.docker_detector import (
         ContainerStatus,
         DockerStatus,
     )

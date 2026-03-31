@@ -69,7 +69,7 @@ DATABASE_TYPE_DISPLAY_ORDER: list[DatabaseType] = [
 
 
 def get_database_type_labels() -> dict[DatabaseType, str]:
-    from sqlit.domains.connections.providers.metadata import get_display_name
+    from dbcore.connections.providers.metadata import get_display_name
 
     return {db_type: get_display_name(db_type.value) for db_type in DatabaseType}
 

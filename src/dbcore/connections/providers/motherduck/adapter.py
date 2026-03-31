@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from sqlit.domains.connections.providers.adapters.base import TableInfo
-from sqlit.domains.connections.providers.duckdb.adapter import DuckDBAdapter
+from dbcore.connections.providers.adapters.base import TableInfo
+from dbcore.connections.providers.duckdb.adapter import DuckDBAdapter
 
 if TYPE_CHECKING:
-    from sqlit.domains.connections.domain.config import ConnectionConfig
+    from dbcore.connections.domain.config import ConnectionConfig
 
 
 class MotherDuckAdapter(DuckDBAdapter):

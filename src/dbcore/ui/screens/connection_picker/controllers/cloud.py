@@ -4,19 +4,19 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from sqlit.domains.connections.app.cloud_actions import (
+from dbcore.connections.app.cloud_actions import (
     CloudActionRequest,
     CloudActionResponse,
 )
-from sqlit.domains.connections.discovery.cloud import ProviderState, ProviderStatus
-from sqlit.domains.connections.ui.screens.connection_picker.cloud_nodes import CloudNodeData
-from sqlit.domains.connections.ui.screens.connection_picker.constants import TAB_CLOUD
+from dbcore.connections.discovery.cloud import ProviderState, ProviderStatus
+from dbcore.ui.screens.connection_picker.cloud_nodes import CloudNodeData
+from dbcore.ui.screens.connection_picker.constants import TAB_CLOUD
 
 if TYPE_CHECKING:
     from textual.widgets.tree import TreeNode
 
-    from sqlit.domains.connections.domain.config import ConnectionConfig
-    from sqlit.domains.connections.ui.screens.connection_picker.screen import ConnectionPickerScreen
+    from dbcore.connections.domain.config import ConnectionConfig
+    from dbcore.ui.screens.connection_picker.screen import ConnectionPickerScreen
 
 
 class CloudController:

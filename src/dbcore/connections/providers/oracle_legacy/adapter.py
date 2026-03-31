@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from sqlit.domains.connections.providers.oracle.adapter import OracleAdapter
+from dbcore.connections.providers.oracle.adapter import OracleAdapter
 
 if TYPE_CHECKING:
-    from sqlit.domains.connections.domain.config import ConnectionConfig
+    from dbcore.connections.domain.config import ConnectionConfig
 
 
 class OracleLegacyAdapter(OracleAdapter):

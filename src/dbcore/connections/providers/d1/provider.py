@@ -1,21 +1,21 @@
 """Provider registration."""
 
-from sqlit.domains.connections.providers.adapter_provider import build_adapter_provider
-from sqlit.domains.connections.providers.catalog import register_provider
-from sqlit.domains.connections.providers.d1.schema import SCHEMA
-from sqlit.domains.connections.providers.docker import DockerDetector
-from sqlit.domains.connections.providers.model import DatabaseProvider, ProviderSpec
+from dbcore.connections.providers.adapter_provider import build_adapter_provider
+from dbcore.connections.providers.catalog import register_provider
+from dbcore.connections.providers.d1.schema import SCHEMA
+from dbcore.connections.providers.docker import DockerDetector
+from dbcore.connections.providers.model import DatabaseProvider, ProviderSpec
 
 
 def _provider_factory(spec: ProviderSpec) -> DatabaseProvider:
-    from sqlit.domains.connections.providers.d1.adapter import D1Adapter
+    from dbcore.connections.providers.d1.adapter import D1Adapter
 
     return build_adapter_provider(spec, SCHEMA, D1Adapter())
 
 SPEC = ProviderSpec(
     db_type="d1",
     display_name="Cloudflare D1",
-    schema_path=("sqlit.domains.connections.providers.d1.schema", "SCHEMA"),
+    schema_path=("dbcore.connections.providers.d1.schema", "SCHEMA"),
     supports_ssh=False,
     is_file_based=False,
     has_advanced_auth=False,

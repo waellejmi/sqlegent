@@ -1,6 +1,6 @@
 """Connection schema for Firebird."""
 
-from sqlit.domains.connections.providers.schema_helpers import (
+from dbcore.connections.providers.schema_helpers import (
     SSH_FIELDS,
     ConnectionSchema,
     SchemaField,

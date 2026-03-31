@@ -85,7 +85,7 @@ def import_driver_module(
     try:
         return loader(module_name)
     except ImportError as e:
-        from sqlit.domains.connections.providers.exceptions import MissingDriverError
+        from dbcore.connections.providers.exceptions import MissingDriverError
 
         raise MissingDriverError(
             driver_name,
@@ -120,7 +120,7 @@ def ensure_provider_driver_available(provider: Any, resolver: DriverResolver | N
         return
 
     if resolver.is_missing(provider):
-        from sqlit.domains.connections.providers.exceptions import MissingDriverError
+        from dbcore.connections.providers.exceptions import MissingDriverError
 
         raise MissingDriverError(
             driver.driver_name,

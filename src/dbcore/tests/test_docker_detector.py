@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from sqlit.domains.connections.discovery.docker_detector import (
+from dbcore.connections.discovery.docker_detector import (
     ContainerStatus,
     DetectedContainer,
     DockerStatus,
@@ -17,9 +17,9 @@ from sqlit.domains.connections.discovery.docker_detector import (
     detect_database_containers,
     get_docker_status,
 )
-from sqlit.domains.connections.providers.catalog import get_provider
-from sqlit.domains.connections.providers.docker import DockerCredentials
-from sqlit.domains.connections.providers.registry import get_default_port
+from dbcore.connections.providers.catalog import get_provider
+from dbcore.connections.providers.docker import DockerCredentials
+from dbcore.connections.providers.registry import get_default_port
 
 
 def _get_container_credentials(db_type: str, env_vars: dict[str, str]) -> DockerCredentials:
@@ -263,7 +263,7 @@ class TestDetectDatabaseContainers:
     def test_detect_containers_docker_not_installed(self):
         """Test detection when docker SDK is not installed."""
         with patch(
-            "sqlit.domains.connections.discovery.docker_detector.get_docker_status",
+            "dbcore.connections.discovery.docker_detector.get_docker_status",
             return_value=DockerStatus.NOT_INSTALLED,
         ):
             status, containers = detect_database_containers()
@@ -273,7 +273,7 @@ class TestDetectDatabaseContainers:
     def test_detect_containers_docker_not_running(self):
         """Test detection when docker daemon is not running."""
         with patch(
-            "sqlit.domains.connections.discovery.docker_detector.get_docker_status",
+            "dbcore.connections.discovery.docker_detector.get_docker_status",
             return_value=DockerStatus.NOT_RUNNING,
         ):
             status, containers = detect_database_containers()
@@ -308,7 +308,7 @@ class TestDetectDatabaseContainers:
 
         with (
             patch(
-                "sqlit.domains.connections.discovery.docker_detector.get_docker_status",
+                "dbcore.connections.discovery.docker_detector.get_docker_status",
                 return_value=DockerStatus.AVAILABLE,
             ),
             patch("docker.from_env", return_value=mock_client),
@@ -352,7 +352,7 @@ class TestDetectDatabaseContainers:
 
         with (
             patch(
-                "sqlit.domains.connections.discovery.docker_detector.get_docker_status",
+                "dbcore.connections.discovery.docker_detector.get_docker_status",
                 return_value=DockerStatus.AVAILABLE,
             ),
             patch("docker.from_env", return_value=mock_client),
@@ -385,7 +385,7 @@ class TestDetectDatabaseContainers:
 
         with (
             patch(
-                "sqlit.domains.connections.discovery.docker_detector.get_docker_status",
+                "dbcore.connections.discovery.docker_detector.get_docker_status",
                 return_value=DockerStatus.AVAILABLE,
             ),
             patch("docker.from_env", return_value=mock_client),
@@ -418,7 +418,7 @@ class TestDetectDatabaseContainers:
 
         with (
             patch(
-                "sqlit.domains.connections.discovery.docker_detector.get_docker_status",
+                "dbcore.connections.discovery.docker_detector.get_docker_status",
                 return_value=DockerStatus.AVAILABLE,
             ),
             patch("docker.from_env", return_value=mock_client),

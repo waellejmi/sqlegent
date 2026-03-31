@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from sqlit.domains.connections.providers.adapters.base import (
+from dbcore.connections.providers.adapters.base import (
     ColumnInfo,
     CursorBasedAdapter,
     IndexInfo,
@@ -31,7 +31,7 @@ from sqlit.domains.connections.providers.adapters.base import (
 )
 
 if TYPE_CHECKING:
-    from sqlit.domains.connections.domain.config import ConnectionConfig
+    from dbcore.connections.domain.config import ConnectionConfig
 
 # Dialect constants
 DIALECT_GOOGLESQL = "GOOGLE_STANDARD_SQL"

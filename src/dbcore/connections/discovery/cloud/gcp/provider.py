@@ -19,7 +19,7 @@ from ..base import (
 from ..registry import register_provider
 
 if TYPE_CHECKING:
-    from sqlit.domains.connections.domain.config import ConnectionConfig
+    from dbcore.connections.domain.config import ConnectionConfig
 
 
 @dataclass
@@ -523,7 +523,7 @@ class GCPProvider:
 
     def _instance_to_config(self, instance: GCPCloudSQLInstance) -> ConnectionConfig:
         """Convert a Cloud SQL instance to a connection config."""
-        from sqlit.domains.connections.domain.config import ConnectionConfig
+        from dbcore.connections.domain.config import ConnectionConfig
 
         db_type = self._get_db_type(instance.database_version)
         port = self._get_default_port(instance.database_version)

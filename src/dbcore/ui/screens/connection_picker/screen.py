@@ -12,17 +12,17 @@ from textual.widgets import OptionList, Tree
 from textual.widgets.option_list import Option
 from textual.widgets.tree import TreeNode
 
-from sqlit.domains.connections.app.cloud_actions import (
+from dbcore.connections.app.cloud_actions import (
     CloudActionRequest,
     CloudActionResponse,
     CloudActionService,
 )
-from sqlit.domains.connections.app.save_connection import is_config_saved, save_connection
-from sqlit.domains.connections.discovery.cloud import ProviderState, get_providers
-from sqlit.domains.explorer.ui.tree import builder as tree_builder
+from dbcore.connections.app.save_connection import is_config_saved, save_connection
+from dbcore.connections.discovery.cloud import ProviderState, get_providers
+from dbcore.domains.explorer.ui.tree import builder as tree_builder
 from sqlit.shared.core.utils import fuzzy_match
-from sqlit.shared.ui.protocols import AppProtocol
-from sqlit.shared.ui.widgets import Dialog, FilterInput
+from dbcore.ui.protocols import AppProtocol
+from dbcore.ui.widgets import Dialog, FilterInput
 
 from .cloud_nodes import CloudNodeData
 from .cloud_providers import get_cloud_ui_adapter
@@ -41,8 +41,8 @@ from .tabs import (
 from .view import PickerView
 
 if TYPE_CHECKING:
-    from sqlit.domains.connections.discovery.docker_detector import DetectedContainer, DockerStatus
-    from sqlit.domains.connections.domain.config import ConnectionConfig
+    from dbcore.connections.discovery.docker_detector import DetectedContainer, DockerStatus
+    from dbcore.connections.domain.config import ConnectionConfig
 
 
 class ConnectionPickerScreen(ModalScreen):
@@ -436,7 +436,7 @@ class ConnectionPickerScreen(ModalScreen):
                 if not container.is_running:
                     self.notify("Container is not running", severity="warning")
                     return
-                from sqlit.domains.connections.discovery.docker_detector import (
+                from dbcore.connections.discovery.docker_detector import (
                     container_to_connection_config,
                 )
 
@@ -501,9 +501,9 @@ class ConnectionPickerScreen(ModalScreen):
         self.dismiss("__new_connection__")
 
     def action_refresh(self) -> None:
-        from sqlit.domains.connections.discovery.cloud.aws.cache import clear_aws_cache
-        from sqlit.domains.connections.discovery.cloud.azure.cache import clear_azure_cache
-        from sqlit.domains.connections.discovery.cloud.gcp.cache import clear_gcp_cache
+        from dbcore.connections.discovery.cloud.aws.cache import clear_aws_cache
+        from dbcore.connections.discovery.cloud.azure.cache import clear_azure_cache
+        from dbcore.connections.discovery.cloud.gcp.cache import clear_gcp_cache
 
         clear_azure_cache()
         clear_aws_cache()
@@ -530,7 +530,7 @@ class ConnectionPickerScreen(ModalScreen):
                 if is_container_saved(self.connections, container):
                     self.notify("Container already saved", severity="warning")
                     return
-                from sqlit.domains.connections.discovery.docker_detector import (
+                from dbcore.connections.discovery.docker_detector import (
                     container_to_connection_config,
                 )
 
@@ -566,7 +566,7 @@ class ConnectionPickerScreen(ModalScreen):
         result = save_connection(self.connections, self._app().services.connection_store, config)
         if result.warning:
             if result.warning_severity == "error":
-                from sqlit.shared.ui.screens.error import ErrorScreen
+                from dbcore.ui.screens.error import ErrorScreen
 
                 self.push_screen(ErrorScreen("Keyring Error", result.warning))
             else:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from sqlit.domains.connections.providers.adapters.base import ColumnInfo
+from dbcore.connections.providers.adapters.base import ColumnInfo
 
 from .mock_adapter_core import MockDatabaseAdapter
 

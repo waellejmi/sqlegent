@@ -9,7 +9,7 @@ from textual.binding import Binding
 from textual.screen import ModalScreen
 from textual.widgets import Input, Static
 
-from sqlit.shared.ui.widgets import Dialog
+from dbcore.ui.widgets import Dialog
 
 
 class FolderInputScreen(ModalScreen):

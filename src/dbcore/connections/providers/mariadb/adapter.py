@@ -5,16 +5,16 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING, Any
 
-from sqlit.domains.connections.providers.adapters.base import (
+from dbcore.connections.providers.adapters.base import (
     ColumnInfo,
     IndexInfo,
     SequenceInfo,
     TableInfo,
     TriggerInfo,
 )
-from sqlit.domains.connections.providers.mysql.base import MySQLBaseAdapter
-from sqlit.domains.connections.providers.registry import get_default_port
-from sqlit.domains.connections.providers.tls import (
+from dbcore.connections.providers.mysql.base import MySQLBaseAdapter
+from dbcore.connections.providers.registry import get_default_port
+from dbcore.connections.providers.tls import (
     TLS_MODE_DEFAULT,
     TLS_MODE_DISABLE,
     get_tls_files,
@@ -24,7 +24,7 @@ from sqlit.domains.connections.providers.tls import (
 )
 
 if TYPE_CHECKING:
-    from sqlit.domains.connections.domain.config import ConnectionConfig
+    from dbcore.connections.domain.config import ConnectionConfig
 
 
 class MariaDBAdapter(MySQLBaseAdapter):

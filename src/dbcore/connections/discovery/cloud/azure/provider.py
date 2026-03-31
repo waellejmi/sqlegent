@@ -16,7 +16,7 @@ from ..base import (
 from ..registry import register_provider
 
 if TYPE_CHECKING:
-    from sqlit.domains.connections.domain.config import ConnectionConfig
+    from dbcore.connections.domain.config import ConnectionConfig
 
 
 class AzureProvider:
@@ -510,7 +510,7 @@ class AzureProvider:
         use_sql_auth: bool,
     ) -> ConnectionConfig:
         """Convert an Azure SQL server to a connection config."""
-        from sqlit.domains.connections.domain.config import ConnectionConfig
+        from dbcore.connections.domain.config import ConnectionConfig
 
         azure_options = {
             "azure_server_name": server.name,
