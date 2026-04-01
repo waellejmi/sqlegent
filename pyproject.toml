@@ -30,8 +30,9 @@ postgres = ["psycopg2-binary>=2.9.0"]
 mysql = ["PyMySQL>=1.1.0"]
 mariadb = ["PyMySQL>=1.1.0"]
 oracle= ["oracledb>=2.0.0"]
-mssql = ["mssql-python>=1.1.0"]
+mssql = ["pymssql >= 2.3.11"]
 
+mssql-native = ["pyodbc>=5.1.0"]
 mysql-native = ["mysqlclient>=2.2.8"]
 mariadb-native = ["mariadb>=1.1.0"]
 

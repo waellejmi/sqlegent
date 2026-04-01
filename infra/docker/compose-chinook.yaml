@@ -61,7 +61,7 @@ services:
       - ../../data/Chinook_MySql.sql:/docker-entrypoint-initdb.d/chinookmysql.sql:ro
 
   oracle:
-    image: gvenzl/oracle-free:23-slim
+    image: gvenzl/oracle-free:23-slim-faststart
     container_name: chinook-oracle
     environment:
       ORACLE_PASSWORD: "ChinookPass123!"
@@ -80,14 +80,32 @@ services:
     volumes:
       - ../../data/Chinook_Oracle.sql:/docker-entrypoint-initdb.d/chinookoracle.sql:ro
 
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: chinook-mssql
+    platform: linux/amd64
+    environment:
+      ACCEPT_EULA: Y
+      MSSQL_SA_PASSWORD: ChinookPass123!
+      MSSQL_PID: Developer
+    ports:
+      - "${MSSQL_PORT:-1433}:1433"
+    tmpfs:
+      - /var/lib/mssql
 
-  # oracle11g:
-  #   image: wnameless/oracle-xe-11g
-  #   container_name: sqlit-test-oracle11g
-  #   environment:
-  #     ORACLE_ALLOW_REMOTE: "true"
-  #   ports:
-  #     - "1522:1521"
-  #   profiles:
-  #     - enterprise
-  #
+    volumes:
+      - ../../data/Chinook_SqlServer.sql:/scripts/Chinook_SqlServer.sql
+    healthcheck:
+      test: ["CMD", "/opt/mssql-tools18/bin/sqlcmd", "-S", "localhost", "-U", "sa", "-P", "ChinookPass123!", "-C", "-Q", "SELECT 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+    command: >
+      bash -c '
+      /opt/mssql/bin/sqlservr &
+      until /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$$MSSQL_SA_PASSWORD" -C -Q "SELECT 1" > /dev/null 2>&1; do sleep 2; done;
+      /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$$MSSQL_SA_PASSWORD" -C -Q "CREATE DATABASE Chinook";
+      /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$$MSSQL_SA_PASSWORD" -d Chinook -C -i /scripts/Chinook_SqlServer.sql;
+      wait
+      '

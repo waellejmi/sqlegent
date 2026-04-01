@@ -51,6 +51,11 @@ def _connection_config_to_uri(connection, db_config: DBConfig) -> str:
             database = "mysql"
         return f"mysql+pymysql://{auth_segment}{host_segment}/{database}"
 
+    if db_type == "mssql":
+        if not database:
+            database = "mssql"
+        return f"mssql+pymssql://{auth_segment}{host_segment}/{database}"
+
     if db_type == "oracle":
         if not database:
             database = "oracle"
@@ -91,11 +96,12 @@ def _pick_docker_connection_uri(db_config: DBConfig) -> str:
     running = [c for c in containers if c.is_running and c.connectable]
     supported_db_types = {
         "sqlite",
-        "duckdb",
+        "mssql",
         "postgresql",
         "mysql",
         "mariadb",
         "oracle",
+        "duckdb",
     }
     running = [c for c in running if c.db_type in supported_db_types]
     if not running:
@@ -121,6 +127,7 @@ def _pick_docker_connection_uri(db_config: DBConfig) -> str:
 
     selected = running[choice - 1]
     connection = container_to_connection_config(selected)
+    breakpoint()
     return _connection_config_to_uri(connection, db_config)
 
 
