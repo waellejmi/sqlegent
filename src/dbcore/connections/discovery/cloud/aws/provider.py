@@ -413,7 +413,7 @@ class AWSProvider:
         filter_pattern: str = "",
     ) -> list[Option]:
         """Build UI options for AWS resources."""
-        from sqlit.shared.core.utils import fuzzy_match, highlight_matches
+        from dbcore.shared.core.utils import fuzzy_match, highlight_matches
 
         options: list[Option] = []
 

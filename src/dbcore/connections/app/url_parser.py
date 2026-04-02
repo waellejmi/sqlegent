@@ -1,4 +1,4 @@
-"""Connection URL parsing for sqlit.
+"""Connection URL parsing for dbcore.
 
 Parses database connection URLs into ConnectionConfig objects.
 Supports standard URL formats like:
@@ -44,7 +44,9 @@ class ServerBasedUrlStrategy:
         original_url: str,
         extra_options: dict[str, str],
     ) -> ConnectionConfig:
-        return _parse_server_based_url(parsed, db_type, name, original_url, extra_options)
+        return _parse_server_based_url(
+            parsed, db_type, name, original_url, extra_options
+        )
 
 
 class FileBasedUrlStrategy:

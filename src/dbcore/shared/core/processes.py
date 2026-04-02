@@ -10,33 +10,24 @@ from typing import Protocol, runtime_checkable
 
 @runtime_checkable
 class SyncProcess(Protocol):
-    """Protocol for synchronous process handles."""
-
     @property
     def returncode(self) -> int | None: ...
 
     def communicate(
         self, input: str | None = None, timeout: float | None = None
     ) -> tuple[str, str]: ...
-
     def terminate(self) -> None: ...
-
     def kill(self) -> None: ...
-
     def wait(self, timeout: float | None = None) -> int: ...
 
 
 @runtime_checkable
 class SyncProcessRunner(Protocol):
-    """Protocol for spawning synchronous processes."""
-
     def spawn(self, command: list[str], *, cwd: str | None = None) -> SyncProcess: ...
 
 
 @dataclass
 class SubprocessRunner(SyncProcessRunner):
-    """Default runner using subprocess.Popen."""
-
     def spawn(self, command: list[str], *, cwd: str | None = None) -> SyncProcess:
         return subprocess.Popen(
             command,
@@ -70,8 +61,6 @@ class FixedResultSyncProcess:
 
 @dataclass
 class FixedResultSyncRunner(SyncProcessRunner):
-    """Runner that returns a fixed exit code/output."""
-
     returncode: int
     stdout: str = ""
     stderr: str = ""
@@ -84,29 +73,22 @@ class FixedResultSyncRunner(SyncProcessRunner):
 
 @runtime_checkable
 class AsyncProcess(Protocol):
-    """Protocol for asynchronous process handles."""
-
     stdout: asyncio.StreamReader | None
 
     @property
     def returncode(self) -> int | None: ...
 
     async def wait(self) -> int: ...
-
     def terminate(self) -> None: ...
 
 
 @runtime_checkable
 class AsyncProcessRunner(Protocol):
-    """Protocol for spawning asynchronous processes."""
-
     async def spawn(self, command: str) -> AsyncProcess: ...
 
 
 @dataclass
 class AsyncSubprocessRunner(AsyncProcessRunner):
-    """Default async runner using asyncio subprocess shell."""
-
     async def spawn(self, command: str) -> AsyncProcess:
         return await asyncio.create_subprocess_shell(
             command,
@@ -129,8 +111,6 @@ class FixedResultAsyncProcess:
 
 @dataclass
 class FixedResultAsyncRunner(AsyncProcessRunner):
-    """Async runner that returns a fixed exit code/output."""
-
     returncode: int
     lines: list[str] = field(default_factory=list)
 

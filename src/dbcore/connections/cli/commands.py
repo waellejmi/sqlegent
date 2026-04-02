@@ -1,4 +1,4 @@
-"""CLI command handlers for sqlit."""
+"""CLI command handlers for dbcore."""
 
 from __future__ import annotations
 
@@ -25,7 +25,9 @@ from dbcore.shared.app.services import AppServices, build_app_services
 from .helpers import build_connection_config_from_args
 
 
-def _find_connection_index(connections: list[ConnectionConfig], name: str) -> int | None:
+def _find_connection_index(
+    connections: list[ConnectionConfig], name: str
+) -> int | None:
     for idx, conn in enumerate(connections):
         if conn.name == name:
             return idx
@@ -55,22 +57,36 @@ def _maybe_prompt_plaintext_credentials(services: AppServices) -> bool:
     existing = settings.get(ALLOW_PLAINTEXT_CREDENTIALS_SETTING)
     if isinstance(existing, bool):
         if existing:
-            services.credentials_service = build_credentials_service(services.settings_store)
+            services.credentials_service = build_credentials_service(
+                services.settings_store
+            )
             if hasattr(services.connection_store, "set_credentials_service"):
-                services.connection_store.set_credentials_service(services.credentials_service)
+                services.connection_store.set_credentials_service(
+                    services.credentials_service
+                )
         return existing
 
     if not sys.stdin.isatty():
         return False
 
-    answer = input("Keyring isn't available. Save passwords as plaintext in ~/.sqlit/? [y/N]: ").strip().lower()
+    answer = (
+        input(
+            "Keyring isn't available. Save passwords as plaintext in ~/.sqlit/? [y/N]: "
+        )
+        .strip()
+        .lower()
+    )
     allow = answer in {"y", "yes"}
     settings[ALLOW_PLAINTEXT_CREDENTIALS_SETTING] = allow
     services.settings_store.save_all(settings)
     if allow:
-        services.credentials_service = build_credentials_service(services.settings_store)
+        services.credentials_service = build_credentials_service(
+            services.settings_store
+        )
         if hasattr(services.connection_store, "set_credentials_service"):
-            services.connection_store.set_credentials_service(services.credentials_service)
+            services.connection_store.set_credentials_service(
+                services.credentials_service
+            )
     return allow
 
 
@@ -82,7 +98,9 @@ def _clear_passwords_if_not_persisted(config: ConnectionConfig) -> None:
         config.tunnel.password = ""
 
 
-def _save_connections(services: AppServices, connections: list[ConnectionConfig]) -> None:
+def _save_connections(
+    services: AppServices, connections: list[ConnectionConfig]
+) -> None:
     try:
         services.connection_store.save_all(connections)
     except CredentialsPersistError as exc:
@@ -116,7 +134,9 @@ def cmd_connection_list(args: Any, *, services: AppServices | None = None) -> in
             conn_info = conn_info[:38] + ".." if len(conn_info) > 40 else conn_info
             auth_value = str(conn.get_option("auth_type", ""))
             auth_type = provider.get_auth_type(conn)
-            auth_label = AUTH_TYPE_LABELS.get(auth_type, auth_value) if auth_type else auth_value
+            auth_label = (
+                AUTH_TYPE_LABELS.get(auth_type, auth_value) if auth_type else auth_value
+            )
         else:
             # Server-based databases with simple auth
             endpoint = conn.tcp_endpoint
@@ -124,14 +144,21 @@ def cmd_connection_list(args: Any, *, services: AppServices | None = None) -> in
             database = endpoint.database if endpoint else ""
             conn_info = f"{host}@{database}" if database else host
             conn_info = conn_info[:38] + ".." if len(conn_info) > 40 else conn_info
-            auth_label = f"User: {endpoint.username}" if endpoint and endpoint.username else "N/A"
+            auth_label = (
+                f"User: {endpoint.username}"
+                if endpoint and endpoint.username
+                else "N/A"
+            )
         print(f"{conn.name:<20} {db_type_label:<10} {conn_info:<40} {auth_label:<25}")
     return 0
 
 
 def cmd_connection_create(args: Any, *, services: AppServices | None = None) -> int:
     """Create a new connection."""
-    from dbcore.connections.app.url_parser import is_connection_url, parse_connection_url
+    from dbcore.connections.app.url_parser import (
+        is_connection_url,
+        parse_connection_url,
+    )
 
     services = services or build_app_services(RuntimeConfig.from_env())
     connections = services.connection_store.load_all()
@@ -149,7 +176,9 @@ def cmd_connection_create(args: Any, *, services: AppServices | None = None) -> 
             return 1
 
         if any(c.name == url_name for c in connections):
-            print(f"Error: Connection '{url_name}' already exists. Use 'edit' to modify it.")
+            print(
+                f"Error: Connection '{url_name}' already exists. Use 'edit' to modify it."
+            )
             return 1
 
         try:
@@ -173,11 +202,15 @@ def cmd_connection_create(args: Any, *, services: AppServices | None = None) -> 
         print("Error: provider or --url is required.")
         print("Examples:")
         print("  sqlit connections add postgresql --name MyDB --server localhost ...")
-        print("  sqlit connections add --url postgresql://user:pass@host/db --name MyDB")
+        print(
+            "  sqlit connections add --url postgresql://user:pass@host/db --name MyDB"
+        )
         return 1
 
     if any(c.name == args.name for c in connections):
-        print(f"Error: Connection '{args.name}' already exists. Use 'edit' to modify it.")
+        print(
+            f"Error: Connection '{args.name}' already exists. Use 'edit' to modify it."
+        )
         return 1
 
     db_type = getattr(args, "provider", None)
@@ -245,7 +278,9 @@ def cmd_connection_edit(args: Any, *, services: AppServices | None = None) -> in
             conn.set_option("trusted_connection", auth_type == AuthType.WINDOWS)
         except ValueError:
             valid_types = ", ".join(t.value for t in AuthType)
-            print(f"Error: Invalid auth type '{args.auth_type}'. Valid types: {valid_types}")
+            print(
+                f"Error: Invalid auth type '{args.auth_type}'. Valid types: {valid_types}"
+            )
             return 1
     if endpoint:
         if args.username is not None:
@@ -319,15 +354,37 @@ def cmd_docker_list(args: Any, *, services: AppServices | None = None) -> int:
 
     for c in running:
         port_str = str(c.port) if c.port else "-"
-        db_str = c.database[:13] + ".." if c.database and len(c.database) > 15 else (c.database or "-")
-        name_str = c.container_name[:23] + ".." if len(c.container_name) > 25 else c.container_name
-        print(f"{name_str:<25} {c.db_type:<12} {port_str:<8} {db_str:<15} {'running':<10}")
+        db_str = (
+            c.database[:13] + ".."
+            if c.database and len(c.database) > 15
+            else (c.database or "-")
+        )
+        name_str = (
+            c.container_name[:23] + ".."
+            if len(c.container_name) > 25
+            else c.container_name
+        )
+        print(
+            f"{name_str:<25} {c.db_type:<12} {port_str:<8} {db_str:<15} {'running':<10}"
+        )
 
     for c in exited:
         port_str = "-"
-        db_str = c.database[:13] + ".." if c.database and len(c.database) > 15 else (c.database or "-")
-        name_str = c.container_name[:23] + ".." if len(c.container_name) > 25 else c.container_name
-        print(f"{name_str:<25} {c.db_type:<12} {port_str:<8} {db_str:<15} {'exited':<10}")
+        db_str = (
+            c.database[:13] + ".."
+            if c.database and len(c.database) > 15
+            else (c.database or "-")
+        )
+        name_str = (
+            c.container_name[:23] + ".."
+            if len(c.container_name) > 25
+            else c.container_name
+        )
+        print(
+            f"{name_str:<25} {c.db_type:<12} {port_str:<8} {db_str:<15} {'exited':<10}"
+        )
 
-    print(f"\nFound {len(running)} running, {len(exited)} exited database container(s).")
+    print(
+        f"\nFound {len(running)} running, {len(exited)} exited database container(s)."
+    )
     return 0

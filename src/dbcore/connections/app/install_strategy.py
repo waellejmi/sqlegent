@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from sqlit.shared.core.system_probe import SystemProbe, SystemProbeProtocol
+from dbcore.shared.core.system_probe import SystemProbe, SystemProbeProtocol
 
 
 @dataclass(frozen=True)

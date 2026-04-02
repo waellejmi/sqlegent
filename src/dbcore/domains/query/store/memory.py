@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from sqlit.domains.query.store.history import QueryHistoryEntry
+from dbcore.domains.query.store.history import QueryHistoryEntry
 
 
 @dataclass
@@ -24,8 +24,6 @@ class InMemoryQueryHistoryEntry:
 
 
 class InMemoryHistoryStore:
-    """In-memory history store."""
-
     def __init__(self) -> None:
         self._entries: list[dict[str, Any]] = []
 
@@ -43,7 +41,6 @@ class InMemoryHistoryStore:
         query_stripped = query.strip()
         now = datetime.now().isoformat()
 
-        # Check if query already exists
         for entry in self._entries:
             if (
                 entry.get("connection_name") == connection_name
@@ -74,8 +71,6 @@ class InMemoryHistoryStore:
 
 
 class InMemoryStarredStore:
-    """In-memory starred queries store."""
-
     def __init__(self) -> None:
         self._starred: dict[str, set[str]] = {}
 

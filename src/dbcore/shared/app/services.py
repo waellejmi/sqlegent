@@ -1,4 +1,4 @@
-"""Service container and builders for sqlit."""
+"""Service container and builders for dbcore."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from dbcore.connections.providers.driver import (
     attach_driver_resolver,
 )
 from dbcore.shared.app.runtime import RuntimeConfig
-from sqlit.shared.core.processes import (
+from dbcore.shared.core.processes import (
     AsyncProcessRunner,
     AsyncSubprocessRunner,
     FixedResultAsyncRunner,
@@ -21,14 +21,14 @@ from sqlit.shared.core.processes import (
     SubprocessRunner,
     SyncProcessRunner,
 )
-from sqlit.shared.core.protocols import (
+from dbcore.shared.core.protocols import (
     ConnectionStoreProtocol,
     HistoryStoreProtocol,
     ProviderFactoryProtocol,
     SettingsStoreProtocol,
     TunnelFactoryProtocol,
 )
-from sqlit.shared.core.system_probe import SystemProbe, SystemProbeProtocol
+from dbcore.shared.core.system_probe import SystemProbe, SystemProbeProtocol
 
 if TYPE_CHECKING:
     pass
@@ -51,7 +51,9 @@ class ProviderFactoryWithResolver:
         self.base_factory = factory
 
 
-def _wrap_provider_factory(factory: ProviderFactoryProtocol, resolver: DriverResolver) -> ProviderFactoryProtocol:
+def _wrap_provider_factory(
+    factory: ProviderFactoryProtocol, resolver: DriverResolver
+) -> ProviderFactoryProtocol:
     if isinstance(factory, ProviderFactoryWithResolver):
         factory.set_resolver(resolver)
         return factory
@@ -67,7 +69,9 @@ def _normalize_install_method_hint(value: str | None) -> str | None:
     return None
 
 
-def build_system_probe(runtime: RuntimeConfig, *, base_probe: SystemProbeProtocol | None = None) -> SystemProbeProtocol:
+def build_system_probe(
+    runtime: RuntimeConfig, *, base_probe: SystemProbeProtocol | None = None
+) -> SystemProbeProtocol:
     base_probe = base_probe or SystemProbe()
     hint = _normalize_install_method_hint(runtime.mock.pipx_mode)
     overrides: dict[str, Any] = {}
@@ -78,7 +82,7 @@ def build_system_probe(runtime: RuntimeConfig, *, base_probe: SystemProbeProtoco
     if not overrides:
         return base_probe
 
-    from sqlit.shared.core.system_probe_fake import FakeSystemProbe
+    from dbcore.shared.core.system_probe_fake import FakeSystemProbe
 
     return FakeSystemProbe.from_probe(base_probe, **overrides)
 
@@ -107,12 +111,16 @@ def build_process_runners(
     if install_result in {"success", "ok", "pass"}:
         return (
             FixedResultSyncRunner(returncode=0, stdout="Mocked install succeeded."),
-            FixedResultAsyncRunner(returncode=0, lines=["Mocked install succeeded.", "Done"]),
+            FixedResultAsyncRunner(
+                returncode=0, lines=["Mocked install succeeded.", "Done"]
+            ),
         )
     if install_result in {"fail", "error"}:
         return (
             FixedResultSyncRunner(returncode=1, stderr="Mocked install failed."),
-            FixedResultAsyncRunner(returncode=1, lines=["Mocked install failed.", "Done"]),
+            FixedResultAsyncRunner(
+                returncode=1, lines=["Mocked install failed.", "Done"]
+            ),
         )
     return sync_runner or SubprocessRunner(), async_runner or AsyncSubprocessRunner()
 
@@ -144,7 +152,10 @@ class AppServices:
         from dbcore.connections.app.session import ConnectionSession
         from dbcore.connections.app.tunnel import create_noop_tunnel
         from dbcore.connections.store.memory import InMemoryConnectionStore
-        from sqlit.domains.query.store.memory import InMemoryHistoryStore, InMemoryStarredStore
+        from dbcore.domains.query.store.memory import (
+            InMemoryHistoryStore,
+            InMemoryStarredStore,
+        )
 
         self.runtime.mock.profile = profile
         self.runtime.mock.enabled = bool(profile)
@@ -198,12 +209,17 @@ class AppServices:
             setter(self.system_probe)
 
         self.driver_resolver = build_driver_resolver(self.runtime)
-        self.provider_factory = _wrap_provider_factory(self.provider_factory, self.driver_resolver)
+        self.provider_factory = _wrap_provider_factory(
+            self.provider_factory, self.driver_resolver
+        )
         from dbcore.connections.discovery.docker_detector import (
             DockerContainerScanner,
             StaticDockerContainerScanner,
         )
-        if isinstance(self.docker_detector, (DockerContainerScanner, StaticDockerContainerScanner)):
+
+        if isinstance(
+            self.docker_detector, (DockerContainerScanner, StaticDockerContainerScanner)
+        ):
             self.docker_detector = build_docker_detector(self.runtime)
         cloud_state_provider = build_cloud_state_provider(self.runtime)
         setter = getattr(self.cloud_discovery, "set_state_provider", None)
@@ -241,10 +257,12 @@ def build_app_services(
     from dbcore.connections.app.tunnel import create_ssh_tunnel
     from dbcore.connections.providers.catalog import get_provider
     from dbcore.connections.store.connections import ConnectionStore
-    from sqlit.domains.query.store.history import HistoryStore
-    from sqlit.domains.query.store.starred import StarredStore
-    from sqlit.domains.shell.store.settings import SettingsStore
-    from dbcore.shared.app.startup_profiler import configure as configure_startup_profiler
+    from dbcore.domains.query.store.history import HistoryStore
+    from dbcore.domains.query.store.starred import StarredStore
+    from dbcore.domains.shell.store.settings import SettingsStore
+    from dbcore.shared.app.startup_profiler import (
+        configure as configure_startup_profiler,
+    )
     from dbcore.shared.app.startup_profiler import enable_import_timing
     from dbcore.shared.app.startup_profiler import span as startup_span
 
@@ -259,13 +277,19 @@ def build_app_services(
     )
 
     with startup_span("build_settings_store"):
-        settings_store = settings_store or SettingsStore(file_path=runtime.settings_path)
+        settings_store = settings_store or SettingsStore(
+            file_path=runtime.settings_path
+        )
     with startup_span("build_credentials_service"):
-        credentials_service = credentials_service or build_credentials_service(settings_store)
+        credentials_service = credentials_service or build_credentials_service(
+            settings_store
+        )
     if credentials_service is None:
         raise RuntimeError("Credentials service is not available.")
     with startup_span("build_connection_store"):
-        connection_store = connection_store or ConnectionStore(credentials_service=credentials_service)
+        connection_store = connection_store or ConnectionStore(
+            credentials_service=credentials_service
+        )
     with startup_span("build_history_store"):
         history_store = history_store or HistoryStore()
     with startup_span("build_starred_store"):
@@ -279,7 +303,9 @@ def build_app_services(
     with startup_span("build_driver_resolver"):
         driver_resolver = driver_resolver or build_driver_resolver(runtime)
     with startup_span("build_provider_factory"):
-        provider_factory = _wrap_provider_factory(provider_factory or get_provider, driver_resolver)
+        provider_factory = _wrap_provider_factory(
+            provider_factory or get_provider, driver_resolver
+        )
     with startup_span("build_tunnel_factory"):
         tunnel_factory = tunnel_factory or create_ssh_tunnel
     with startup_span("build_process_runners"):
@@ -290,12 +316,14 @@ def build_app_services(
         )
 
     if session_factory is None:
+
         def _default_session_factory(config: Any) -> Any:
             return ConnectionSession.create(
                 config,
                 provider_factory=provider_factory,
                 tunnel_factory=tunnel_factory,
             )
+
         session_factory = _default_session_factory
 
     if install_strategy is not None:
@@ -344,7 +372,9 @@ def build_app_services(
     return services
 
 
-def build_docker_detector(runtime: RuntimeConfig) -> Callable[[], tuple[Any, list[Any]]]:
+def build_docker_detector(
+    runtime: RuntimeConfig,
+) -> Callable[[], tuple[Any, list[Any]]]:
     """Create a docker detector callable for the current runtime."""
     from dbcore.connections.discovery.docker_detector import (
         DockerContainerScanner,
@@ -420,7 +450,9 @@ class InstallStrategyProvider:
             probe=self._probe,
         )
 
-    def get_install_options(self, *, extra_name: str | None, package_name: str) -> list[Any]:
+    def get_install_options(
+        self, *, extra_name: str | None, package_name: str
+    ) -> list[Any]:
         from dbcore.connections.app.install_strategy import get_install_options
 
         return get_install_options(
@@ -429,7 +461,9 @@ class InstallStrategyProvider:
             probe=self._probe,
         )
 
-    def format_manual_instructions(self, *, extra_name: str | None, package_name: str, reason: str) -> str:
+    def format_manual_instructions(
+        self, *, extra_name: str | None, package_name: str, reason: str
+    ) -> str:
         from dbcore.connections.app.install_strategy import _format_manual_instructions
 
         return _format_manual_instructions(

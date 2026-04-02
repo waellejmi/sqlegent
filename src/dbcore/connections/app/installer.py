@@ -11,7 +11,7 @@ from typing import Any, Protocol
 
 from dbcore.connections.app.install_strategy import detect_strategy
 from dbcore.connections.providers.exceptions import MissingDriverError
-from sqlit.shared.core.processes import SubprocessRunner, SyncProcess, SyncProcessRunner
+from dbcore.shared.core.processes import SubprocessRunner, SyncProcess, SyncProcessRunner
 
 
 class InstallerApp(Protocol):

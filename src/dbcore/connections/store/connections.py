@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from dbcore.connections.app.credentials import CredentialsPersistError, CredentialsStoreError
-from sqlit.shared.core.store import CONFIG_DIR, JSONFileStore
+from dbcore.shared.core.store import CONFIG_DIR, JSONFileStore
 
 if TYPE_CHECKING:
     from dbcore.connections.app.credentials import CredentialsService

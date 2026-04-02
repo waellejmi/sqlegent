@@ -80,7 +80,7 @@ class PackageSetupScreen(ModalScreen):
             if strategy is not None:
                 self._install_strategy = cast(InstallStrategyProvider, strategy)
                 return self._install_strategy
-        from sqlit.shared.core.system_probe import SystemProbe
+        from dbcore.shared.core.system_probe import SystemProbe
 
         self._install_strategy = InstallStrategyProvider(SystemProbe())
         assert self._install_strategy is not None

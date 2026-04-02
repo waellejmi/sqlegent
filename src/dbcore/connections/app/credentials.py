@@ -15,7 +15,7 @@ import time
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any
 
-from sqlit.shared.core.store import CONFIG_DIR, JSONFileStore
+from dbcore.shared.core.store import CONFIG_DIR, JSONFileStore
 
 if TYPE_CHECKING:
     pass
@@ -426,7 +426,7 @@ _credentials_service: CredentialsService | None = None
 def build_credentials_service(settings_store: Any | None = None) -> CredentialsService:
     """Build a credentials service with an optional settings store."""
     if settings_store is None:
-        from sqlit.domains.shell.store.settings import SettingsStore
+        from dbcore.domains.shell.store.settings import SettingsStore
 
         settings_store = SettingsStore.get_instance()
 

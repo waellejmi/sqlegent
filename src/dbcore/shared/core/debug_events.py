@@ -14,8 +14,6 @@ DebugHandler = Callable[["DebugEvent"], None]
 
 @dataclass(frozen=True)
 class DebugEvent:
-    """Structured debug event payload."""
-
     name: str
     ts: float
     iso: str
@@ -24,8 +22,6 @@ class DebugEvent:
 
 
 class DebugEventBus:
-    """Lightweight observer for debug events."""
-
     def __init__(self) -> None:
         self._handlers: list[DebugHandler] = []
 
@@ -67,7 +63,6 @@ def _coerce_debug_value(value: Any) -> Any:
 
 
 def coerce_debug_payload(data: dict[str, Any]) -> dict[str, Any]:
-    """Make debug payload safe for JSON serialization."""
     return {str(key): _coerce_debug_value(value) for key, value in data.items()}
 
 
@@ -98,13 +93,11 @@ _DEBUG_EMITTER: Callable[..., None] | None = None
 
 
 def set_debug_emitter(emitter: Callable[..., None] | None) -> None:
-    """Register a global debug event emitter."""
     global _DEBUG_EMITTER
     _DEBUG_EMITTER = emitter
 
 
 def emit_debug_event(name: str, *, category: str = "", **data: Any) -> None:
-    """Emit a debug event via the global emitter if configured."""
     if _DEBUG_EMITTER is None:
         return
     try:

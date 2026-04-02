@@ -5,21 +5,18 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
-from sqlit.shared.core.store import CONFIG_DIR, JSONFileStore
+from dbcore.shared.core.store import CONFIG_DIR, JSONFileStore
 
 
 @dataclass
 class QueryHistoryEntry:
-    """A query history entry."""
-
     query: str
-    timestamp: str  # ISO format
+    timestamp: str
     connection_name: str
-    is_starred: bool = False  # Computed at load time, not persisted
-    is_starred_only: bool = False  # True if only in starred store, not in history
+    is_starred: bool = False
+    is_starred_only: bool = False
 
     def to_dict(self) -> dict:
-        """Convert to dictionary for JSON serialization."""
         return {
             "query": self.query,
             "timestamp": self.timestamp,
@@ -28,7 +25,6 @@ class QueryHistoryEntry:
 
     @classmethod
     def from_dict(cls, data: dict) -> QueryHistoryEntry:
-        """Create from dictionary."""
         return cls(
             query=data["query"],
             timestamp=data["timestamp"],
@@ -37,31 +33,16 @@ class QueryHistoryEntry:
 
 
 class HistoryStore(JSONFileStore):
-    """Store for managing query history.
-
-    History is stored as a JSON array in ~/.sqlit/query_history.json
-    Each entry includes query text, timestamp, and connection name.
-    """
-
     MAX_ENTRIES_PER_CONNECTION = 100
 
     def __init__(self) -> None:
         super().__init__(CONFIG_DIR / "query_history.json")
 
     def _load_all_entries(self) -> list[dict]:
-        """Load all history entries as raw dictionaries."""
         data = self._read_json()
         return data if isinstance(data, list) else []
 
     def load_for_connection(self, connection_name: str) -> list[QueryHistoryEntry]:
-        """Load query history for a specific connection.
-
-        Args:
-            connection_name: Name of connection to load history for.
-
-        Returns:
-            List of QueryHistoryEntry objects, sorted by most recent first.
-        """
         all_entries = self._load_all_entries()
         try:
             entries = [
@@ -75,11 +56,6 @@ class HistoryStore(JSONFileStore):
             return []
 
     def load_all(self) -> list[QueryHistoryEntry]:
-        """Load query history for all connections.
-
-        Returns:
-            List of QueryHistoryEntry objects, sorted by most recent first.
-        """
         all_entries = self._load_all_entries()
         try:
             entries = [QueryHistoryEntry.from_dict(entry) for entry in all_entries]
@@ -89,20 +65,10 @@ class HistoryStore(JSONFileStore):
             return []
 
     def save_query(self, connection_name: str, query: str) -> None:
-        """Save a query to history.
-
-        If the exact query already exists for this connection, updates its timestamp.
-        Otherwise adds a new entry. Keeps only MAX_ENTRIES_PER_CONNECTION entries.
-
-        Args:
-            connection_name: Name of the connection.
-            query: SQL query text.
-        """
         all_entries = self._load_all_entries()
         query_stripped = query.strip()
         now = datetime.now().isoformat()
 
-        # Check if query already exists
         for entry in all_entries:
             if (
                 entry.get("connection_name") == connection_name
@@ -111,7 +77,6 @@ class HistoryStore(JSONFileStore):
                 entry["timestamp"] = now
                 break
         else:
-            # Add new entry
             new_entry = QueryHistoryEntry(
                 query=query_stripped,
                 timestamp=now,
@@ -119,7 +84,6 @@ class HistoryStore(JSONFileStore):
             )
             all_entries.append(new_entry.to_dict())
 
-        # Limit entries per connection
         connection_entries = [
             e for e in all_entries if e.get("connection_name") == connection_name
         ]
@@ -133,15 +97,6 @@ class HistoryStore(JSONFileStore):
         self._write_json(other_entries + connection_entries)
 
     def delete_entry(self, connection_name: str, timestamp: str) -> bool:
-        """Delete a specific history entry.
-
-        Args:
-            connection_name: Name of the connection.
-            timestamp: ISO timestamp of the entry to delete.
-
-        Returns:
-            True if an entry was deleted, False otherwise.
-        """
         all_entries = self._load_all_entries()
         original_count = len(all_entries)
 
@@ -160,14 +115,6 @@ class HistoryStore(JSONFileStore):
         return False
 
     def clear_for_connection(self, connection_name: str) -> int:
-        """Clear all history for a connection.
-
-        Args:
-            connection_name: Name of the connection.
-
-        Returns:
-            Number of entries deleted.
-        """
         all_entries = self._load_all_entries()
         original_count = len(all_entries)
 

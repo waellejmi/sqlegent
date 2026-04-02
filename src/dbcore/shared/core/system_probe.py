@@ -41,8 +41,6 @@ def _read_os_release() -> str | None:
 
 
 class SystemProbe:
-    """Snapshot of system state used for install strategy detection."""
-
     def __init__(
         self,
         *,

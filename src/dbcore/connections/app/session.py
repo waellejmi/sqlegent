@@ -1,4 +1,4 @@
-"""Connection session management for sqlit.
+"""Connection session management for dbcore.
 
 This module provides a ConnectionSession class that owns the lifecycle
 of database connections and SSH tunnels, ensuring proper cleanup.
@@ -65,7 +65,8 @@ class ConnectionSession:
         cls,
         config: ConnectionConfig,
         provider_factory: Callable[[str], DatabaseProvider] | None = None,
-        tunnel_factory: Callable[[ConnectionConfig], tuple[Any, str, int]] | None = None,
+        tunnel_factory: Callable[[ConnectionConfig], tuple[Any, str, int]]
+        | None = None,
     ) -> ConnectionSession:
         """Create a new connection session.
 
@@ -89,8 +90,14 @@ class ConnectionSession:
         """
         from dbcore.connections.app.tunnel import create_ssh_tunnel
         from dbcore.connections.providers.adapter_provider import build_adapter_provider
-        from dbcore.connections.providers.catalog import get_provider, get_provider_schema, get_provider_spec
-        from dbcore.connections.providers.config_service import normalize_connection_config
+        from dbcore.connections.providers.catalog import (
+            get_provider,
+            get_provider_schema,
+            get_provider_spec,
+        )
+        from dbcore.connections.providers.config_service import (
+            normalize_connection_config,
+        )
         from dbcore.connections.providers.model import DatabaseProvider
 
         get_provider_fn = provider_factory or get_provider
@@ -205,7 +212,9 @@ class ConnectionSession:
         if self._tunnel:
             # Reuse tunnel - get local bind address
             local_host, local_port = self._tunnel.local_bind_address
-            connect_config = new_config.with_endpoint(host=local_host, port=str(local_port))
+            connect_config = new_config.with_endpoint(
+                host=local_host, port=str(local_port)
+            )
         else:
             connect_config = new_config
 

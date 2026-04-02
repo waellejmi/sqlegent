@@ -1,4 +1,4 @@
-"""Runtime configuration for sqlit."""
+"""Runtime configuration for dbcore."""
 
 from __future__ import annotations
 
@@ -79,11 +79,19 @@ class RuntimeConfig:
             return value.strip().lower() in {"1", "true", "yes", "on"}
 
         settings_path = os.environ.get("SQLIT_SETTINGS_PATH", "").strip() or None
-        startup_log_path = os.environ.get("SQLIT_PROFILE_STARTUP_FILE", "").strip() or None
+        startup_log_path = (
+            os.environ.get("SQLIT_PROFILE_STARTUP_FILE", "").strip() or None
+        )
         startup_exit = os.environ.get("SQLIT_PROFILE_STARTUP_EXIT") == "1"
-        import_log_path = os.environ.get("SQLIT_PROFILE_STARTUP_IMPORTS_FILE", "").strip() or None
-        import_enabled = os.environ.get("SQLIT_PROFILE_STARTUP_IMPORTS") == "1" or bool(import_log_path)
-        import_min_raw = os.environ.get("SQLIT_PROFILE_STARTUP_IMPORTS_MIN_MS", "").strip()
+        import_log_path = (
+            os.environ.get("SQLIT_PROFILE_STARTUP_IMPORTS_FILE", "").strip() or None
+        )
+        import_enabled = os.environ.get("SQLIT_PROFILE_STARTUP_IMPORTS") == "1" or bool(
+            import_log_path
+        )
+        import_min_raw = os.environ.get(
+            "SQLIT_PROFILE_STARTUP_IMPORTS_MIN_MS", ""
+        ).strip()
         import_min_ms = _parse_float(import_min_raw) if import_min_raw else 1.0
         profile_startup = (
             os.environ.get("SQLIT_PROFILE_STARTUP") == "1"
@@ -92,7 +100,11 @@ class RuntimeConfig:
             or import_enabled
         )
         default_startup_log = Path(".sqlit") / "startup.txt"
-        startup_log = Path(startup_log_path).expanduser() if startup_log_path else (default_startup_log if profile_startup else None)
+        startup_log = (
+            Path(startup_log_path).expanduser()
+            if startup_log_path
+            else (default_startup_log if profile_startup else None)
+        )
         startup_import_log = (
             Path(import_log_path).expanduser()
             if import_log_path
@@ -111,11 +123,16 @@ class RuntimeConfig:
         stall_env = os.environ.get("SQLIT_UI_STALL_WATCHDOG_MS")
         ui_stall_watchdog_ms = _parse_float(stall_env)
         missing_drivers = os.environ.get("SQLIT_MOCK_MISSING_DRIVERS", "")
-        missing_driver_set = {item.strip() for item in missing_drivers.split(",") if item.strip()}
+        missing_driver_set = {
+            item.strip() for item in missing_drivers.split(",") if item.strip()
+        }
 
         mock_config = MockConfig(
             missing_drivers=missing_driver_set,
-            install_result=os.environ.get("SQLIT_MOCK_INSTALL_RESULT", "").strip().lower() or None,
+            install_result=os.environ.get("SQLIT_MOCK_INSTALL_RESULT", "")
+            .strip()
+            .lower()
+            or None,
             pipx_mode=os.environ.get("SQLIT_MOCK_PIPX", "").strip().lower() or None,
             query_delay=_parse_float(os.environ.get("SQLIT_MOCK_QUERY_DELAY")),
             demo_rows=_parse_int(os.environ.get("SQLIT_DEMO_ROWS")) or 0,

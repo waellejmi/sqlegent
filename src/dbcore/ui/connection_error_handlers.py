@@ -36,7 +36,7 @@ class MissingDriverHandler:
 
     def handle(self, app: ConnectionErrorApp, error: Exception, config: ConnectionConfig) -> None:
         from dbcore.connections.providers.exceptions import MissingDriverError
-        from sqlit.shared.core.debug_events import emit_debug_event
+        from dbcore.shared.core.debug_events import emit_debug_event
 
         from .restart_cache import write_pending_connection_cache
         from .screens import PackageSetupScreen

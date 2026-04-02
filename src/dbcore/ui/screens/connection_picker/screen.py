@@ -20,7 +20,7 @@ from dbcore.connections.app.cloud_actions import (
 from dbcore.connections.app.save_connection import is_config_saved, save_connection
 from dbcore.connections.discovery.cloud import ProviderState, get_providers
 from dbcore.domains.explorer.ui.tree import builder as tree_builder
-from sqlit.shared.core.utils import fuzzy_match
+from dbcore.shared.core.utils import fuzzy_match
 from dbcore.ui.protocols import AppProtocol
 from dbcore.ui.widgets import Dialog, FilterInput
 

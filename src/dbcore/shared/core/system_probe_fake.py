@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from sqlit.shared.core.system_probe import SystemProbeProtocol
+from dbcore.shared.core.system_probe import SystemProbeProtocol
 
 
 @dataclass

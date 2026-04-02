@@ -10,7 +10,7 @@ from textual.binding import Binding
 from textual.screen import ModalScreen
 from textual.widgets import RichLog, Static
 
-from sqlit.shared.core.processes import AsyncProcess, AsyncProcessRunner, AsyncSubprocessRunner
+from dbcore.shared.core.processes import AsyncProcess, AsyncProcessRunner, AsyncSubprocessRunner
 from dbcore.ui.widgets import Dialog
 
 

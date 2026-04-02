@@ -6,7 +6,7 @@ from textual.widgets.option_list import Option
 
 from dbcore.connections.domain.config import ConnectionConfig
 from dbcore.connections.providers.metadata import get_connection_display_info
-from sqlit.shared.core.utils import fuzzy_match, highlight_matches
+from dbcore.shared.core.utils import fuzzy_match, highlight_matches
 
 
 def build_connections_options(
