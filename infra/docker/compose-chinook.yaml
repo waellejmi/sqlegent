@@ -88,6 +88,9 @@ services:
       ACCEPT_EULA: Y
       MSSQL_SA_PASSWORD: ChinookPass123!
       MSSQL_PID: Developer
+
+    labels:
+      - "db.name=Chinook"
     ports:
       - "${MSSQL_PORT:-1433}:1433"
     tmpfs:

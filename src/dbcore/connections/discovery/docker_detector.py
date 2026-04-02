@@ -6,7 +6,7 @@ and extract connection details from them.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Protocol, cast
 
@@ -71,7 +71,10 @@ class DockerScanProtocol(Protocol):
 
 
 def _iter_docker_detectors() -> list[tuple[str, Any]]:
-    from dbcore.connections.providers.catalog import get_provider, get_supported_db_types
+    from dbcore.connections.providers.catalog import (
+        get_provider,
+        get_supported_db_types,
+    )
 
     detectors: list[tuple[str, Any]] = []
     for db_type in get_supported_db_types():
@@ -274,6 +277,10 @@ def _detect_containers_with_status(
         env_vars = _get_container_env_vars(container)
         credentials = detector.get_credentials(env_vars)
 
+        # In case no env var for database name(MSSQL), use labels
+        if credentials.database is None:
+            database_label = container.labels.get("db.name")
+            credentials = replace(credentials, database=database_label)
         # Create container name (strip leading slash if present)
         container_name = container.name
         if container_name.startswith("/"):
@@ -300,7 +307,8 @@ def _detect_containers_with_status(
                 password=password,
                 database=credentials.database,
                 status=container_status,
-                connectable=container_status == ContainerStatus.RUNNING and host_port is not None,
+                connectable=container_status == ContainerStatus.RUNNING
+                and host_port is not None,
             )
         )
 
@@ -381,7 +389,9 @@ def container_to_connection_config(container: DetectedContainer) -> ConnectionCo
         ),
         source="docker",
     )
-    normalize = getattr(provider.connection_factory, "normalize_docker_connection", None)
+    normalize = getattr(
+        provider.connection_factory, "normalize_docker_connection", None
+    )
     if callable(normalize):
         config = cast(ConnectionConfig, normalize(config))
     normalized = provider.config_validator.normalize(config)

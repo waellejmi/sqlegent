@@ -127,7 +127,6 @@ def _pick_docker_connection_uri(db_config: DBConfig) -> str:
 
     selected = running[choice - 1]
     connection = container_to_connection_config(selected)
-    breakpoint()
     return _connection_config_to_uri(connection, db_config)
 
 
