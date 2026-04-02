@@ -17,9 +17,9 @@ ALLOWED = (
 )
 
 
-def validate_sql(query: str) -> bool:
+def validate_sql(query: str, dialect: str) -> bool:
     try:
-        statements = parse(query)
+        statements = parse(query, read=dialect)
     except Exception:
         return False
 
@@ -53,7 +53,9 @@ db, get_schema_tool, run_query_tool = _build_database_components()
 )
 def run_query_tool_with_interrupt(config: RunnableConfig, **tool_input):
     # static check
-    if not validate_sql(tool_input["query"]):
+    if not validate_sql(
+        tool_input["query"], dialect=("tsql" if db.dialect == "mssql" else db.dialect)
+    ):
         return "Failed the static check. Only SELECT and WITH statements are allowed. No multiple statements allowed."
     # human interruption
     if not AppConfig().HUMAN_SQL_REVIEW:

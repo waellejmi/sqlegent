@@ -12,3 +12,4 @@ wheels/
 
 # Big files
 data/northwind.db
+tests/c.py
