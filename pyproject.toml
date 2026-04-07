@@ -30,6 +30,9 @@ postgres = ["psycopg2-binary>=2.9.0"]
 mysql = ["PyMySQL>=1.1.0"]
 mariadb = ["PyMySQL>=1.1.0"]
 oracle= ["oracledb>=2.0.0"]
+#TODO: Wait for SQLalchemy 2.1 support for mssql-python, it already merged 
+# https://github.com/microsoft/mssql-python#installation
+# mssql ["mssql-python>=X.X.X"]
 mssql = ["pymssql >= 2.3.11"]
 
 mssql-native = ["pyodbc>=5.1.0"]
