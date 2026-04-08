@@ -121,7 +121,7 @@ if __name__ == "__main__":
         "complex2": "Which customers spent more than the average customer spending, and what is their total amount spent?",
         "northwind": "Find the top 3 employees who generated the highest total revenue from orders in 1997, including the employee’s full name, total revenue, and the number of distinct customers they served. Only include orders where the total order amount exceeds $5,000.",
     }
-    question = questions["complex2"]
+    question = questions["complex1"]
 
     initial_state = {
         "messages": [{"role": "user", "content": question}],

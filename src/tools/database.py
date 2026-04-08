@@ -1,3 +1,5 @@
+import logging
+
 from langchain.tools import tool
 from langchain_community.tools.sql_database.tool import (
     InfoSQLDatabaseTool,
@@ -10,17 +12,30 @@ from sqlglot import exp, parse
 
 from config.app_config import AppConfig
 from config.db_config import DBConfig
+from utils.logger_setup import LoggerSetup
+
+logger = LoggerSetup.get_logger(__name__, logging.INFO)
+
 
 ALLOWED = (
     exp.Select,
     exp.With,
 )
 
+# SQLAlchemy and sqlglot use differant  names for some dialects
+SQLGLOT_COMPLIANET_DIALECTS = {
+    "mssql": "tsql",
+    "postgresql": "postgres",
+    "mariadb": "mysql",
+}
 
-def validate_sql(query: str, dialect: str) -> bool:
+
+def validate_sql(query: str, dialect: str = None) -> bool:
     try:
         statements = parse(query, read=dialect)
-    except Exception:
+
+    except Exception as e:
+        logger.error(f"Parser Error: {e}")
         return False
 
     if len(statements) != 1:
@@ -53,10 +68,11 @@ db, get_schema_tool, run_query_tool = _build_database_components()
 )
 def run_query_tool_with_interrupt(config: RunnableConfig, **tool_input):
     # static check
-    if not validate_sql(
-        tool_input["query"], dialect=("tsql" if db.dialect == "mssql" else db.dialect)
-    ):
-        return "Failed the static check. Only SELECT and WITH statements are allowed. No multiple statements allowed."
+    dialect = SQLGLOT_COMPLIANET_DIALECTS.get(db.dialect, db.dialect)
+    if not validate_sql(tool_input["query"], dialect=dialect):
+        raise ValueError(
+            "Failed the static check. Only SELECT and WITH statements are allowed. No multiple statements allowed."
+        )
     # human interruption
     if not AppConfig().HUMAN_SQL_REVIEW:
         final_query_input = tool_input

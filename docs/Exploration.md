@@ -1,7 +1,6 @@
 # Market Analysis
 ## Open-Source Solutions
 - [WrenAI](https://github.com/Canner/WrenAI)
-
 [Documentation](https://docs.getwren.ai/oss/concept/wren_ai_service) 
 ```
 + visulisations saved to a seperate dashboard tab. (maybe add a cron job to update the graph for the saved request )
