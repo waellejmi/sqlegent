@@ -51,7 +51,7 @@ def validate_sql(query: str, dialect: str = None) -> bool:
 
 def _build_database_components():
     database_uri = DBConfig().get_database_uri()
-    database = SQLDatabase.from_uri(database_uri)
+    database = SQLDatabase.from_uri(database_uri, sample_rows_in_table_info=1)
     get_schema = InfoSQLDatabaseTool(db=database)
     run_query = QuerySQLDatabaseTool(db=database)
 

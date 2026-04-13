@@ -26,7 +26,6 @@ logger = LoggerSetup.get_logger(__name__, logging.INFO)
 
 
 def list_tables(_state: AgentState):
-
     result = db.get_usable_table_names()
     logger.debug(f"List of tables in the database: {result}")
     if not result:

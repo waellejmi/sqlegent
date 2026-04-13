@@ -7,7 +7,7 @@ from dataclasses import dataclass
 class DBConfig:
     ROOT_DIR: pathlib.Path = pathlib.Path(__file__).resolve().parent.parent.parent
     DEFAULT_SQLITE_PATH: pathlib.Path = ROOT_DIR / "data" / "Chinook.db"
-    CONFIG_DIR: pathlib.Path = pathlib.Path.home() / ".sqlagent"
+    CONFIG_DIR: pathlib.Path = ROOT_DIR / ".app_config"
     CONFIG_FILE: pathlib.Path = CONFIG_DIR / "config.json"
     ACTIVE_DATABASE_URI_KEY: str = "database_uri"
 
@@ -36,7 +36,6 @@ class DBConfig:
         except Exception:
             return {}
         return {}
-
 
     def get_database_uri(self) -> str:
         config = self.load_config()
