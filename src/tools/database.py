@@ -12,6 +12,11 @@ from sqlglot import exp, parse
 
 from config.app_config import AppConfig
 from config.db_config import DBConfig
+from tools.metadata_cache import (
+    get_cached_metadata,
+    invalidate_metadata_cache,
+    set_cached_metadata,
+)
 from utils.logger_setup import LoggerSetup
 
 logger = LoggerSetup.get_logger(__name__, logging.INFO)
@@ -59,6 +64,68 @@ def _build_database_components():
 
 
 db, get_schema_tool, run_query_tool = _build_database_components()
+
+
+def _get_config_flag(
+    config: RunnableConfig | None, flag: str, default: bool = False
+) -> bool:
+    if not config:
+        return default
+    configurable = config.get("configurable") if isinstance(config, dict) else None
+    if not isinstance(configurable, dict):
+        return default
+    return bool(configurable.get(flag, default))
+
+
+def list_tables_with_cache(
+    *, bypass_cache: bool = False, invalidate_cache: bool = False
+) -> list[str]:
+    if invalidate_cache:
+        invalidate_metadata_cache(DBConfig().get_database_uri())
+
+    cached = get_cached_metadata(
+        operation="list_tables",
+        operation_args=None,
+        bypass_cache=bypass_cache,
+    )
+    if cached is not None:
+        return list(cached)
+
+    table_names = db.get_usable_table_names()
+    set_cached_metadata(
+        operation="list_tables",
+        operation_args=None,
+        value=table_names,
+        bypass_cache=bypass_cache,
+    )
+    return table_names
+
+
+@tool(
+    get_schema_tool.name,
+    description=get_schema_tool.description,
+    args_schema=get_schema_tool.args_schema,
+)
+def get_schema_tool_with_cache(config: RunnableConfig, **tool_input):
+    bypass_cache = _get_config_flag(config, "metadata_bypass_cache", False)
+    operation_args = {"table_names": tool_input.get("table_names", "")}
+
+    cached = get_cached_metadata(
+        operation="get_schema",
+        operation_args=operation_args,
+        bypass_cache=bypass_cache,
+    )
+    if cached is not None:
+        return cached
+
+    tool_response = get_schema_tool.invoke(tool_input, config)
+    set_cached_metadata(
+        operation="get_schema",
+        operation_args=operation_args,
+        value=tool_response,
+        bypass_cache=bypass_cache,
+    )
+    return tool_response
 
 
 @tool(

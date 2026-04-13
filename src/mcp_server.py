@@ -9,7 +9,9 @@ from mcp.server.fastmcp import FastMCP
 
 from agent.graph import agent
 from agent.state import AgentState
+from config.db_config import DBConfig
 from tools.database import db
+from tools.metadata_cache import invalidate_metadata_cache
 from utils.logger_setup import LoggerSetup
 
 logger = LoggerSetup.get_logger(__name__, logging.INFO)
@@ -29,7 +31,9 @@ connect_to_database()
 mcp = FastMCP("sql-mcp-server")
 
 
-def _build_initial_state(question: str) -> AgentState:
+def _build_initial_state(
+    question: str,
+) -> AgentState:
     return AgentState(
         messages=[HumanMessage(content=question)],
         user_question=question,
@@ -42,9 +46,16 @@ def _build_initial_state(question: str) -> AgentState:
     )
 
 
-def _make_config() -> RunnableConfig:
+def _make_config(
+    bypass_cache: bool = False,
+    invalidate_cache: bool = False,
+) -> RunnableConfig:
     return RunnableConfig(
-        configurable={"thread_id": str(uuid.uuid4())},
+        configurable={
+            "thread_id": str(uuid.uuid4()),
+            "metadata_bypass_cache": bypass_cache,
+            "metadata_invalidate_cache": invalidate_cache,
+        },
         callbacks=[UsageMetadataCallbackHandler()],
     )
 
@@ -90,7 +101,11 @@ async def _run_agent_auto_accept(
 
 
 @mcp.tool()
-async def ask_database(question: str) -> str:
+async def ask_database(
+    question: str,
+    bypass_cache: bool = False,
+    invalidate_cache: bool = False,
+) -> str:
     """
     Answer a natural language question about the database.
 
@@ -105,13 +120,20 @@ async def ask_database(question: str) -> str:
         A natural language answer based on the query results.
     """
     logger.info(f"ask_database called with: {question!r}")
-    config = _make_config()
+    config = _make_config(
+        bypass_cache=bypass_cache,
+        invalidate_cache=invalidate_cache,
+    )
     initial_state = _build_initial_state(question)
     return await _run_agent_auto_accept(initial_state, config)
 
 
 @mcp.tool()
-async def generate_sql(question: str) -> str:
+async def generate_sql(
+    question: str,
+    bypass_cache: bool = False,
+    invalidate_cache: bool = False,
+) -> str:
     """
     Generate a validated SQL query for a natural language question without executing it.
 
@@ -132,7 +154,10 @@ async def generate_sql(question: str) -> str:
     AppConfig.__dataclass_fields__["EXECUTE_SQL_QUERIES"].default = False
 
     try:
-        config = _make_config()
+        config = _make_config(
+            bypass_cache=bypass_cache,
+            invalidate_cache=invalidate_cache,
+        )
         initial_state = _build_initial_state(question)
 
         async for _ in agent.astream(
@@ -151,6 +176,34 @@ async def generate_sql(question: str) -> str:
         return last_query
     finally:
         AppConfig.__dataclass_fields__["EXECUTE_SQL_QUERIES"].default = original_default
+
+
+@mcp.tool()
+async def invalidate_cache(scope: str = "current") -> str:
+    """
+    Invalidate metadata cache entries.
+
+    Args:
+        scope: "current" to clear active database entries, "all" to clear all entries.
+
+    Returns:
+        Message describing number of deleted cache entries.
+    """
+    normalized_scope = scope.strip().lower()
+    if normalized_scope not in {"current", "all"}:
+        return 'Invalid scope. Use "current" or "all".'
+
+    if normalized_scope == "all":
+        deleted = invalidate_metadata_cache()
+        return (
+            f"Invalidated metadata cache for all databases. Deleted entries: {deleted}."
+        )
+
+    current_database_uri = DBConfig().get_database_uri()
+    deleted = invalidate_metadata_cache(current_database_uri)
+    return (
+        f"Invalidated metadata cache for current database. Deleted entries: {deleted}."
+    )
 
 
 if __name__ == "__main__":

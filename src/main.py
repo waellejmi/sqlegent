@@ -110,7 +110,11 @@ if __name__ == "__main__":
 
     usage_callback = UsageMetadataCallbackHandler()
     config = {
-        "configurable": {"thread_id": str(uuid.uuid4())},
+        "configurable": {
+            "thread_id": str(uuid.uuid4()),
+            "metadata_bypass_cache": False,
+            "metadata_invalidate_cache": False,
+        },
         "callbacks": [usage_callback],
     }
     questions = {
@@ -129,6 +133,8 @@ if __name__ == "__main__":
         "last_query": None,
         "previous_queries": [],
         "analysis_result": None,
+        "skip_decision": None,
+        "db_output": None,
         "retry_count": 0,
     }
 

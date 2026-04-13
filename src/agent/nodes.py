@@ -1,6 +1,7 @@
 import logging
 
 from langchain.messages import AIMessage
+from langchain_core.runnables import RunnableConfig
 from langgraph.prebuilt import ToolNode
 
 from agent.prompts import (
@@ -16,8 +17,10 @@ from agent.state import AgentState, AnalysisResult, SkipDecision
 from config.app_config import AppConfig
 from llm.model import model
 from tools.database import (
+    _get_config_flag,
     db,
-    get_schema_tool,
+    get_schema_tool_with_cache,
+    list_tables_with_cache,
     run_query_tool_with_interrupt,
 )
 from utils.logger_setup import LoggerSetup
@@ -25,8 +28,18 @@ from utils.logger_setup import LoggerSetup
 logger = LoggerSetup.get_logger(__name__, logging.INFO)
 
 
-def list_tables(_state: AgentState):
-    result = db.get_usable_table_names()
+def list_tables(_state: AgentState, config: RunnableConfig | None = None):
+    bypass_cache = _get_config_flag(
+        config,
+        "metadata_bypass_cache",
+        AppConfig().METADATA_CACHE_BYPASS_DEFAULT,
+    )
+    invalidate_cache = _get_config_flag(config, "metadata_invalidate_cache", False)
+    result = list_tables_with_cache(
+        bypass_cache=bypass_cache,
+        invalidate_cache=invalidate_cache,
+    )
+
     logger.debug(f"List of tables in the database: {result}")
     if not result:
         raise ValueError("Failed to retrieve table names from the database.")
@@ -36,7 +49,7 @@ def list_tables(_state: AgentState):
     return {"messages": [response]}
 
 
-get_schema_node = ToolNode([get_schema_tool], name="get_schema")
+get_schema_node = ToolNode([get_schema_tool_with_cache], name="get_schema")
 
 
 def skip_pipeline(state: AgentState):
@@ -61,7 +74,7 @@ def should_skip(state: AgentState):
 
 
 def call_get_schema(state: AgentState):
-    llm_with_tools = model.bind_tools([get_schema_tool])
+    llm_with_tools = model.bind_tools([get_schema_tool_with_cache])
 
     if (
         state["analysis_result"] is not None
