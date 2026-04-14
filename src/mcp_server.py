@@ -10,6 +10,7 @@ from mcp.server.fastmcp import FastMCP
 from agent.graph import agent
 from agent.state import AgentState
 from config.db_config import DBConfig
+from context_layer.service import extract_tables_from_sql, get_context_service
 from tools.database import db
 from tools.metadata_cache import invalidate_metadata_cache
 from utils.logger_setup import LoggerSetup
@@ -43,6 +44,9 @@ def _build_initial_state(
         skip_decision=None,
         db_output=None,
         retry_count=0,
+        schema_context=None,
+        instruction_context=None,
+        query_memory_context=None,
     )
 
 
@@ -204,6 +208,89 @@ async def invalidate_cache(scope: str = "current") -> str:
     return (
         f"Invalidated metadata cache for current database. Deleted entries: {deleted}."
     )
+
+
+@mcp.tool()
+async def context_reindex() -> str:
+    """
+    Rebuild semantic context index from live schema and MDL YAML files.
+    """
+    from config.app_config import AppConfig
+
+    if not AppConfig().ENABLE_CONTEXT_LAYER:
+        return "Context layer disabled in AppConfig."
+
+    service = get_context_service()
+    table_names = list(db.get_usable_table_names())
+    summary = service.index_semantic_context(db, table_names)
+    return f"Context reindex done: {summary}"
+
+
+@mcp.tool()
+async def context_stats() -> str:
+    """
+    Return context layer stats for active project/database.
+    """
+    from config.app_config import AppConfig
+
+    if not AppConfig().ENABLE_CONTEXT_LAYER:
+        return "Context layer disabled in AppConfig."
+
+    return str(get_context_service().get_stats())
+
+
+@mcp.tool()
+async def confirm_sql_pair(question: str, sql: str, row_count: int = 1) -> str:
+    """
+    Persist a verified NL->SQL pair into query memory.
+    """
+    from config.app_config import AppConfig
+
+    config = AppConfig()
+    if not config.ENABLE_CONTEXT_LAYER or not config.ENABLE_QUERY_MEMORY:
+        return "Query memory disabled in AppConfig."
+
+    memory_id = get_context_service().record_verified_query(
+        question=question,
+        sql=sql,
+        tables=extract_tables_from_sql(sql),
+        row_count=max(0, int(row_count)),
+        is_verified=True,
+        metadata={"source": "mcp", "confirmed": True},
+    )
+    if not memory_id:
+        return "Pair did not meet storage policy (check verification/non-empty rules)."
+    return f"Stored verified pair id: {memory_id}"
+
+
+@mcp.tool()
+async def log_failed_request(
+    question: str,
+    status: str,
+    sql: str = "",
+    error_message: str = "",
+    retry_count: int = 0,
+) -> str:
+    """
+    Persist a failed request event (only when ENABLE_FAILED_QUERY_LOG is true).
+    """
+    from config.app_config import AppConfig
+
+    config = AppConfig()
+    if not config.ENABLE_CONTEXT_LAYER or not config.ENABLE_FAILED_QUERY_LOG:
+        return "Failed-query logging disabled in AppConfig."
+
+    failure_id = get_context_service().record_failed_query(
+        question=question,
+        sql=sql or None,
+        status=status,
+        error_message=error_message or None,
+        retry_count=max(0, int(retry_count)),
+        metadata={"source": "mcp"},
+    )
+    if not failure_id:
+        return "Failed request was not stored."
+    return f"Stored failed request id: {failure_id}"
 
 
 if __name__ == "__main__":

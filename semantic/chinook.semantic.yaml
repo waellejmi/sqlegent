@@ -1,0 +1,108 @@
+models:
+  - name: Artist
+    description: Musical artist or band entity used for attribution in sales analytics.
+    aliases: [artists, musician, band]
+    columns:
+      - name: ArtistId
+        description: Primary key of the artist.
+      - name: Name
+        description: Display name of the artist.
+
+  - name: Album
+    description: Album released by one artist.
+    aliases: [record, release]
+    columns:
+      - name: AlbumId
+        description: Primary key of the album.
+      - name: ArtistId
+        description: Foreign key to Artist.ArtistId.
+      - name: Title
+        description: Album title.
+
+  - name: Track
+    description: Sellable track that belongs to an album.
+    aliases: [song, track, title]
+    columns:
+      - name: TrackId
+        description: Primary key of the track.
+      - name: AlbumId
+        description: Foreign key to Album.AlbumId.
+      - name: UnitPrice
+        description: List price of a track (not final line amount for analytics).
+
+  - name: InvoiceLine
+    description: Line-level sales facts; safest source for item quantity and line revenue.
+    aliases: [sales lines, order lines, line items]
+    columns:
+      - name: InvoiceLineId
+        description: Primary key of invoice line.
+      - name: InvoiceId
+        description: Foreign key to Invoice.InvoiceId.
+      - name: TrackId
+        description: Foreign key to Track.TrackId.
+      - name: UnitPrice
+        description: Sold unit price at invoice line level.
+      - name: Quantity
+        description: Number of units sold for this track line.
+
+relationships:
+  - from_model: Album
+    to_model: Artist
+    type: many_to_one
+    join:
+      from_column: ArtistId
+      to_column: ArtistId
+    description: Each album belongs to one artist.
+
+  - from_model: Track
+    to_model: Album
+    type: many_to_one
+    join:
+      from_column: AlbumId
+      to_column: AlbumId
+    description: Each track belongs to one album.
+
+  - from_model: InvoiceLine
+    to_model: Track
+    type: many_to_one
+    join:
+      from_column: TrackId
+      to_column: TrackId
+    description: Invoice lines reference sold tracks.
+
+instructions:
+  - id: default_sql_guardrails
+    scope: sql
+    is_default: true
+    instruction: |
+      Use explicit JOIN keys from known relationships, avoid SELECT *, and select only required columns.
+      Prefer deterministic ordering when returning top N lists.
+
+  - id: artist_revenue_top5
+    scope: sql
+    question: top 5 artists by revenue total revenue tracks sold units sold
+    instruction: |
+      For artist revenue questions, use Artist -> Album -> Track -> InvoiceLine joins.
+      Compute total_revenue as SUM(InvoiceLine.UnitPrice * InvoiceLine.Quantity).
+      Compute tracks_sold as SUM(InvoiceLine.Quantity).
+      Group by Artist.ArtistId and Artist.Name.
+      Order by total_revenue DESC, tracks_sold DESC, Artist.Name ASC.
+      Apply LIMIT 5 unless the user asks for a different count.
+      Do not use Invoice.Total for artist-level attribution.
+
+  - id: customer_spend_above_average
+    scope: sql
+    question: customers above average total spending
+    instruction: |
+      For customer spending, aggregate Invoice.Total by customer, then compare each customer total
+      against the average of per-customer totals (not average invoice amount).
+  - id: top_bought_tracks
+    scope: sql
+    question: most bought tracks of all times
+    instruction: |
+      For most bought tracks,look at the list of all purchased items (invoice lines), since each one represents a song bought by a customer.
+      For each entry, identify the track and add up how many times it was purchased, combining all occurrences of the same song into a single total.
+      Once you’ve summed the purchases for every track, arrange them from highest to lowest.
+      The tracks at the top of this list are the most bought of all time.
+      Also List MediaType and Genre for each track.
+

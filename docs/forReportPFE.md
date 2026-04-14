@@ -6,3 +6,5 @@ Jalet fil context engineering, RAG, and WrenAI for the report.
 - [WREN CONTEXT](https://docs.getwren.ai/oss/engine/concept/what_is_context)
 - [MOre context](https://a16z.com/your-data-agents-need-context/)
 - [memory and self learning](https://docs.getwren.ai/oss/engine/concept/benefits_llm#6-memory-and-self-learning)
+
+-import opencode convo [link](https://opncd.ai/share/JCKX3WlW)

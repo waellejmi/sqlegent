@@ -1,4 +1,3 @@
-import hashlib
 import json
 import logging
 import sqlite3
@@ -8,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from config.app_config import AppConfig
-from config.db_config import DBConfig
+from utils.helpers import _hash, get_db_fingerprint, normalize_args
 from utils.logger_setup import LoggerSetup
 
 logger = LoggerSetup.get_logger(__name__, logging.INFO)
@@ -129,20 +128,6 @@ class MetadataCacheStore:
                 return cursor.rowcount
 
 
-def _hash(value: str) -> str:
-    return hashlib.sha256(value.encode("utf-8")).hexdigest()
-
-
-def _normalize_args(operation_args: dict[str, Any] | None) -> str:
-    payload = operation_args or {}
-    return json.dumps(payload, sort_keys=True, separators=(",", ":"))
-
-
-def get_db_fingerprint(database_uri: str | None = None) -> str:
-    uri = database_uri or DBConfig().get_database_uri()
-    return _hash(uri)
-
-
 def build_cache_key(
     *,
     database_uri: str | None,
@@ -150,7 +135,7 @@ def build_cache_key(
     operation_args: dict[str, Any] | None,
 ) -> tuple[str, str, str]:
     db_fingerprint = get_db_fingerprint(database_uri)
-    normalized_args = _normalize_args(operation_args)
+    normalized_args = normalize_args(operation_args)
     args_hash = _hash(normalized_args)
     cache_key = _hash(f"{db_fingerprint}|{operation}|{args_hash}")
     return cache_key, db_fingerprint, args_hash

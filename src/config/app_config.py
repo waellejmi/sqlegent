@@ -9,12 +9,55 @@ load_dotenv()
 @dataclass
 class AppConfig:
     ROOT_DIR: Path = Path(__file__).resolve().parent.parent.parent
-    EXECUTE_SQL_QUERIES: bool = True
+
     HUMAN_SQL_REVIEW: bool = True
+    EXECUTE_SQL_QUERIES: bool = True
     MAX_SQL_RETRIES: int = 1
+
     SHOW_AGENT_GRAPH: bool = False
     SHOW_NODE_HISTORY: bool = True
+
     METADATA_CACHE_ENABLED: bool = True
     METADATA_CACHE_TTL_SECONDS: int | None = None
     METADATA_CACHE_BYPASS_DEFAULT: bool = False
     METADATA_CACHE_PATH: Path = ROOT_DIR / ".app_cache" / "metadata_cache.sqlite"
+
+    ENABLE_CONTEXT_LAYER: bool = True
+    CONTEXT_PROJECT_ID: str = "default"
+    CONTEXT_STORE_PATH: Path = ROOT_DIR / ".app_cache" / "context_layer.sqlite"
+    CONTEXT_DEBUG_LOG: bool = False
+    CONTEXT_AUTO_INDEX_ON_STARTUP: bool = False
+
+    EMBEDDING_MODEL_NAME: str = "sentence-transformers/all-MiniLM-L6-v2"
+    EMBEDDING_DEVICE: str = "auto"
+    EMBEDDING_NORMALIZE: bool = True
+    EMBEDDING_BATCH_SIZE: int = 64
+
+    ENABLE_SCHEMA_CONTEXT: bool = True
+    ENABLE_INSTRUCTION_CONTEXT: bool = True
+    ENABLE_QUERY_MEMORY: bool = True
+    ENABLE_FAILED_QUERY_LOG: bool = False
+
+    MDL_DIR: Path = ROOT_DIR / "semantic"
+    MDL_FILE_GLOB: str = "**/*.yaml"
+    MDL_BASELINE_FILE: Path = MDL_DIR / "_baseline.generated.yaml"
+    MDL_AUTO_GENERATE_BASELINE: bool = True
+
+    SCHEMA_CONTEXT_TOP_K: int = 8
+    INSTRUCTION_CONTEXT_TOP_K: int = 4
+    QUERY_MEMORY_TOP_K: int = 4
+
+    SCHEMA_CONTEXT_MIN_SIMILARITY: float = 0.45
+    INSTRUCTION_CONTEXT_MIN_SIMILARITY: float = 0.55
+    QUERY_MEMORY_MIN_SIMILARITY: float = 0.7
+
+    SCHEMA_CONTEXT_MAX_CHARS: int = 8000
+    INSTRUCTION_CONTEXT_MAX_CHARS: int = 3000
+    QUERY_MEMORY_MAX_CHARS: int = 3000
+
+    QUERY_MEMORY_REQUIRE_VERIFIED: bool = True
+    QUERY_MEMORY_REQUIRE_NON_EMPTY: bool = True
+    QUERY_MEMORY_MAX_ROWS_PER_DB: int = 5000
+    FAILED_QUERY_LOG_MAX_ROWS_PER_DB: int = 20000
+
+    CLI_ASK_RESULT_CONFIRMATION: bool = True
