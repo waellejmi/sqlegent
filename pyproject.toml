@@ -22,6 +22,10 @@ dependencies = [
 
 
 [project.optional-dependencies]
+embedding = [    
+    "pyyaml>=6.0.2",
+    "sentence-transformers>=5.1.1",
+]
 all = [
     "psycopg2-binary>=2.9.0",
     "PyMySQL>=1.1.0",
@@ -47,6 +51,5 @@ ssh = [ "sshtunnel>=0.4.0",
 
 [dependency-groups]
 dev = []
-
 
 

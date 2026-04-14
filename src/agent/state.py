@@ -25,3 +25,6 @@ class AgentState(TypedDict):
     skip_decision: SkipDecision | None
     db_output: str | None
     retry_count: int
+    schema_context: str | None
+    instruction_context: str | None
+    query_memory_context: str | None

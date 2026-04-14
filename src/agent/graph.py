@@ -9,6 +9,7 @@ from agent.nodes import (
     generate_query,
     get_schema_node,
     list_tables,
+    retrieve_context,
     run_query_node,
     should_execute,
     should_retry,
@@ -23,6 +24,7 @@ builder.add_node(list_tables)
 builder.add_node(skip_pipeline)
 builder.add_node(call_get_schema)
 builder.add_node(get_schema_node, "get_schema")
+builder.add_node(retrieve_context)
 builder.add_node(generate_query)
 builder.add_node(check_query)
 builder.add_node(run_query_node, "run_query")
@@ -39,7 +41,8 @@ builder.add_conditional_edges(
 )
 
 builder.add_edge("call_get_schema", "get_schema")
-builder.add_edge("get_schema", "generate_query")
+builder.add_edge("get_schema", "retrieve_context")
+builder.add_edge("retrieve_context", "generate_query")
 builder.add_edge("generate_query", "check_query")
 
 builder.add_conditional_edges(

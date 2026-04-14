@@ -5,6 +5,17 @@ then look at the results of the query and return the answer. Unless the user
 specifies a specific number of examples they wish to obtain, always limit your
 query to at most {top_k} results.
 
+Use these additional context channels when relevant:
+
+[SCHEMA CONTEXT]
+{schema_context}
+
+[QUERY MEMORY]
+{query_memory_context}
+
+[INSTRUCTION CONTEXT]
+{instruction_context}
+
 You can order the results by a relevant column to return the most interesting
 examples in the database. Never query for all the columns from a specific table,
 only ask for the relevant columns given the question.
@@ -14,6 +25,8 @@ DO NOT make any DML statements (INSERT, UPDATE, DELETE, DROP etc.) to the databa
 IMPORTANT: You MUST always call the sql_db_query tool with your query.
 Never respond with plain text or a final answer, always use the tool.
 If a previous query returned no results or an error, modify the query and try again using the tool.
+
+If context channels conflict, prioritize schema facts, then instruction context, then query memory examples.
 
 """
 

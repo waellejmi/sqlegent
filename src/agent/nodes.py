@@ -15,6 +15,7 @@ from agent.prompts import (
 )
 from agent.state import AgentState, AnalysisResult, SkipDecision
 from config.app_config import AppConfig
+from context_layer.service import get_context_service
 from llm.model import model
 from tools.database import (
     _get_config_flag,
@@ -98,12 +99,40 @@ def call_get_schema(state: AgentState):
     return {"messages": [response]}
 
 
+def retrieve_context(state: AgentState):
+    if not AppConfig().ENABLE_CONTEXT_LAYER:
+        return {
+            "schema_context": "Schema context: none",
+            "instruction_context": "Instruction context: none",
+            "query_memory_context": "Query memory examples: none",
+        }
+
+    service = get_context_service()
+    result = service.retrieve_context(state["user_question"])
+    return {
+        "schema_context": result.schema_text,
+        "instruction_context": result.instruction_text,
+        "query_memory_context": result.query_memory_text,
+    }
+
+
 def generate_query(state: AgentState):
+    schema_context = state.get("schema_context") or "Schema context: none"
+    instruction_context = (
+        state.get("instruction_context") or "Instruction context: none"
+    )
+    query_memory_context = (
+        state.get("query_memory_context") or "Query memory examples: none"
+    )
+
     system_message = {
         "role": "system",
         "content": GENERATE_QUERY.format(
             dialect=db.dialect,
             top_k=5,
+            schema_context=schema_context,
+            instruction_context=instruction_context,
+            query_memory_context=query_memory_context,
         ),
     }
     llm_with_tools = model.bind_tools(
