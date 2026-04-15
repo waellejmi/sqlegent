@@ -82,12 +82,14 @@ def build_schema_chunks(semantic_model: dict[str, Any]) -> list[ChunkRecord]:
         if not from_model or not to_model:
             continue
 
-        content = (
-            f"Relationship: {from_model} -> {to_model}\n"
-            f"Type: {rel_type}\n"
-            f"Join: {from_model}.{join_from} = {to_model}.{join_to}\n"
-            f"Description: {rel_description}"
-        )
+        content_lines = [
+            f"Relationship: {from_model} -> {to_model}",
+            f"Type: {rel_type}",
+            f"Join: {from_model}.{join_from} = {to_model}.{join_to}",
+        ]
+        if rel_description:
+            content_lines.append(f"Description: {rel_description}")
+        content = "\n".join(content_lines)
         chunks.append(
             ChunkRecord(
                 id=str(uuid.uuid4()),

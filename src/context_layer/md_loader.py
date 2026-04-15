@@ -104,7 +104,6 @@ def merge_semantic_model(
     model_map: dict[str, dict[str, Any]] = {
         model["name"]: json.loads(json.dumps(model)) for model in baseline.models
     }
-    relationships = list(baseline.relationships)
     instructions = list(baseline.instructions)
 
     for doc in docs:
@@ -147,14 +146,193 @@ def merge_semantic_model(
                             if v is not None:
                                 merged[k] = v
 
-        relationships.extend(doc.get("relationships", []))
         instructions.extend(doc.get("instructions", []))
+
+    relationships = _merge_relationships(
+        baseline_relationships=baseline.relationships,
+        docs=docs,
+    )
 
     return SemanticModel(
         models=list(model_map.values()),
         relationships=relationships,
         instructions=instructions,
     )
+
+
+def _merge_relationships(
+    *,
+    baseline_relationships: list[dict[str, Any]],
+    docs: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+
+    merged_by_key: dict[tuple[str, str, str, str, str], dict[str, Any]] = {}
+    priority_by_key: dict[tuple[str, str, str, str, str], int] = {}
+
+    for relation in baseline_relationships:
+        if not isinstance(relation, dict):
+            continue
+        normalized = _normalize_relationship(relation)
+        key = _relationship_key(normalized)
+        if key is None:
+            continue
+        merged_by_key[key] = normalized
+        priority_by_key[key] = 0
+
+    for doc in docs:
+        for relation in doc.get("relationships", []):
+            if not isinstance(relation, dict):
+                continue
+
+            normalized = _normalize_relationship(relation)
+            key = _relationship_key(normalized)
+            if key is None:
+                continue
+
+            if key not in merged_by_key:
+                merged_by_key[key] = normalized
+                priority_by_key[key] = 1
+                continue
+
+            existing = merged_by_key[key]
+            existing_priority = priority_by_key[key]
+            merged = _merge_relationship_values(
+                existing=existing,
+                incoming=normalized,
+                existing_priority=existing_priority,
+                incoming_priority=1,
+            )
+            merged_by_key[key] = merged
+            priority_by_key[key] = max(existing_priority, 1)
+
+    return list(merged_by_key.values())
+
+
+def _normalize_relationship(relation: dict[str, Any]) -> dict[str, Any]:
+    copied = json.loads(json.dumps(relation))
+
+    from_model = str(copied.get("from_model") or copied.get("fromModel") or "").strip()
+    to_model = str(copied.get("to_model") or copied.get("toModel") or "").strip()
+    rel_type = str(copied.get("type") or "").strip()
+
+    join_data = copied.get("join") if isinstance(copied.get("join"), dict) else {}
+    join_from = str(
+        join_data.get("from_column") or join_data.get("fromColumn") or ""
+    ).strip()
+    join_to = str(join_data.get("to_column") or join_data.get("toColumn") or "").strip()
+
+    description = str(copied.get("description") or "").strip()
+
+    normalized: dict[str, Any] = {
+        "from_model": from_model,
+        "to_model": to_model,
+        "type": rel_type,
+        "join": {
+            "from_column": join_from,
+            "to_column": join_to,
+        },
+        "description": description,
+    }
+
+    for key, value in copied.items():
+        if key in {
+            "from_model",
+            "fromModel",
+            "to_model",
+            "toModel",
+            "type",
+            "join",
+            "description",
+        }:
+            continue
+        normalized[key] = value
+
+    return normalized
+
+
+def _relationship_key(
+    relation: dict[str, Any],
+) -> tuple[str, str, str, str, str] | None:
+    from_model = str(relation.get("from_model") or "").strip()
+    to_model = str(relation.get("to_model") or "").strip()
+
+    if not from_model or not to_model:
+        return None
+
+    rel_type = str(relation.get("type") or "").strip()
+    join_data = relation.get("join") if isinstance(relation.get("join"), dict) else {}
+    join_from = str(join_data.get("from_column") or "").strip()
+    join_to = str(join_data.get("to_column") or "").strip()
+
+    return (
+        from_model.lower(),
+        to_model.lower(),
+        rel_type.lower(),
+        join_from.lower(),
+        join_to.lower(),
+    )
+
+
+def _merge_relationship_values(
+    *,
+    existing: dict[str, Any],
+    incoming: dict[str, Any],
+    existing_priority: int,
+    incoming_priority: int,
+) -> dict[str, Any]:
+    merged = json.loads(json.dumps(existing))
+
+    incoming_is_higher = incoming_priority > existing_priority
+    same_priority = incoming_priority == existing_priority
+
+    for field in ["from_model", "to_model", "type"]:
+        existing_value = str(merged.get(field) or "").strip()
+        incoming_value = str(incoming.get(field) or "").strip()
+
+        if incoming_is_higher and incoming_value:
+            merged[field] = incoming_value
+            continue
+
+        if not existing_value and incoming_value:
+            merged[field] = incoming_value
+            continue
+
+        if same_priority and incoming_value and incoming_value != existing_value:
+            merged[field] = incoming_value
+
+    existing_join = merged.get("join") if isinstance(merged.get("join"), dict) else {}
+    incoming_join = (
+        incoming.get("join") if isinstance(incoming.get("join"), dict) else {}
+    )
+
+    for field in ["from_column", "to_column"]:
+        existing_value = str(existing_join.get(field) or "").strip()
+        incoming_value = str(incoming_join.get(field) or "").strip()
+
+        if incoming_is_higher and incoming_value:
+            existing_join[field] = incoming_value
+            continue
+
+        if not existing_value and incoming_value:
+            existing_join[field] = incoming_value
+            continue
+
+        if same_priority and incoming_value and incoming_value != existing_value:
+            existing_join[field] = incoming_value
+
+    merged["join"] = existing_join
+
+    existing_desc = str(merged.get("description") or "").strip()
+    incoming_desc = str(incoming.get("description") or "").strip()
+
+    if not existing_desc and incoming_desc:
+        merged["description"] = incoming_desc
+    elif incoming_is_higher and incoming_desc:
+        merged["description"] = incoming_desc
+    elif same_priority and incoming_desc and len(incoming_desc) > len(existing_desc):
+        merged["description"] = incoming_desc
+
+    return merged
 
 
 def dump_baseline_yaml(baseline: SemanticModel, output_path: Path) -> None:
