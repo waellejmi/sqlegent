@@ -5,16 +5,8 @@ then look at the results of the query and return the answer. Unless the user
 specifies a specific number of examples they wish to obtain, always limit your
 query to at most {top_k} results.
 
-Use these additional context channels when relevant:
-
-[SCHEMA CONTEXT]
-{schema_context}
-
-[QUERY MEMORY]
-{query_memory_context}
-
-[INSTRUCTION CONTEXT]
-{instruction_context}
+[Schema of Candiate Tables]
+{schema_for_candidate_tables}
 
 You can order the results by a relevant column to return the most interesting
 examples in the database. Never query for all the columns from a specific table,
@@ -22,12 +14,15 @@ only ask for the relevant columns given the question.
 
 DO NOT make any DML statements (INSERT, UPDATE, DELETE, DROP etc.) to the database.
 
-IMPORTANT: You MUST always call the sql_db_query tool with your query.
-Never respond with plain text or a final answer, always use the tool.
-If a previous query returned no results or an error, modify the query and try again using the tool.
+Use these additional context channels when relevant:
+
+[INSTRUCTION CONTEXT]
+{instruction_context}
+
+[QUERY MEMORY]
+{query_memory_context}
 
 If context channels conflict, prioritize schema facts, then instruction context, then query memory examples.
-
 """
 
 CHECK_QUERY = """
@@ -45,6 +40,9 @@ Double check the {dialect} query for common mistakes, including:
 If there are any of the above mistakes, rewrite the query. If there are no mistakes,
 just reproduce the original query.
 
+Current Query:
+{last_query}
+
 You will call the appropriate tool to execute the query after running this check.
 """
 
@@ -55,6 +53,7 @@ USER REQUEST: {user_input}
 SQL QUERY EXECUTED: {query_executed}
 DATABASE RESPONSE: {database_output}
 CURRENT RETRY ATTEMPT: {retry_count}
+USER INSTRUCTIONS: {instruction_context}
 
 EVALUATION RULES:
 1. SUCCESS: Data directly answers the question.
@@ -118,24 +117,38 @@ Error:
 
 Fix the SQL query. Do not repeat the same mistake.
 
+Here is more context that might be helpful.
+
+Preivous failed queries : {previous_queries}
 """
 
 REGENERATE_QUERY_ON_EMPTY_RESULT = """
-The previous query executed successfully but returned no results."
+The previous query executed successfully but returned no results.
 
-SQL:{query}"
+SQL:{query}
 
-Analysis:{explanation}"
+Analysis:{explanation}
 
-Reconsider your assumptions — the filters, joins, or conditions may be too restrictive. "
-Generate a revised query that is more likely to return data."
+Reconsider your assumptions — the filters, joins, or conditions may be too restrictive. 
+Generate a revised query that is more likely to return data.
 
+Here is more context that might be helpful.
+
+Preivous failed queries : {previous_queries}
 """
 
 HANDLE_IRRELEVANT_RESULT = """
 The query executed successfully and returned data, but the results do not match the semantic intent of the user's question.
 
 User question: {user_question}
+
+Available tables: {available_tables}
+
+Previous Candidate tables: {candidate_tables}
+
+Schema context: {schema_context}
+
+Instruction Context : {instruction_context}
 
 SQL executed:
 {query}
@@ -147,17 +160,20 @@ Analysis:
 {explanation}
 
 This likely means the query is targeting the wrong table, column, or relationship.
-You will now retrieve the full database schema to identify the correct tables and columns that semantically match the user's question.
+Identify the correct tables and columns that semantically match the user's question.
 Do not reuse the previous query logic — approach the schema with fresh eyes.
 """
 
 SHOULD_SKIP = """
-You are given a list of tables available in a SQL database:
+You are given a list of tables available in a SQL database: {available_tables}
 Decide if the user's question can possibly be answered using these tables.
-- If the question refers to entities, roles, or data that clearly do not exist
-  in any of these tables, set skip=true and explain why in plain language.
+User question: {user_question}
+
+- If the question refers to entities, roles, or data that clearly do not exist in any of these tables, set skip=true and explain why in plain language.
 - If there is any reasonable chance the question can be answered, set skip=false.
 - Do NOT skip just because results might be empty ,only skip when the schema fundamentally lacks the required data.
+
+Additional Context : {schema_context}
 """
 
 
@@ -165,3 +181,13 @@ REGEN_PROMPTS = {
     "error": REGENERATE_QUERY_ON_ERROR,
     "empty_result": REGENERATE_QUERY_ON_EMPTY_RESULT,
 }
+
+GET_SCHEMA_PROMPT = """
+You are given a list of tables available in a SQL database: {available_tables}
+Choose which are candidate tables that might be relevant to answer the user's question to get their full schema.
+User question: {user_question}
+
+Additional Context : {schema_context}
+
+Instruction Context : {instruction_context}
+"""

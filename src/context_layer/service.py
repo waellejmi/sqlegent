@@ -39,13 +39,41 @@ class ContextLayerService:
     def embedding_profile_id(self) -> str:
         return self._embedder.profile.id
 
+    def resolve_semantic_profile(
+        self, semantic_profile: str | None = None
+    ) -> str | None:
+        profile = (semantic_profile or "").strip()
+        if profile:
+            return profile
+
+        default_profile = (self._config.CONTEXT_DEFAULT_SEMANTIC_PROFILE or "").strip()
+        if default_profile:
+            return default_profile
+
+        return None
+
     def index_semantic_context(
-        self, database, table_names: list[str]
+        self,
+        database,
+        table_names: list[str],
+        semantic_profile: str | None = None,
     ) -> dict[str, Any]:
         if not self._config.ENABLE_CONTEXT_LAYER:
             return {"indexed": False, "reason": "context layer disabled"}
 
-        semantic_model = load_or_build_semantic_model(database, table_names)
+        resolved_profile = self.resolve_semantic_profile(semantic_profile)
+        if self._config.CONTEXT_REQUIRE_SEMANTIC_PROFILE and not resolved_profile:
+            return {
+                "indexed": False,
+                "reason": "semantic profile is required",
+                "semantic_profile": None,
+            }
+
+        semantic_model = load_or_build_semantic_model(
+            database,
+            table_names,
+            semantic_profile=resolved_profile,
+        )
         semantic_dict = {
             "models": semantic_model.models,
             "relationships": semantic_model.relationships,
@@ -76,6 +104,7 @@ class ContextLayerService:
             "schema_chunks": len(schema_chunks),
             "instruction_chunks": len(instruction_chunks),
             "total_chunks": inserted,
+            "semantic_profile": resolved_profile,
         }
         self._store.update_index_state(
             project_id=project_id,
@@ -96,6 +125,7 @@ class ContextLayerService:
             "project_id": project_id,
             "db_fingerprint": db_fingerprint,
             "embedding_profile": self.embedding_profile_id,
+            "semantic_profile": resolved_profile,
             **stats,
         }
 

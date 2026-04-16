@@ -2,13 +2,13 @@ import logging
 
 from langchain.messages import AIMessage
 from langchain_core.runnables import RunnableConfig
-from langgraph.prebuilt import ToolNode
 
 from agent.prompts import (
     ANALYZE_RESULT,
     CHECK_QUERY,
     EXPLAIN_RESULT,
     GENERATE_QUERY,
+    GET_SCHEMA_PROMPT,
     HANDLE_IRRELEVANT_RESULT,
     REGEN_PROMPTS,
     SHOULD_SKIP,
@@ -29,6 +29,19 @@ from utils.logger_setup import LoggerSetup
 logger = LoggerSetup.get_logger(__name__, logging.INFO)
 
 
+def _ai_message_to_text(message: AIMessage) -> str:
+    if isinstance(message.content, str):
+        return message.content
+
+    parts: list[str] = []
+    for block in message.content:
+        if isinstance(block, str):
+            parts.append(block)
+        elif isinstance(block, dict):
+            parts.append(str(block.get("text", "")))
+    return "".join(parts)
+
+
 def list_tables(_state: AgentState, config: RunnableConfig | None = None):
     bypass_cache = _get_config_flag(
         config,
@@ -45,21 +58,33 @@ def list_tables(_state: AgentState, config: RunnableConfig | None = None):
     if not result:
         raise ValueError("Failed to retrieve table names from the database.")
 
-    response = AIMessage(f"Available tables: {', '.join(result)}")
-
-    return {"messages": [response]}
+    return {"available_tables": result}
 
 
-get_schema_node = ToolNode([get_schema_tool_with_cache], name="get_schema")
+def retrieve_context(state: AgentState):
+    if not AppConfig().ENABLE_CONTEXT_LAYER:
+        return
+
+    service = get_context_service()
+    result = service.retrieve_context(state["user_question"])
+    return {
+        "schema_context": result.schema_text,
+        "instruction_context": result.instruction_text,
+        "query_memory_context": result.query_memory_text,
+    }
 
 
 def skip_pipeline(state: AgentState):
     system_message = {
         "role": "system",
-        "content": SHOULD_SKIP,
+        "content": SHOULD_SKIP.format(
+            available_tables=", ".join(state["available_tables"]),
+            user_question=state["user_question"],
+            schema_context=state.get("schema_context", "Not available"),
+        ),
     }
     structured_model = model.with_structured_output(SkipDecision)
-    result = structured_model.invoke([system_message] + state["messages"])
+    result = structured_model.invoke([system_message])
 
     logger.debug(f"Skip Decision: {result}")
     return {
@@ -75,116 +100,134 @@ def should_skip(state: AgentState):
 
 
 def call_get_schema(state: AgentState):
-    llm_with_tools = model.bind_tools([get_schema_tool_with_cache])
-
+    llm_with_tools = model.bind_tools([get_schema_tool_with_cache], tool_choice="any")
+    current_retry_count = state["retry_count"]
     if (
         state["analysis_result"] is not None
         and state["analysis_result"].status == "irrelevant"
     ):
-        user_message = {
-            "role": "user",
+        system_message = {
+            "role": "system",
             "content": HANDLE_IRRELEVANT_RESULT.format(
                 user_question=state["user_question"],
+                available_tables=", ".join(state["available_tables"]),
+                schema_context=state.get("schema_context", "Not available"),
+                instruction_context=state.get("instruction_context", "Not available"),
+                candidate_tables=", ".join(state.get("candidate_tables", [])),
                 query=state["last_query"],
-                database_output=state["messages"][-1].content,
+                database_output=state["db_output"],
                 explanation=state["analysis_result"].explanation,
             ),
         }
-        response = llm_with_tools.invoke([user_message] + state["messages"])
-        current_retry_count = state["retry_count"] + 1
-        return {"messages": [response], "retry_count": current_retry_count}
-
-    response = llm_with_tools.invoke(state["messages"])
-    logger.debug(f"Schema Tool Response: {response}")
-    return {"messages": [response]}
-
-
-def retrieve_context(state: AgentState):
-    if not AppConfig().ENABLE_CONTEXT_LAYER:
-        return {
-            "schema_context": "Schema context: none",
-            "instruction_context": "Instruction context: none",
-            "query_memory_context": "Query memory examples: none",
+        current_retry_count += 1
+    else:
+        system_message = {
+            "role": "system",
+            "content": GET_SCHEMA_PROMPT.format(
+                available_tables=", ".join(state["available_tables"]),
+                user_question=state["user_question"],
+                schema_context=state.get("schema_context", "Not available"),
+                instruction_context=state.get("instruction_context", "Not available"),
+            ),
         }
 
-    service = get_context_service()
-    result = service.retrieve_context(state["user_question"])
+    response = llm_with_tools.invoke([system_message])
+    table_list = [
+        t.strip() for t in response.tool_calls[0]["args"]["table_names"].split(",")
+    ]
+    logger.debug(f"Candidate Tables : {table_list}")
     return {
-        "schema_context": result.schema_text,
-        "instruction_context": result.instruction_text,
-        "query_memory_context": result.query_memory_text,
+        "candidate_tables": table_list,
+        "retry_count": current_retry_count,
     }
 
 
-def generate_query(state: AgentState):
-    schema_context = state.get("schema_context") or "Schema context: none"
-    instruction_context = (
-        state.get("instruction_context") or "Instruction context: none"
+def get_schema_for_candidate_tables(
+    state: AgentState, config: RunnableConfig | None = None
+):
+    candidate_tables = state.get("candidate_tables", [])
+    if not candidate_tables:
+        logger.warning("No candidate tables were selected for schema retrieval.")
+        return {"schema_for_candidate_tables": ""}
+
+    table_names = ",".join(candidate_tables)
+    schema_output = get_schema_tool_with_cache.invoke(
+        {"table_names": table_names},
+        config=config,
     )
-    query_memory_context = (
-        state.get("query_memory_context") or "Query memory examples: none"
+    schema_text = str(schema_output) if schema_output is not None else ""
+
+    logger.debug(
+        "Fetched schema for %d candidate table(s).",
+        len(candidate_tables),
     )
 
+    if not schema_text:
+        return {"schema_for_candidate_tables": ""}
+
+    return {"schema_for_candidate_tables": schema_text}
+
+
+def generate_query(state: AgentState):
     system_message = {
         "role": "system",
         "content": GENERATE_QUERY.format(
             dialect=db.dialect,
             top_k=5,
-            schema_context=schema_context,
-            instruction_context=instruction_context,
-            query_memory_context=query_memory_context,
+            schema_for_candidate_tables=state.get(
+                "schema_for_candidate_tables", "Not available"
+            ),
+            instruction_context=state.get("instruction_context", "Not available"),
+            query_memory_context=state.get("query_memory_context", "Not available"),
         ),
     }
-    llm_with_tools = model.bind_tools(
-        [run_query_tool_with_interrupt], tool_choice="any"
-    )
+    llm_with_tools = model.bind_tools([run_query_tool_with_interrupt])
+
+    prompt_messages = [system_message]
 
     if state["analysis_result"] is not None and state["analysis_result"].status in [
         "error",
         "empty_result",
     ]:
-        original_messages = [m for m in state["messages"] if m.type == "human"]
-        user_message = {
-            "role": "user",
-            "content": REGEN_PROMPTS[state["analysis_result"].status].format(
-                query=state["last_query"],
-                explanation=state["analysis_result"].explanation,
-            ),
-        }
-
-        response = llm_with_tools.invoke(
-            [system_message] + original_messages + [user_message]
+        prompt_messages.append(
+            {
+                "role": "user",
+                "content": REGEN_PROMPTS[state["analysis_result"].status].format(
+                    query=state["last_query"],
+                    explanation=state["analysis_result"].explanation,
+                    previous_queries=", ".join(state["previous_queries"]),
+                ),
+            }
         )
+    else:
+        prompt_messages.append({"role": "user", "content": state["user_question"]})
 
-        current_retry_count = state["retry_count"] + 1
-        return {"messages": [response], "retry_count": current_retry_count}
+    response = llm_with_tools.invoke(prompt_messages)
+    generated_query = response.tool_calls[0]["args"]["query"]
 
-    response = llm_with_tools.invoke([system_message] + state["messages"])
+    current_retry_count = state["retry_count"] + 1
     logger.debug(f"Generated Query: {response}")
 
-    return {"messages": [response]}
+    return {"last_query": generated_query, "retry_count": current_retry_count}
 
 
 def check_query(state: AgentState):
     system_message = {
         "role": "system",
-        "content": CHECK_QUERY.format(dialect=db.dialect),
+        "content": CHECK_QUERY.format(
+            dialect=db.dialect, last_query=state["last_query"]
+        ),
     }
 
-    tool_call = state["messages"][-1].tool_calls[0]
-    user_message = {"role": "user", "content": tool_call["args"]["query"]}
     llm_with_tools = model.bind_tools(
         [run_query_tool_with_interrupt], tool_choice="any"
     )
-    response = llm_with_tools.invoke([system_message, user_message])
-    response.id = state["messages"][-1].id
+    response = llm_with_tools.invoke([system_message])
     last_query = response.tool_calls[0]["args"]["query"]
 
-    logger.debug(f"Check Query Response: {response}")
     logger.debug(f"Checked Query: {last_query}")
 
     return {
-        "messages": [response],
         "last_query": last_query,
         "previous_queries": [last_query],
     }
@@ -196,11 +239,23 @@ def should_execute(_state: AgentState):
     return "run_query"
 
 
-run_query_node = ToolNode([run_query_tool_with_interrupt], name="run_query")
+def run_query(state: AgentState, config: RunnableConfig | None = None):
+    last_gen_query = state.get("last_query")
+    if not last_gen_query:
+        logger.warning("No query found to be executed.")
+        return {"db_output": ""}
+    db_output = run_query_tool_with_interrupt.invoke(
+        {"query": last_gen_query},
+        config=config,
+    )
+    db_txt = str(db_output) if db_output is not None else ""
+
+    logger.debug(f"Database Output: {db_txt} ")
+    return {"db_output": db_txt}
 
 
 def analyze_result(state: AgentState):
-    db_output = state["messages"][-1].content or "Empty, 0 rows returned"
+    db_output = state.get("db_output", "Empty, 0 rows returned")
 
     system_message = {
         "role": "system",
@@ -209,6 +264,7 @@ def analyze_result(state: AgentState):
             query_executed=state["last_query"],
             database_output=db_output,
             retry_count=state["retry_count"],
+            instruction_context=state.get("instruction_context", "Not available"),
         ),
     }
     structured_llm = model.with_structured_output(AnalysisResult)
@@ -245,12 +301,18 @@ def explain_result(state: AgentState):
     if not AppConfig().EXECUTE_SQL_QUERIES:
         explanation = f"SQL execution is disabled. Skipping query . Here is last generated query: {state['last_query']}"
         logger.debug(f"No Execution:{explanation}")
-        return {"messages": [AIMessage(content=explanation)]}
+        return {
+            "final_answer": explanation,
+            "messages": [AIMessage(content=explanation)],
+        }
 
     if state["skip_decision"] and state["skip_decision"].skip:
         explanation = f"The agent decided to skip executing the query because: {state['skip_decision'].reason}"
         logger.debug(f"Skip Explanation: {explanation}")
-        return {"messages": [AIMessage(content=explanation)]}
+        return {
+            "final_answer": explanation,
+            "messages": [AIMessage(content=explanation)],
+        }
 
     system_message = {
         "role": "system",
@@ -262,6 +324,10 @@ def explain_result(state: AgentState):
             explanation=state["analysis_result"].explanation,
         ),
     }
-    response = model.invoke([system_message] + state["messages"])
+    response = model.invoke([system_message])
+    final_answer = _ai_message_to_text(response)
     logger.debug(f"Explanation: {response}")
-    return {"messages": [response]}
+    return {
+        "final_answer": final_answer,
+        "messages": [response],
+    }

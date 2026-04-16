@@ -27,6 +27,8 @@ class AppConfig:
     CONTEXT_STORE_PATH: Path = ROOT_DIR / ".app_cache" / "context_layer.sqlite"
     CONTEXT_DEBUG_LOG: bool = False
     CONTEXT_AUTO_INDEX_ON_STARTUP: bool = False
+    CONTEXT_REQUIRE_SEMANTIC_PROFILE: bool = True
+    CONTEXT_DEFAULT_SEMANTIC_PROFILE: str | None = None
 
     EMBEDDING_MODEL_NAME: str = "sentence-transformers/all-MiniLM-L6-v2"
     EMBEDDING_DEVICE: str = "auto"
@@ -39,13 +41,15 @@ class AppConfig:
     ENABLE_FAILED_QUERY_LOG: bool = False
 
     MDL_DIR: Path = ROOT_DIR / "semantic"
+    MDL_COMMON_SUBDIR: str = "common"
+    MDL_DATABASES_SUBDIR: str = "databases"
     MDL_FILE_GLOB: str = "**/*.yaml"
     MDL_BASELINE_FILE: Path = MDL_DIR / "_baseline.generated.yaml"
     MDL_AUTO_GENERATE_BASELINE: bool = True
 
-    SCHEMA_CONTEXT_TOP_K: int = 8
-    INSTRUCTION_CONTEXT_TOP_K: int = 4
-    QUERY_MEMORY_TOP_K: int = 4
+    SCHEMA_CONTEXT_TOP_K: int = 4
+    INSTRUCTION_CONTEXT_TOP_K: int = 2
+    QUERY_MEMORY_TOP_K: int = 1
 
     SCHEMA_CONTEXT_MIN_SIMILARITY: float = 0.45
     INSTRUCTION_CONTEXT_MIN_SIMILARITY: float = 0.55

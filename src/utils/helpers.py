@@ -32,3 +32,22 @@ def normalize_whitespace(value: str) -> str:
 def normalize_args(operation_args: dict[str, Any] | None) -> str:
     payload = operation_args or {}
     return json.dumps(payload, sort_keys=True, separators=(",", ":"))
+
+
+def normalize_table_names(table_names: str) -> list[str]:
+    normalized: list[str] = []
+    seen: set[str] = set()
+
+    for raw_name in table_names.split(","):
+        clean_name = raw_name.strip()
+        if not clean_name or clean_name in seen:
+            continue
+        seen.add(clean_name)
+        normalized.append(clean_name)
+
+    normalized.sort()
+    return normalized
+
+
+def normalize_table_names_csv(table_names: str) -> str:
+    return ",".join(normalize_table_names(table_names))

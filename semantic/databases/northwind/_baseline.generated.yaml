@@ -1,0 +1,612 @@
+models:
+- name: Categories
+  table: Categories
+  schema: null
+  description: ''
+  aliases: []
+  columns:
+  - name: CategoryID
+    type: INTEGER
+    nullable: true
+    primary_key: true
+    description: ''
+  - name: CategoryName
+    type: TEXT
+    nullable: true
+    primary_key: false
+    description: ''
+  - name: Description
+    type: TEXT
+    nullable: true
+    primary_key: false
+    description: ''
+  - name: Picture
+    type: BLOB
+    nullable: true
+    primary_key: false
+    description: ''
+- name: CustomerCustomerDemo
+  table: CustomerCustomerDemo
+  schema: null
+  description: ''
+  aliases: []
+  columns:
+  - name: CustomerID
+    type: TEXT
+    nullable: false
+    primary_key: true
+    description: ''
+  - name: CustomerTypeID
+    type: TEXT
+    nullable: false
+    primary_key: true
+    description: ''
+- name: CustomerDemographics
+  table: CustomerDemographics
+  schema: null
+  description: ''
+  aliases: []
+  columns:
+  - name: CustomerTypeID
+    type: TEXT
+    nullable: false
+    primary_key: true
+    description: ''
+  - name: CustomerDesc
+    type: TEXT
+    nullable: true
+    primary_key: false
+    description: ''
+- name: Customers
+  table: Customers
+  schema: null
+  description: ''
+  aliases: []
+  columns:
+  - name: CustomerID
+    type: TEXT
+    nullable: true
+    primary_key: true
+    description: ''
+  - name: CompanyName
+    type: TEXT
+    nullable: true
+    primary_key: false
+    description: ''
+  - name: ContactName
+    type: TEXT
+    nullable: true
+    primary_key: false
+    description: ''
+  - name: ContactTitle
+    type: TEXT
+    nullable: true
+    primary_key: false
+    description: ''
+  - name: Address
+    type: TEXT
+    nullable: true
+    primary_key: false
+    description: ''
+  - name: City
+    type: TEXT
+    nullable: true
+    primary_key: false
+    description: ''
+  - name: Region
+    type: TEXT
+    nullable: true
+    primary_key: false
+    description: ''
+  - name: PostalCode
+    type: TEXT
+    nullable: true
+    primary_key: false
+    description: ''
+  - name: Country
+    type: TEXT
+    nullable: true
+    primary_key: false
+    description: ''
+  - name: Phone
+    type: TEXT
+    nullable: true
+    primary_key: false
+    description: ''
+  - name: Fax
+    type: TEXT
+    nullable: true
+    primary_key: false
+    description: ''
+- name: EmployeeTerritories
+  table: EmployeeTerritories
+  schema: null
+  description: ''
+  aliases: []
+  columns:
+  - name: EmployeeID
+    type: INTEGER
+    nullable: false
+    primary_key: true
+    description: ''
+  - name: TerritoryID
+    type: TEXT
+    nullable: false
+    primary_key: true
+    description: ''
+- name: Employees
+  table: Employees
+  schema: null
+  description: ''
+  aliases: []
+  columns:
+  - name: EmployeeID
+    type: INTEGER
+    nullable: true
+    primary_key: true
+    description: ''
+  - name: LastName
+    type: TEXT
+    nullable: true
+    primary_key: false
+    description: ''
+  - name: FirstName
+    type: TEXT
+    nullable: true
+    primary_key: false
+    description: ''
+  - name: Title
+    type: TEXT
+    nullable: true
+    primary_key: false
+    description: ''
+  - name: TitleOfCourtesy
+    type: TEXT
+    nullable: true
+    primary_key: false
+    description: ''
+  - name: BirthDate
+    type: DATE
+    nullable: true
+    primary_key: false
+    description: ''
+  - name: HireDate
+    type: DATE
+    nullable: true
+    primary_key: false
+    description: ''
+  - name: Address
+    type: TEXT
+    nullable: true
+    primary_key: false
+    description: ''
+  - name: City
+    type: TEXT
+    nullable: true
+    primary_key: false
+    description: ''
+  - name: Region
+    type: TEXT
+    nullable: true
+    primary_key: false
+    description: ''
+  - name: PostalCode
+    type: TEXT
+    nullable: true
+    primary_key: false
+    description: ''
+  - name: Country
+    type: TEXT
+    nullable: true
+    primary_key: false
+    description: ''
+  - name: HomePhone
+    type: TEXT
+    nullable: true
+    primary_key: false
+    description: ''
+  - name: Extension
+    type: TEXT
+    nullable: true
+    primary_key: false
+    description: ''
+  - name: Photo
+    type: BLOB
+    nullable: true
+    primary_key: false
+    description: ''
+  - name: Notes
+    type: TEXT
+    nullable: true
+    primary_key: false
+    description: ''
+  - name: ReportsTo
+    type: INTEGER
+    nullable: true
+    primary_key: false
+    description: ''
+  - name: PhotoPath
+    type: TEXT
+    nullable: true
+    primary_key: false
+    description: ''
+- name: Order Details
+  table: Order Details
+  schema: null
+  description: ''
+  aliases: []
+  columns:
+  - name: OrderID
+    type: INTEGER
+    nullable: false
+    primary_key: true
+    description: ''
+  - name: ProductID
+    type: INTEGER
+    nullable: false
+    primary_key: true
+    description: ''
+  - name: UnitPrice
+    type: NUMERIC
+    nullable: false
+    primary_key: false
+    description: ''
+  - name: Quantity
+    type: INTEGER
+    nullable: false
+    primary_key: false
+    description: ''
+  - name: Discount
+    type: REAL
+    nullable: false
+    primary_key: false
+    description: ''
+- name: Orders
+  table: Orders
+  schema: null
+  description: ''
+  aliases: []
+  columns:
+  - name: OrderID
+    type: INTEGER
+    nullable: false
+    primary_key: true
+    description: ''
+  - name: CustomerID
+    type: TEXT
+    nullable: true
+    primary_key: false
+    description: ''
+  - name: EmployeeID
+    type: INTEGER
+    nullable: true
+    primary_key: false
+    description: ''
+  - name: OrderDate
+    type: DATETIME
+    nullable: true
+    primary_key: false
+    description: ''
+  - name: RequiredDate
+    type: DATETIME
+    nullable: true
+    primary_key: false
+    description: ''
+  - name: ShippedDate
+    type: DATETIME
+    nullable: true
+    primary_key: false
+    description: ''
+  - name: ShipVia
+    type: INTEGER
+    nullable: true
+    primary_key: false
+    description: ''
+  - name: Freight
+    type: NUMERIC
+    nullable: true
+    primary_key: false
+    description: ''
+  - name: ShipName
+    type: TEXT
+    nullable: true
+    primary_key: false
+    description: ''
+  - name: ShipAddress
+    type: TEXT
+    nullable: true
+    primary_key: false
+    description: ''
+  - name: ShipCity
+    type: TEXT
+    nullable: true
+    primary_key: false
+    description: ''
+  - name: ShipRegion
+    type: TEXT
+    nullable: true
+    primary_key: false
+    description: ''
+  - name: ShipPostalCode
+    type: TEXT
+    nullable: true
+    primary_key: false
+    description: ''
+  - name: ShipCountry
+    type: TEXT
+    nullable: true
+    primary_key: false
+    description: ''
+- name: Products
+  table: Products
+  schema: null
+  description: ''
+  aliases: []
+  columns:
+  - name: ProductID
+    type: INTEGER
+    nullable: false
+    primary_key: true
+    description: ''
+  - name: ProductName
+    type: TEXT
+    nullable: false
+    primary_key: false
+    description: ''
+  - name: SupplierID
+    type: INTEGER
+    nullable: true
+    primary_key: false
+    description: ''
+  - name: CategoryID
+    type: INTEGER
+    nullable: true
+    primary_key: false
+    description: ''
+  - name: QuantityPerUnit
+    type: TEXT
+    nullable: true
+    primary_key: false
+    description: ''
+  - name: UnitPrice
+    type: NUMERIC
+    nullable: true
+    primary_key: false
+    description: ''
+  - name: UnitsInStock
+    type: INTEGER
+    nullable: true
+    primary_key: false
+    description: ''
+  - name: UnitsOnOrder
+    type: INTEGER
+    nullable: true
+    primary_key: false
+    description: ''
+  - name: ReorderLevel
+    type: INTEGER
+    nullable: true
+    primary_key: false
+    description: ''
+  - name: Discontinued
+    type: TEXT
+    nullable: false
+    primary_key: false
+    description: ''
+- name: Regions
+  table: Regions
+  schema: null
+  description: ''
+  aliases: []
+  columns:
+  - name: RegionID
+    type: INTEGER
+    nullable: false
+    primary_key: true
+    description: ''
+  - name: RegionDescription
+    type: TEXT
+    nullable: false
+    primary_key: false
+    description: ''
+- name: Shippers
+  table: Shippers
+  schema: null
+  description: ''
+  aliases: []
+  columns:
+  - name: ShipperID
+    type: INTEGER
+    nullable: false
+    primary_key: true
+    description: ''
+  - name: CompanyName
+    type: TEXT
+    nullable: false
+    primary_key: false
+    description: ''
+  - name: Phone
+    type: TEXT
+    nullable: true
+    primary_key: false
+    description: ''
+- name: Suppliers
+  table: Suppliers
+  schema: null
+  description: ''
+  aliases: []
+  columns:
+  - name: SupplierID
+    type: INTEGER
+    nullable: false
+    primary_key: true
+    description: ''
+  - name: CompanyName
+    type: TEXT
+    nullable: false
+    primary_key: false
+    description: ''
+  - name: ContactName
+    type: TEXT
+    nullable: true
+    primary_key: false
+    description: ''
+  - name: ContactTitle
+    type: TEXT
+    nullable: true
+    primary_key: false
+    description: ''
+  - name: Address
+    type: TEXT
+    nullable: true
+    primary_key: false
+    description: ''
+  - name: City
+    type: TEXT
+    nullable: true
+    primary_key: false
+    description: ''
+  - name: Region
+    type: TEXT
+    nullable: true
+    primary_key: false
+    description: ''
+  - name: PostalCode
+    type: TEXT
+    nullable: true
+    primary_key: false
+    description: ''
+  - name: Country
+    type: TEXT
+    nullable: true
+    primary_key: false
+    description: ''
+  - name: Phone
+    type: TEXT
+    nullable: true
+    primary_key: false
+    description: ''
+  - name: Fax
+    type: TEXT
+    nullable: true
+    primary_key: false
+    description: ''
+  - name: HomePage
+    type: TEXT
+    nullable: true
+    primary_key: false
+    description: ''
+- name: Territories
+  table: Territories
+  schema: null
+  description: ''
+  aliases: []
+  columns:
+  - name: TerritoryID
+    type: TEXT
+    nullable: false
+    primary_key: true
+    description: ''
+  - name: TerritoryDescription
+    type: TEXT
+    nullable: false
+    primary_key: false
+    description: ''
+  - name: RegionID
+    type: INTEGER
+    nullable: false
+    primary_key: false
+    description: ''
+relationships:
+- from_model: CustomerCustomerDemo
+  to_model: CustomerDemographics
+  type: many_to_one
+  join:
+    from_column: CustomerTypeID
+    to_column: CustomerTypeID
+  description: ''
+- from_model: CustomerCustomerDemo
+  to_model: Customers
+  type: many_to_one
+  join:
+    from_column: CustomerID
+    to_column: CustomerID
+  description: ''
+- from_model: EmployeeTerritories
+  to_model: Territories
+  type: many_to_one
+  join:
+    from_column: TerritoryID
+    to_column: TerritoryID
+  description: ''
+- from_model: EmployeeTerritories
+  to_model: Employees
+  type: many_to_one
+  join:
+    from_column: EmployeeID
+    to_column: EmployeeID
+  description: ''
+- from_model: Employees
+  to_model: Employees
+  type: many_to_one
+  join:
+    from_column: ReportsTo
+    to_column: EmployeeID
+  description: ''
+- from_model: Order Details
+  to_model: Products
+  type: many_to_one
+  join:
+    from_column: ProductID
+    to_column: ProductID
+  description: ''
+- from_model: Order Details
+  to_model: Orders
+  type: many_to_one
+  join:
+    from_column: OrderID
+    to_column: OrderID
+  description: ''
+- from_model: Orders
+  to_model: Shippers
+  type: many_to_one
+  join:
+    from_column: ShipVia
+    to_column: ShipperID
+  description: ''
+- from_model: Orders
+  to_model: Customers
+  type: many_to_one
+  join:
+    from_column: CustomerID
+    to_column: CustomerID
+  description: ''
+- from_model: Orders
+  to_model: Employees
+  type: many_to_one
+  join:
+    from_column: EmployeeID
+    to_column: EmployeeID
+  description: ''
+- from_model: Products
+  to_model: Suppliers
+  type: many_to_one
+  join:
+    from_column: SupplierID
+    to_column: SupplierID
+  description: ''
+- from_model: Products
+  to_model: Categories
+  type: many_to_one
+  join:
+    from_column: CategoryID
+    to_column: CategoryID
+  description: ''
+- from_model: Territories
+  to_model: Regions
+  type: many_to_one
+  join:
+    from_column: RegionID
+    to_column: RegionID
+  description: ''
+instructions: []

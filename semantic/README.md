@@ -6,13 +6,29 @@ Context indexing merges two sources:
 - Live database baseline introspection (auto-generated)
 - Manual YAML overrides in this directory
 
+Recommended layout when using semantic profiles:
+- `semantic/common/*.yaml` for shared rules across databases
+- `semantic/databases/<profile>/*.yaml` for database-specific semantics (for example `semantic/databases/chinook/*.yaml`)
+
 Baseline file:
 - `_baseline.generated.yaml` (auto-created by reindex when enabled)
+- If `--semantic-profile` is provided and `semantic/databases/<profile>/` exists,
+  baseline is written to `semantic/databases/<profile>/_baseline.generated.yaml`.
 
 You can add one or more YAML files. Top-level keys:
 - `models`
 - `relationships`
 - `instructions`
+
+## Profile-aware loading
+
+- CLI flag: `--semantic-profile <name>`
+- With profile set:
+  - loads docs from `semantic/common/` and `semantic/databases/<name>/`
+  - if those directories are missing, falls back to legacy profile-tagged filenames under `semantic/`
+- Without profile set:
+  - if structured directories exist, only `semantic/common/` is loaded
+  - otherwise legacy mode loads from `semantic/` root (excluding `_baseline.generated.yaml`)
 
 ## Example
 

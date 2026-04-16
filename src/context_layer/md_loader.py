@@ -35,6 +35,58 @@ def load_yaml_documents(root_dir: Path, file_glob: str) -> list[dict[str, Any]]:
     return docs
 
 
+def load_yaml_documents_for_profile(
+    *,
+    root_dir: Path,
+    file_glob: str,
+    semantic_profile: str | None,
+) -> list[dict[str, Any]]:
+    config = AppConfig()
+
+    profile = (semantic_profile or "").strip()
+    common_dir = root_dir / config.MDL_COMMON_SUBDIR
+    databases_dir = root_dir / config.MDL_DATABASES_SUBDIR
+
+    docs: list[dict[str, Any]] = []
+
+    if profile:
+        docs.extend(load_yaml_documents(common_dir, file_glob))
+        docs.extend(load_yaml_documents(databases_dir / profile, file_glob))
+
+        if docs:
+            return docs
+
+        # Backward-compatible fallback: allow profile-tagged files directly under semantic/.
+        lowered = profile.lower()
+        for path in sorted(root_dir.glob(file_glob)):
+            if path.name.startswith("_baseline.generated"):
+                continue
+            if not path.is_file():
+                continue
+            if common_dir in path.parents or databases_dir in path.parents:
+                continue
+            if lowered not in path.stem.lower():
+                continue
+
+            try:
+                import yaml
+            except Exception as exc:  # pragma: no cover - import guard
+                raise RuntimeError("Missing dependency 'pyyaml'.") from exc
+
+            loaded = yaml.safe_load(path.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict):
+                docs.append(loaded)
+
+        return docs
+
+    # No profile provided.
+    if common_dir.exists() or databases_dir.exists():
+        return load_yaml_documents(common_dir, file_glob)
+
+    # Legacy mode when semantic/ does not use structured profile directories yet.
+    return load_yaml_documents(root_dir, file_glob)
+
+
 def build_baseline_semantic_model(database, table_names: list[str]) -> SemanticModel:
     models: list[dict[str, Any]] = []
     relationships: list[dict[str, Any]] = []
@@ -351,14 +403,34 @@ def dump_baseline_yaml(baseline: SemanticModel, output_path: Path) -> None:
     output_path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
 
 
-def load_or_build_semantic_model(database, table_names: list[str]) -> SemanticModel:
+def load_or_build_semantic_model(
+    database,
+    table_names: list[str],
+    *,
+    semantic_profile: str | None = None,
+) -> SemanticModel:
     config = AppConfig()
     baseline = build_baseline_semantic_model(database, table_names)
 
     if config.MDL_AUTO_GENERATE_BASELINE:
-        dump_baseline_yaml(baseline, config.MDL_BASELINE_FILE)
+        baseline_file = config.MDL_BASELINE_FILE
+        profile = (semantic_profile or "").strip()
+        profile_dir = config.MDL_DIR / config.MDL_DATABASES_SUBDIR / profile
+        profile_docs_exist = profile and profile_dir.exists()
+        if profile_docs_exist:
+            baseline_file = (
+                config.MDL_DIR
+                / config.MDL_DATABASES_SUBDIR
+                / profile
+                / "_baseline.generated.yaml"
+            )
+        dump_baseline_yaml(baseline, baseline_file)
 
-    docs = load_yaml_documents(config.MDL_DIR, config.MDL_FILE_GLOB)
+    docs = load_yaml_documents_for_profile(
+        root_dir=config.MDL_DIR,
+        file_glob=config.MDL_FILE_GLOB,
+        semantic_profile=semantic_profile,
+    )
     if not docs:
         return baseline
 

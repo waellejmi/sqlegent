@@ -17,6 +17,7 @@ from tools.metadata_cache import (
     invalidate_metadata_cache,
     set_cached_metadata,
 )
+from utils.helpers import normalize_table_names_csv
 from utils.logger_setup import LoggerSetup
 
 logger = LoggerSetup.get_logger(__name__, logging.INFO)
@@ -106,9 +107,10 @@ def list_tables_with_cache(
     description=get_schema_tool.description,
     args_schema=get_schema_tool.args_schema,
 )
-def get_schema_tool_with_cache(config: RunnableConfig, **tool_input):
+def get_schema_tool_with_cache(table_names: str, config: RunnableConfig | None = None):
     bypass_cache = _get_config_flag(config, "metadata_bypass_cache", False)
-    operation_args = {"table_names": tool_input.get("table_names", "")}
+    normalized_table_names = normalize_table_names_csv(table_names)
+    operation_args = {"table_names": normalized_table_names}
 
     cached = get_cached_metadata(
         operation="get_schema",
@@ -118,6 +120,7 @@ def get_schema_tool_with_cache(config: RunnableConfig, **tool_input):
     if cached is not None:
         return cached
 
+    tool_input = {"table_names": normalized_table_names}
     tool_response = get_schema_tool.invoke(tool_input, config)
     set_cached_metadata(
         operation="get_schema",
@@ -133,14 +136,15 @@ def get_schema_tool_with_cache(config: RunnableConfig, **tool_input):
     description=run_query_tool.description,
     args_schema=run_query_tool.args_schema,
 )
-def run_query_tool_with_interrupt(config: RunnableConfig, **tool_input):
+def run_query_tool_with_interrupt(query: str, config: RunnableConfig | None = None):
     # static check
     dialect = SQLGLOT_COMPLIANET_DIALECTS.get(db.dialect, db.dialect)
-    if not validate_sql(tool_input["query"], dialect=dialect):
+    if not validate_sql(query, dialect=dialect):
         raise ValueError(
             "Failed the static check. Only SELECT and WITH statements are allowed. No multiple statements allowed."
         )
     # human interruption
+    tool_input = {"query": query}
     if not AppConfig().HUMAN_SQL_REVIEW:
         final_query_input = tool_input
     else:

@@ -7,10 +7,10 @@ from agent.nodes import (
     check_query,
     explain_result,
     generate_query,
-    get_schema_node,
+    get_schema_for_candidate_tables,
     list_tables,
     retrieve_context,
-    run_query_node,
+    run_query,
     should_execute,
     should_retry,
     should_skip,
@@ -21,18 +21,20 @@ from config.app_config import AppConfig
 
 builder = StateGraph(AgentState)
 builder.add_node(list_tables)
+builder.add_node(retrieve_context)
 builder.add_node(skip_pipeline)
 builder.add_node(call_get_schema)
-builder.add_node(get_schema_node, "get_schema")
-builder.add_node(retrieve_context)
+builder.add_node("get_schema", get_schema_for_candidate_tables)
 builder.add_node(generate_query)
 builder.add_node(check_query)
-builder.add_node(run_query_node, "run_query")
+builder.add_node("run_query", run_query)
 builder.add_node(analyze_result)
 builder.add_node(explain_result)
 
 builder.add_edge(START, "list_tables")
-builder.add_edge("list_tables", "skip_pipeline")
+builder.add_edge("list_tables", "retrieve_context")
+builder.add_edge("retrieve_context", "skip_pipeline")
+
 
 builder.add_conditional_edges(
     "skip_pipeline",
@@ -41,8 +43,7 @@ builder.add_conditional_edges(
 )
 
 builder.add_edge("call_get_schema", "get_schema")
-builder.add_edge("get_schema", "retrieve_context")
-builder.add_edge("retrieve_context", "generate_query")
+builder.add_edge("get_schema", "generate_query")
 builder.add_edge("generate_query", "check_query")
 
 builder.add_conditional_edges(

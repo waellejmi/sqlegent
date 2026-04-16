@@ -16,8 +16,22 @@ from context_layer.service import (
     get_context_service,
     safe_parse_row_count,
 )
+from utils.logger_setup import LoggerSetup
 
-logging.basicConfig(level=logging.INFO, format=" %(levelname)s - %(message)s")
+logger = LoggerSetup().get_logger(__name__, logging.INFO)
+logger.disabled = True
+
+
+def _resolve_semantic_profile_arg(semantic_profile: str | None) -> str | None:
+    explicit = (semantic_profile or "").strip()
+    if explicit:
+        return explicit
+
+    default_profile = (AppConfig().CONTEXT_DEFAULT_SEMANTIC_PROFILE or "").strip()
+    if default_profile:
+        return default_profile
+
+    return None
 
 
 def build_agent():
@@ -149,7 +163,7 @@ async def run_agent(input_state: dict, config: dict):
             )
 
 
-def _run_context_index_once() -> None:
+def _run_context_index_once(semantic_profile: str | None = None) -> None:
     config = AppConfig()
     if not config.ENABLE_CONTEXT_LAYER:
         return
@@ -157,25 +171,45 @@ def _run_context_index_once() -> None:
     if not config.CONTEXT_AUTO_INDEX_ON_STARTUP:
         return
 
-    from tools.database import db
-
-    service = get_context_service()
-    table_names = list(db.get_usable_table_names())
-    summary = service.index_semantic_context(db, table_names)
-    print(f"Context index summary: {summary}")
-
-
-def _run_context_reindex() -> None:
-    config = AppConfig()
-    if not config.ENABLE_CONTEXT_LAYER:
-        print("Context layer disabled in AppConfig.")
+    resolved_profile = _resolve_semantic_profile_arg(semantic_profile)
+    if config.CONTEXT_REQUIRE_SEMANTIC_PROFILE and not resolved_profile:
+        print("Skipping startup context indexing: semantic profile required.")
         return
 
     from tools.database import db
 
     service = get_context_service()
     table_names = list(db.get_usable_table_names())
-    summary = service.index_semantic_context(db, table_names)
+    summary = service.index_semantic_context(
+        db,
+        table_names,
+        semantic_profile=resolved_profile,
+    )
+    print(f"Context index summary: {summary}")
+
+
+def _run_context_reindex(semantic_profile: str | None = None) -> None:
+    config = AppConfig()
+    if not config.ENABLE_CONTEXT_LAYER:
+        print("Context layer disabled in AppConfig.")
+        return
+
+    resolved_profile = _resolve_semantic_profile_arg(semantic_profile)
+    if config.CONTEXT_REQUIRE_SEMANTIC_PROFILE and not resolved_profile:
+        print(
+            "Semantic profile is required. Pass --semantic-profile <name> or set CONTEXT_DEFAULT_SEMANTIC_PROFILE."
+        )
+        return
+
+    from tools.database import db
+
+    service = get_context_service()
+    table_names = list(db.get_usable_table_names())
+    summary = service.index_semantic_context(
+        db,
+        table_names,
+        semantic_profile=resolved_profile,
+    )
     print(f"Reindex done: {summary}")
 
 
@@ -203,10 +237,21 @@ if __name__ == "__main__":
         action="store_true",
         help="Print context layer stats and exit.",
     )
+    parser.add_argument(
+        "--semantic-profile",
+        type=str,
+        default=None,
+        help=(
+            "Semantic profile name to scope YAML loading, e.g. '--semantic-profile chinook'."
+        ),
+    )
     args = parser.parse_args()
 
     if args.context_reindex:
-        _run_context_reindex()
+        db_config = DBConfig()
+        selected_uri = configure_database_target(db_config)
+        print(f"Using database target: {selected_uri}")
+        _run_context_reindex(args.semantic_profile)
         raise SystemExit(0)
 
     if args.context_stats:
@@ -217,14 +262,14 @@ if __name__ == "__main__":
     selected_uri = configure_database_target(db_config)
     print(f"Using database target: {selected_uri}")
 
-    _run_context_index_once()
+    _run_context_index_once(args.semantic_profile)
 
     usage_callback = UsageMetadataCallbackHandler()
     config = {
         "configurable": {
             "thread_id": str(uuid.uuid4()),
             "metadata_bypass_cache": False,
-            "metadata_invalidate_cache": False,
+            "metadata_invalidate_cache": True,
         },
         "callbacks": [usage_callback],
     }

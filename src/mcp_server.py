@@ -211,7 +211,7 @@ async def invalidate_cache(scope: str = "current") -> str:
 
 
 @mcp.tool()
-async def context_reindex() -> str:
+async def context_reindex(semantic_profile: str = "") -> str:
     """
     Rebuild semantic context index from live schema and MDL YAML files.
     """
@@ -221,8 +221,19 @@ async def context_reindex() -> str:
         return "Context layer disabled in AppConfig."
 
     service = get_context_service()
+    profile = service.resolve_semantic_profile(semantic_profile)
+    if AppConfig().CONTEXT_REQUIRE_SEMANTIC_PROFILE and not profile:
+        return (
+            "Semantic profile is required. Configure CONTEXT_DEFAULT_SEMANTIC_PROFILE "
+            "or pass semantic_profile."
+        )
+
     table_names = list(db.get_usable_table_names())
-    summary = service.index_semantic_context(db, table_names)
+    summary = service.index_semantic_context(
+        db,
+        table_names,
+        semantic_profile=profile,
+    )
     return f"Context reindex done: {summary}"
 
 
