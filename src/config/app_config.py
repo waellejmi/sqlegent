@@ -31,6 +31,8 @@ class AppConfig:
     CONTEXT_DEFAULT_SEMANTIC_PROFILE: str | None = None
 
     EMBEDDING_MODEL_NAME: str = "sentence-transformers/all-MiniLM-L6-v2"
+    # use Snowflake/snowflake-arctic-embed-m
+    EMBEDDING_OFFLINE: bool = True
     EMBEDDING_DEVICE: str = "auto"
     EMBEDDING_NORMALIZE: bool = True
     EMBEDDING_BATCH_SIZE: int = 64

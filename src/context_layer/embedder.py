@@ -17,6 +17,7 @@ class LocalSentenceTransformerEmbedder:
         self,
         *,
         model_name: str,
+        offline: bool,
         device: str,
         normalize_embeddings: bool,
         batch_size: int,
@@ -29,7 +30,19 @@ class LocalSentenceTransformerEmbedder:
             ) from exc
 
         init_device = None if device == "auto" else device
-        self._model = SentenceTransformer(model_name, device=init_device)
+        try:
+            self._model = SentenceTransformer(
+                model_name,
+                device=init_device,
+                local_files_only=offline,
+            )
+        except Exception as exc:
+            if offline:
+                raise RuntimeError(
+                    "Embedding offline mode is enabled, but model files were not found in local cache. "
+                    "Set AppConfig.EMBEDDING_OFFLINE=False or pre-download the model."
+                ) from exc
+            raise
         self._normalize_embeddings = normalize_embeddings
         self._batch_size = batch_size
         self.profile = EmbeddingProfile(model_name=model_name)
@@ -58,6 +71,7 @@ def build_local_embedder() -> LocalSentenceTransformerEmbedder:
     config = AppConfig()
     return LocalSentenceTransformerEmbedder(
         model_name=config.EMBEDDING_MODEL_NAME,
+        offline=config.EMBEDDING_OFFLINE,
         device=config.EMBEDDING_DEVICE,
         normalize_embeddings=config.EMBEDDING_NORMALIZE,
         batch_size=config.EMBEDDING_BATCH_SIZE,
