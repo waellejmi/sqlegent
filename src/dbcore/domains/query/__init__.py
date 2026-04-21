@@ -1,1 +1,0 @@
-"""Query domain namespace."""
