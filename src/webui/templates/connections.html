@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Connections</h1>
+<p>Current active database target.</p>
+<pre id="connections" class="panel">Loading...</pre>
+
+<script>
+  fetch("/api/connections")
+    .then((r) => r.json())
+    .then((data) => {
+      document.getElementById("connections").textContent = JSON.stringify(data, null, 2);
+    })
+    .catch((err) => {
+      document.getElementById("connections").textContent = String(err);
+    });
+</script>
+{% endblock %}

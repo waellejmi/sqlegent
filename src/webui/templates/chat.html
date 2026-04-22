@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>AI Chat</h1>
+<p>WebSocket stream with interrupt support.</p>
+
+<div class="chat-controls">
+  <textarea id="question" rows="3" placeholder="Ask question..."></textarea>
+  <button id="askBtn" type="button">Send</button>
+</div>
+
+<pre id="chatOutput" class="panel"></pre>
+
+<script>
+  const output = document.getElementById("chatOutput");
+  const askBtn = document.getElementById("askBtn");
+  const questionInput = document.getElementById("question");
+  const sessionId = crypto.randomUUID();
+  const protocol = location.protocol === "https:" ? "wss" : "ws";
+  const ws = new WebSocket(`${protocol}://${location.host}/ws/chat/${sessionId}`);
+
+  function append(line) {
+    output.textContent += line + "\n";
+    output.scrollTop = output.scrollHeight;
+  }
+
+  ws.onopen = () => append("[ws] connected");
+  ws.onclose = () => append("[ws] closed");
+  ws.onerror = () => append("[ws] error");
+
+  ws.onmessage = (event) => {
+    const msg = JSON.parse(event.data);
+    if (msg.type === "token") {
+      output.textContent += msg.text;
+      output.scrollTop = output.scrollHeight;
+      return;
+    }
+    if (msg.type === "interrupt") {
+      append("\n[interrupt] SQL review requested. Auto-accept from demo UI.");
+      ws.send(JSON.stringify({
+        type: "interrupt_response",
+        payload: { type: "accept" }
+      }));
+      return;
+    }
+    if (msg.type === "transition") {
+      append(`\n[transition] ${msg.node}`);
+      return;
+    }
+    if (msg.type === "final") {
+      append(`\n[final] status=${msg.status || "unknown"}`);
+      if (msg.answer) append(msg.answer);
+      if (msg.sql) append(`\n[sql]\n${msg.sql}`);
+      return;
+    }
+    if (msg.type === "error") {
+      append(`\n[error] ${msg.message}`);
+      return;
+    }
+    if (msg.type === "done") {
+      append("\n[done]");
+    }
+  };
+
+  askBtn.addEventListener("click", () => {
+    const question = questionInput.value.trim();
+    if (!question) {
+      append("[client] question required");
+      return;
+    }
+    append(`\n[user] ${question}`);
+    ws.send(JSON.stringify({ type: "ask", question }));
+  });
+</script>
+{% endblock %}

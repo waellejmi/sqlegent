@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 from typing import Any, Awaitable, Callable
 
 from langchain_core.messages import AIMessage, AIMessageChunk
@@ -50,8 +51,8 @@ async def run_agent_with_interrupt(
     input_state: dict[str, Any] | Command,
     config: dict[str, Any],
     interrupt_handler: Callable[[Any], Awaitable[dict[str, Any]]],
-    on_message: Callable[[AIMessageChunk], None] | None = None,
-    on_transition: Callable[[str], None] | None = None,
+    on_message: Callable[[AIMessageChunk], None | Awaitable[None]] | None = None,
+    on_transition: Callable[[str], None | Awaitable[None]] | None = None,
 ):
     agent = build_agent()
 
@@ -67,7 +68,9 @@ async def run_agent_with_interrupt(
             if mode == "messages" and on_message:
                 message, _ = chunk
                 if isinstance(message, AIMessageChunk) and message.content:
-                    on_message(message)
+                    maybe_awaitable = on_message(message)
+                    if inspect.isawaitable(maybe_awaitable):
+                        await maybe_awaitable
                 continue
 
             if mode != "updates":
@@ -83,7 +86,9 @@ async def run_agent_with_interrupt(
             if on_transition:
                 current_node = next(iter(chunk.keys()), None)
                 if current_node:
-                    on_transition(current_node)
+                    maybe_awaitable = on_transition(current_node)
+                    if inspect.isawaitable(maybe_awaitable):
+                        await maybe_awaitable
 
         if not resume_required:
             break

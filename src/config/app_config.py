@@ -32,7 +32,7 @@ class AppConfig:
 
     # use Snowflake/snowflake-arctic-embed-m
     EMBEDDING_MODEL_NAME: str = "sentence-transformers/all-MiniLM-L6-v2"
-    EMBEDDING_OFFLINE: bool = False
+    EMBEDDING_OFFLINE: bool = True
     EMBEDDING_DEVICE: str = "auto"
     EMBEDDING_NORMALIZE: bool = True
     EMBEDDING_BATCH_SIZE: int = 64

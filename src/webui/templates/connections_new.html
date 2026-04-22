@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>New Connection</h1>
+<p>Create and activate sqlite path or direct SQLAlchemy URI.</p>
+
+<form id="newConnectionForm" class="form-grid">
+  <label>
+    Mode
+    <select id="mode" name="mode">
+      <option value="sqlite_path">SQLite Path</option>
+      <option value="direct_uri">Direct URI</option>
+    </select>
+  </label>
+
+  <label>
+    Value
+    <input id="value" name="value" type="text" placeholder="/path/to/db.sqlite or dialect://..." required>
+  </label>
+
+  <button type="submit">Save Active Target</button>
+</form>
+
+<pre id="result" class="panel"></pre>
+
+<script>
+  const form = document.getElementById("newConnectionForm");
+  const result = document.getElementById("result");
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const payload = {
+      mode: document.getElementById("mode").value,
+      value: document.getElementById("value").value,
+    };
+
+    const response = await fetch("/api/connections", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json();
+    result.textContent = JSON.stringify(data, null, 2);
+  });
+</script>
+{% endblock %}

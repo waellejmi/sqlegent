@@ -69,7 +69,9 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--use-default",
         "--default",
+        dest="use_default",
         action="store_true",
         help=(
             f"Use built-in default question ({DEFAULT_QUESTION_KEY}) instead of prompting."
@@ -178,6 +180,6 @@ def main() -> int:
 
     run_context_index_once(args.semantic_profile)
 
-    question = _pick_question(args.default)
+    question = _pick_question(args.use_default)
     asyncio.run(_run_cli_agent(question))
     return 0

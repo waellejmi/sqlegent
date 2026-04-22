@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title }} | sql-agent</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">sql-agent web</div>
+    <nav class="nav">
+      <a href="/">Dashboard</a>
+      <a href="/chat">Chat</a>
+      <a href="/connections">Connections</a>
+      <a href="/connections/docker">Docker</a>
+      <a href="/settings">Settings</a>
+      <a href="/relationships">Relationships</a>
+      <a href="/context">Context</a>
+    </nav>
+  </header>
+  <main class="page">
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

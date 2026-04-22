@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Settings</h1>
+<p>Runtime config view and draft update endpoint.</p>
+
+<pre id="settings" class="panel">Loading...</pre>
+
+<script>
+  fetch("/api/config/app")
+    .then((r) => r.json())
+    .then((data) => {
+      document.getElementById("settings").textContent = JSON.stringify(data, null, 2);
+    })
+    .catch((err) => {
+      document.getElementById("settings").textContent = String(err);
+    });
+</script>
+{% endblock %}

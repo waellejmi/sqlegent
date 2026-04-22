@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Docker Auto Discovery</h1>
+<p>Server-sent events stream container status.</p>
+
+<div class="row">
+  <div>Status: <span id="dockerStatus">unknown</span></div>
+  <button id="refreshBtn" type="button">Manual Refresh</button>
+</div>
+
+<table class="table" id="containersTable">
+  <thead>
+    <tr>
+      <th>Container</th>
+      <th>DB</th>
+      <th>Host</th>
+      <th>Port</th>
+      <th>Database</th>
+      <th>Connectable</th>
+      <th>Action</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+
+<pre id="dockerLog" class="panel"></pre>
+
+<script>
+  const statusEl = document.getElementById("dockerStatus");
+  const bodyEl = document.querySelector("#containersTable tbody");
+  const logEl = document.getElementById("dockerLog");
+  const refreshBtn = document.getElementById("refreshBtn");
+
+  function log(line) {
+    logEl.textContent += line + "\n";
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  function renderContainers(items) {
+    bodyEl.innerHTML = "";
+    for (const item of items) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${item.name}</td>
+        <td>${item.db_type}</td>
+        <td>${item.host || "-"}</td>
+        <td>${item.port || "-"}</td>
+        <td>${item.database || "-"}</td>
+        <td>${item.connectable ? "yes" : "no"}</td>
+        <td><button data-id="${item.id}">Activate</button></td>
+      `;
+      bodyEl.appendChild(tr);
+    }
+  }
+
+  async function activateContainer(containerId) {
+    const res = await fetch(`/api/connections/docker/${containerId}/activate`, {
+      method: "POST",
+    });
+    const data = await res.json();
+    log(`[activate] ${JSON.stringify(data)}`);
+  }
+
+  bodyEl.addEventListener("click", (event) => {
+    const btn = event.target;
+    if (!(btn instanceof HTMLButtonElement)) return;
+    const id = btn.getAttribute("data-id");
+    if (id) activateContainer(id).catch((err) => log(`[error] ${err}`));
+  });
+
+  refreshBtn.addEventListener("click", async () => {
+    const data = await fetch("/api/connections/docker").then((r) => r.json());
+    statusEl.textContent = data.docker_status;
+    renderContainers(data.containers || []);
+    log("[manual] refreshed");
+  });
+
+  const source = new EventSource("/events/docker-discovery");
+  source.addEventListener("status", (event) => {
+    const data = JSON.parse(event.data);
+    statusEl.textContent = data.docker_status;
+    log(`[status] ${data.docker_status}`);
+  });
+  source.addEventListener("containers", (event) => {
+    const data = JSON.parse(event.data);
+    statusEl.textContent = data.docker_status;
+    renderContainers(data.containers || []);
+    log(`[containers] ${data.containers?.length || 0}`);
+  });
+  source.addEventListener("heartbeat", () => {
+    log("[heartbeat]");
+  });
+  source.onerror = () => {
+    log("[sse] disconnected/retrying");
+  };
+</script>
+{% endblock %}

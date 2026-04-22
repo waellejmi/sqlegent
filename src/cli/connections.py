@@ -3,12 +3,12 @@ from pathlib import Path
 from config.db_config import DBConfig
 
 
-def _normalize_sqlite_uri_from_input(raw_path: str, db_config: DBConfig) -> str:
+def normalize_sqlite_uri_from_input(raw_path: str, db_config: DBConfig) -> str:
     path = Path(raw_path).expanduser().resolve()
     return db_config.sqlite_path_to_uri(path)
 
 
-def _connection_config_to_uri(connection, db_config: DBConfig) -> str:
+def connection_config_to_uri(connection, db_config: DBConfig) -> str:
     db_type = str(connection.db_type).lower()
     endpoint = connection.tcp_endpoint
     file_endpoint = connection.file_endpoint
@@ -127,7 +127,7 @@ def _pick_docker_connection_uri(db_config: DBConfig) -> str:
 
     selected = running[choice - 1]
     connection = container_to_connection_config(selected)
-    return _connection_config_to_uri(connection, db_config)
+    return connection_config_to_uri(connection, db_config)
 
 
 def configure_database_target(db_config: DBConfig) -> str:
@@ -153,7 +153,7 @@ def configure_database_target(db_config: DBConfig) -> str:
                     input(f"SQLite file path [{default_path}]: ").strip()
                     or default_path
                 )
-                selected_uri = _normalize_sqlite_uri_from_input(raw_path, db_config)
+                selected_uri = normalize_sqlite_uri_from_input(raw_path, db_config)
             elif choice == "2":
                 raw_uri = input("SQLAlchemy URI: ").strip()
                 if not raw_uri:
@@ -170,3 +170,7 @@ def configure_database_target(db_config: DBConfig) -> str:
             return selected_uri
         except Exception as exc:
             print(f"Configuration error: {exc}")
+
+
+_normalize_sqlite_uri_from_input = normalize_sqlite_uri_from_input
+_connection_config_to_uri = connection_config_to_uri

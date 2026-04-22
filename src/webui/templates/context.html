@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Context</h1>
+<p>Context stats and reindex control.</p>
+
+<div class="row">
+  <input id="semanticProfile" type="text" placeholder="semantic profile (optional)">
+  <button id="reindexBtn" type="button">Run Reindex</button>
+</div>
+
+<pre id="contextStats" class="panel">Loading...</pre>
+
+<script>
+  const statsEl = document.getElementById("contextStats");
+  const reindexBtn = document.getElementById("reindexBtn");
+
+  async function loadStats() {
+    const stats = await fetch("/api/context/stats").then((r) => r.json());
+    statsEl.textContent = JSON.stringify(stats, null, 2);
+  }
+
+  reindexBtn.addEventListener("click", async () => {
+    const semanticProfile = document.getElementById("semanticProfile").value || null;
+    const payload = { semantic_profile: semanticProfile };
+    const res = await fetch("/api/context/reindex", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    statsEl.textContent = JSON.stringify(data, null, 2);
+    await loadStats();
+  });
+
+  loadStats().catch((err) => {
+    statsEl.textContent = String(err);
+  });
+</script>
+{% endblock %}
