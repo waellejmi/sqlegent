@@ -1,14 +1,12 @@
 import logging
-import uuid
 
 from langchain_core.callbacks.usage import UsageMetadataCallbackHandler
-from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.types import Command
 from mcp.server.fastmcp import FastMCP
 
-from agent.graph import agent
-from agent.state import AgentState
+from app.agent_runtime import build_agent, extract_last_ai_message
+from app.state_factory import build_initial_state, make_runnable_config
 from config.db_config import DBConfig
 from context_layer.service import extract_tables_from_sql, get_context_service
 from tools.database import db
@@ -31,53 +29,22 @@ connect_to_database()
 
 mcp = FastMCP("sql-mcp-server")
 
-
-def _build_initial_state(
-    question: str,
-) -> AgentState:
-    return AgentState(
-        messages=[HumanMessage(content=question)],
-        user_question=question,
-        last_query=None,
-        previous_queries=[],
-        analysis_result=None,
-        skip_decision=None,
-        db_output=None,
-        retry_count=0,
-        schema_context=None,
-        instruction_context=None,
-        query_memory_context=None,
-    )
+agent = build_agent()
 
 
 def _make_config(
     bypass_cache: bool = False,
     invalidate_cache: bool = False,
 ) -> RunnableConfig:
-    return RunnableConfig(
-        configurable={
-            "thread_id": str(uuid.uuid4()),
-            "metadata_bypass_cache": bypass_cache,
-            "metadata_invalidate_cache": invalidate_cache,
-        },
-        callbacks=[UsageMetadataCallbackHandler()],
+    return make_runnable_config(
+        bypass_cache=bypass_cache,
+        invalidate_cache=invalidate_cache,
+        usage_callback=UsageMetadataCallbackHandler(),
     )
 
 
-def _extract_content(msg: AIMessage) -> str:
-    if isinstance(msg.content, str):
-        return msg.content
-    parts = [
-        block if isinstance(block, str) else block.get("text", "")
-        for block in msg.content
-    ]
-    return "".join(parts)
-
-
-async def _run_agent_auto_accept(
-    initial_state: AgentState, config: RunnableConfig
-) -> str:
-    input_state: AgentState | Command = initial_state
+async def _run_agent_auto_accept(initial_state: dict, config: RunnableConfig) -> str:
+    input_state: dict | Command = initial_state
 
     while True:
         resume_required = False
@@ -96,12 +63,8 @@ async def _run_agent_auto_accept(
             break
 
     final_state = agent.get_state(config)
-    messages = final_state.values.get("messages", [])
-    for msg in reversed(messages):
-        if isinstance(msg, AIMessage) and msg.content:
-            return _extract_content(msg)
-
-    return "Agent completed but produced no output."
+    answer = extract_last_ai_message(final_state.values)
+    return answer or "Agent completed but produced no output."
 
 
 @mcp.tool()
@@ -128,7 +91,7 @@ async def ask_database(
         bypass_cache=bypass_cache,
         invalidate_cache=invalidate_cache,
     )
-    initial_state = _build_initial_state(question)
+    initial_state = build_initial_state(question)
     return await _run_agent_auto_accept(initial_state, config)
 
 
@@ -162,7 +125,7 @@ async def generate_sql(
             bypass_cache=bypass_cache,
             invalidate_cache=invalidate_cache,
         )
-        initial_state = _build_initial_state(question)
+        initial_state = build_initial_state(question)
 
         async for _ in agent.astream(
             initial_state,
