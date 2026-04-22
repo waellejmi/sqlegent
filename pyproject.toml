@@ -19,6 +19,8 @@ dependencies = [
     "sqlglot>=29.0.1",
 ]
 
+[tool.setuptools.packages.find]
+where = ["src"]
 
 
 [project.optional-dependencies]
