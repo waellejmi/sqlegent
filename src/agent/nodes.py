@@ -24,9 +24,26 @@ from tools.database import (
     list_tables_with_cache,
     run_query_tool_with_interrupt,
 )
-from utils.logger_setup import LoggerSetup
+from utils.logger_setup import (
+    LoggerSetup,
+    format_debug_payload,
+    format_llm_response_summary,
+    should_log_node_payloads,
+)
 
-logger = LoggerSetup.get_logger(__name__, logging.INFO)
+logger = LoggerSetup.get_logger(__name__, logging.DEBUG)
+
+
+def _log_node_payload(label: str, payload: object) -> None:
+    if not should_log_node_payloads():
+        return
+    logger.debug("%s: %s", label, format_debug_payload(payload))
+
+
+def _log_node_response(label: str, response: object) -> None:
+    if not should_log_node_payloads():
+        return
+    logger.debug("%s: %s", label, format_llm_response_summary(response))
 
 
 def _ai_message_to_text(message: AIMessage) -> str:
@@ -54,7 +71,7 @@ def list_tables(_state: AgentState, config: RunnableConfig | None = None):
         invalidate_cache=invalidate_cache,
     )
 
-    logger.debug(f"List of tables in the database: {result}")
+    _log_node_payload("List of tables in the database", result)
     if not result:
         raise ValueError("Failed to retrieve table names from the database.")
 
@@ -67,6 +84,17 @@ def retrieve_context(state: AgentState):
 
     service = get_context_service()
     result = service.retrieve_context(state["user_question"])
+    _log_node_payload(
+        "Retrieved context for the question",
+        {
+            "schema_text": result.schema_text,
+            "instruction_text": result.instruction_text,
+            "query_memory_text": result.query_memory_text,
+            "schema_hits": len(result.schema_hits),
+            "instruction_hits": len(result.instruction_hits),
+            "query_memory_hits": len(result.query_memory_hits),
+        },
+    )
     return {
         "schema_context": result.schema_text,
         "instruction_context": result.instruction_text,
@@ -86,7 +114,7 @@ def skip_pipeline(state: AgentState):
     structured_model = model.with_structured_output(SkipDecision)
     result = structured_model.invoke([system_message])
 
-    logger.debug(f"Skip Decision: {result}")
+    _log_node_payload("Skip Decision", result)
     return {
         "skip_decision": result,
     }
@@ -132,10 +160,11 @@ def call_get_schema(state: AgentState):
         }
 
     response = llm_with_tools.invoke([system_message])
+    _log_node_response("Schema Tool Response", response)
     table_list = [
         t.strip() for t in response.tool_calls[0]["args"]["table_names"].split(",")
     ]
-    logger.debug(f"Candidate Tables : {table_list}")
+    _log_node_payload("Candidate Tables", table_list)
     return {
         "candidate_tables": table_list,
         "retry_count": current_retry_count,
@@ -203,10 +232,11 @@ def generate_query(state: AgentState):
         prompt_messages.append({"role": "user", "content": state["user_question"]})
 
     response = llm_with_tools.invoke(prompt_messages)
+    _log_node_response("Generate Query Response", response)
     generated_query = response.tool_calls[0]["args"]["query"]
 
     current_retry_count = state["retry_count"] + 1
-    logger.debug(f"Generated Query: {response}")
+    _log_node_payload("Generated Query", generated_query)
 
     return {"last_query": generated_query, "retry_count": current_retry_count}
 
@@ -223,9 +253,10 @@ def check_query(state: AgentState):
         [run_query_tool_with_interrupt], tool_choice="any"
     )
     response = llm_with_tools.invoke([system_message])
+    _log_node_response("Check Query Response", response)
     last_query = response.tool_calls[0]["args"]["query"]
 
-    logger.debug(f"Checked Query: {last_query}")
+    _log_node_payload("Checked Query", last_query)
 
     return {
         "last_query": last_query,
@@ -250,7 +281,7 @@ def run_query(state: AgentState, config: RunnableConfig | None = None):
     )
     db_txt = str(db_output) if db_output is not None else ""
 
-    logger.debug(f"Database Output: {db_txt} ")
+    _log_node_payload("Database Output", db_txt)
     return {"db_output": db_txt}
 
 
@@ -271,7 +302,7 @@ def analyze_result(state: AgentState):
 
     response = structured_llm.invoke([system_message])
 
-    logger.debug(f"Analysis Result: {response.model_dump_json()}")
+    _log_node_payload("Analysis Result", response.model_dump())
 
     return {
         "db_output": db_output,
@@ -300,7 +331,7 @@ def should_retry(state: AgentState):
 def explain_result(state: AgentState):
     if not AppConfig().EXECUTE_SQL_QUERIES:
         explanation = f"SQL execution is disabled. Skipping query . Here is last generated query: {state['last_query']}"
-        logger.debug(f"No Execution:{explanation}")
+        _log_node_payload("No Execution", explanation)
         return {
             "final_answer": explanation,
             "messages": [AIMessage(content=explanation)],
@@ -308,7 +339,7 @@ def explain_result(state: AgentState):
 
     if state["skip_decision"] and state["skip_decision"].skip:
         explanation = f"The agent decided to skip executing the query because: {state['skip_decision'].reason}"
-        logger.debug(f"Skip Explanation: {explanation}")
+        _log_node_payload("Skip Explanation", explanation)
         return {
             "final_answer": explanation,
             "messages": [AIMessage(content=explanation)],
@@ -326,7 +357,7 @@ def explain_result(state: AgentState):
     }
     response = model.invoke([system_message])
     final_answer = _ai_message_to_text(response)
-    logger.debug(f"Explanation: {response}")
+    _log_node_payload("Explanation", _ai_message_to_text(response))
     return {
         "final_answer": final_answer,
         "messages": [response],

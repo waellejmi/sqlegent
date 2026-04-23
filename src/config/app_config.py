@@ -10,7 +10,15 @@ load_dotenv()
 class AppConfig:
     ROOT_DIR: Path = Path(__file__).resolve().parent.parent.parent
 
-    HUMAN_SQL_REVIEW: bool = True
+    LOG_LEVEL: str = "INFO"
+    LOG_JSON: bool = True
+    LOG_REQUESTS: bool = False
+    LOG_NODE_PAYLOADS: bool = False
+    LOG_MAX_CHARS: int = 600
+    LOG_MAX_ITEMS: int = 10
+    LOG_RESPONSE_MAX_CHARS: int = 300
+
+    HUMAN_SQL_REVIEW: bool = False
     EXECUTE_SQL_QUERIES: bool = True
     MAX_SQL_RETRIES: int = 1
 
@@ -30,8 +38,11 @@ class AppConfig:
     CONTEXT_REQUIRE_SEMANTIC_PROFILE: bool = True
     CONTEXT_DEFAULT_SEMANTIC_PROFILE: str | None = None
 
-    # use Snowflake/snowflake-arctic-embed-m
-    EMBEDDING_MODEL_NAME: str = "sentence-transformers/all-MiniLM-L6-v2"
+    # List of installed embedding models
+    # EMBEDDING_MODEL_NAME: str = "Snowflake/snowflake-arctic-embed-m"
+    # EMBEDDING_MODEL_NAME: str = "sentence-transformers/all-MiniLM-L6-v2"
+    # EMBEDDING_MODEL_NAME: str = "BAAI/bge-small-en-v1.5"
+    EMBEDDING_MODEL_NAME: str = "nomic-ai/nomic-embed-text-v1.5"
     EMBEDDING_OFFLINE: bool = True
     EMBEDDING_DEVICE: str = "auto"
     EMBEDDING_NORMALIZE: bool = True

@@ -13,6 +13,7 @@ from tools.database import db
 from tools.metadata_cache import invalidate_metadata_cache
 from utils.logger_setup import LoggerSetup
 
+LoggerSetup.configure_logging()
 logger = LoggerSetup.get_logger(__name__, logging.INFO)
 
 

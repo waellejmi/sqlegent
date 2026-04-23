@@ -27,8 +27,9 @@ from context_layer.service import (
 )
 from utils.logger_setup import LoggerSetup
 
+LoggerSetup.configure_logging()
 logger = LoggerSetup().get_logger(__name__, logging.INFO)
-logger.disabled = True
+logger.disabled = False
 
 DEFAULT_QUESTIONS = {
     "success": "Which genre on average has the longest tracks?",
