@@ -3,7 +3,7 @@ You are an agent designed to interact with a SQL database.
 Given an input question, create a syntactically correct {dialect} query to run,
 then look at the results of the query and return the answer. Unless the user
 specifies a specific number of examples they wish to obtain, always limit your
-query to at most {top_k} results.
+query to at most {top_k} results if not specified by the user.
 
 [Schema of Candiate Tables]
 {schema_for_candidate_tables}
@@ -71,6 +71,8 @@ INSTRUCTIONS:
 
 OUTPUT FORMAT:
 Return valid JSON matching the AnalysisResult schema.
+
+IMPORTANT: If the database respone is close enough to anwer the question you can mark it as SUCCESS, but mention in the explanation what is missing or not fully aligned with the user's intent.
 """
 
 EXPLAIN_RESULT = """

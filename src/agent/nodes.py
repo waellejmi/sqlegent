@@ -212,6 +212,11 @@ def generate_query(state: AgentState):
     }
     llm_with_tools = model.bind_tools([run_query_tool_with_interrupt])
 
+    # TODO: deal with check_query
+    # llm_with_tools = model.bind_tools(
+    #     [run_query_tool_with_interrupt], tool_choice="any"
+    # )
+
     prompt_messages = [system_message]
 
     if state["analysis_result"] is not None and state["analysis_result"].status in [
@@ -232,7 +237,12 @@ def generate_query(state: AgentState):
         prompt_messages.append({"role": "user", "content": state["user_question"]})
 
     response = llm_with_tools.invoke(prompt_messages)
+    breakpoint()
     _log_node_response("Generate Query Response", response)
+
+    if not response.tool_calls:
+        raise ValueError("Model failed to generate a tool call.")
+
     generated_query = response.tool_calls[0]["args"]["query"]
 
     current_retry_count = state["retry_count"] + 1
@@ -241,6 +251,7 @@ def generate_query(state: AgentState):
     return {"last_query": generated_query, "retry_count": current_retry_count}
 
 
+# TODO: Consider adding user_question to stop it from changing / breaking query structure on retry, or at least add it to the prompt so the model has more context on retries
 def check_query(state: AgentState):
     system_message = {
         "role": "system",

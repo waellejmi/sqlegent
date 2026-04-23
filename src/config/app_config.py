@@ -10,17 +10,18 @@ load_dotenv()
 class AppConfig:
     ROOT_DIR: Path = Path(__file__).resolve().parent.parent.parent
 
-    LOG_LEVEL: str = "INFO"
-    LOG_JSON: bool = True
+    # LOG_LEVEL: str = "INFO"
+    LOG_LEVEL: str = "DEBUG"
+    LOG_JSON: bool = False
     LOG_REQUESTS: bool = False
-    LOG_NODE_PAYLOADS: bool = False
+    LOG_NODE_PAYLOADS: bool = True
     LOG_MAX_CHARS: int = 600
     LOG_MAX_ITEMS: int = 10
     LOG_RESPONSE_MAX_CHARS: int = 300
 
     HUMAN_SQL_REVIEW: bool = False
     EXECUTE_SQL_QUERIES: bool = True
-    MAX_SQL_RETRIES: int = 1
+    MAX_SQL_RETRIES: int = 2
 
     SHOW_AGENT_GRAPH: bool = False
     SHOW_NODE_HISTORY: bool = True
