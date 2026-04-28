@@ -1,466 +1,466 @@
 models:
-- name: Album
-  table: Album
+- name: album
+  table: album
   schema: null
   description: ''
   aliases: []
   columns:
-  - name: AlbumId
-    type: INTEGER
-    nullable: false
-    primary_key: true
-    description: ''
-  - name: Title
-    type: NVARCHAR(160)
-    nullable: false
-    primary_key: false
-    description: ''
-  - name: ArtistId
+  - name: album_id
     type: INTEGER
     nullable: false
     primary_key: false
     description: ''
-- name: Artist
-  table: Artist
+  - name: title
+    type: VARCHAR(160)
+    nullable: false
+    primary_key: false
+    description: ''
+  - name: artist_id
+    type: INTEGER
+    nullable: false
+    primary_key: false
+    description: ''
+- name: artist
+  table: artist
   schema: null
   description: ''
   aliases: []
   columns:
-  - name: ArtistId
+  - name: artist_id
     type: INTEGER
     nullable: false
-    primary_key: true
+    primary_key: false
     description: ''
-  - name: Name
-    type: NVARCHAR(120)
+  - name: name
+    type: VARCHAR(120)
     nullable: true
     primary_key: false
     description: ''
-- name: Customer
-  table: Customer
+- name: customer
+  table: customer
   schema: null
   description: ''
   aliases: []
   columns:
-  - name: CustomerId
+  - name: customer_id
     type: INTEGER
     nullable: false
-    primary_key: true
+    primary_key: false
     description: ''
-  - name: FirstName
-    type: NVARCHAR(40)
+  - name: first_name
+    type: VARCHAR(40)
     nullable: false
     primary_key: false
     description: ''
-  - name: LastName
-    type: NVARCHAR(20)
+  - name: last_name
+    type: VARCHAR(20)
     nullable: false
     primary_key: false
     description: ''
-  - name: Company
-    type: NVARCHAR(80)
+  - name: company
+    type: VARCHAR(80)
     nullable: true
     primary_key: false
     description: ''
-  - name: Address
-    type: NVARCHAR(70)
+  - name: address
+    type: VARCHAR(70)
     nullable: true
     primary_key: false
     description: ''
-  - name: City
-    type: NVARCHAR(40)
+  - name: city
+    type: VARCHAR(40)
     nullable: true
     primary_key: false
     description: ''
-  - name: State
-    type: NVARCHAR(40)
+  - name: state
+    type: VARCHAR(40)
     nullable: true
     primary_key: false
     description: ''
-  - name: Country
-    type: NVARCHAR(40)
+  - name: country
+    type: VARCHAR(40)
     nullable: true
     primary_key: false
     description: ''
-  - name: PostalCode
-    type: NVARCHAR(10)
+  - name: postal_code
+    type: VARCHAR(10)
     nullable: true
     primary_key: false
     description: ''
-  - name: Phone
-    type: NVARCHAR(24)
+  - name: phone
+    type: VARCHAR(24)
     nullable: true
     primary_key: false
     description: ''
-  - name: Fax
-    type: NVARCHAR(24)
+  - name: fax
+    type: VARCHAR(24)
     nullable: true
     primary_key: false
     description: ''
-  - name: Email
-    type: NVARCHAR(60)
+  - name: email
+    type: VARCHAR(60)
     nullable: false
     primary_key: false
     description: ''
-  - name: SupportRepId
+  - name: support_rep_id
     type: INTEGER
     nullable: true
     primary_key: false
     description: ''
-- name: Employee
-  table: Employee
+- name: employee
+  table: employee
   schema: null
   description: ''
   aliases: []
   columns:
-  - name: EmployeeId
+  - name: employee_id
     type: INTEGER
     nullable: false
-    primary_key: true
+    primary_key: false
     description: ''
-  - name: LastName
-    type: NVARCHAR(20)
+  - name: last_name
+    type: VARCHAR(20)
     nullable: false
     primary_key: false
     description: ''
-  - name: FirstName
-    type: NVARCHAR(20)
+  - name: first_name
+    type: VARCHAR(20)
     nullable: false
     primary_key: false
     description: ''
-  - name: Title
-    type: NVARCHAR(30)
+  - name: title
+    type: VARCHAR(30)
     nullable: true
     primary_key: false
     description: ''
-  - name: ReportsTo
+  - name: reports_to
     type: INTEGER
     nullable: true
     primary_key: false
     description: ''
-  - name: BirthDate
-    type: DATETIME
+  - name: birth_date
+    type: TIMESTAMP
     nullable: true
     primary_key: false
     description: ''
-  - name: HireDate
-    type: DATETIME
+  - name: hire_date
+    type: TIMESTAMP
     nullable: true
     primary_key: false
     description: ''
-  - name: Address
-    type: NVARCHAR(70)
+  - name: address
+    type: VARCHAR(70)
     nullable: true
     primary_key: false
     description: ''
-  - name: City
-    type: NVARCHAR(40)
+  - name: city
+    type: VARCHAR(40)
     nullable: true
     primary_key: false
     description: ''
-  - name: State
-    type: NVARCHAR(40)
+  - name: state
+    type: VARCHAR(40)
     nullable: true
     primary_key: false
     description: ''
-  - name: Country
-    type: NVARCHAR(40)
+  - name: country
+    type: VARCHAR(40)
     nullable: true
     primary_key: false
     description: ''
-  - name: PostalCode
-    type: NVARCHAR(10)
+  - name: postal_code
+    type: VARCHAR(10)
     nullable: true
     primary_key: false
     description: ''
-  - name: Phone
-    type: NVARCHAR(24)
+  - name: phone
+    type: VARCHAR(24)
     nullable: true
     primary_key: false
     description: ''
-  - name: Fax
-    type: NVARCHAR(24)
+  - name: fax
+    type: VARCHAR(24)
     nullable: true
     primary_key: false
     description: ''
-  - name: Email
-    type: NVARCHAR(60)
+  - name: email
+    type: VARCHAR(60)
     nullable: true
     primary_key: false
     description: ''
-- name: Genre
-  table: Genre
+- name: genre
+  table: genre
   schema: null
   description: ''
   aliases: []
   columns:
-  - name: GenreId
+  - name: genre_id
     type: INTEGER
     nullable: false
-    primary_key: true
+    primary_key: false
     description: ''
-  - name: Name
-    type: NVARCHAR(120)
+  - name: name
+    type: VARCHAR(120)
     nullable: true
     primary_key: false
     description: ''
-- name: Invoice
-  table: Invoice
+- name: invoice
+  table: invoice
   schema: null
   description: ''
   aliases: []
   columns:
-  - name: InvoiceId
-    type: INTEGER
-    nullable: false
-    primary_key: true
-    description: ''
-  - name: CustomerId
+  - name: invoice_id
     type: INTEGER
     nullable: false
     primary_key: false
     description: ''
-  - name: InvoiceDate
-    type: DATETIME
+  - name: customer_id
+    type: INTEGER
     nullable: false
     primary_key: false
     description: ''
-  - name: BillingAddress
-    type: NVARCHAR(70)
+  - name: invoice_date
+    type: TIMESTAMP
+    nullable: false
+    primary_key: false
+    description: ''
+  - name: billing_address
+    type: VARCHAR(70)
     nullable: true
     primary_key: false
     description: ''
-  - name: BillingCity
-    type: NVARCHAR(40)
+  - name: billing_city
+    type: VARCHAR(40)
     nullable: true
     primary_key: false
     description: ''
-  - name: BillingState
-    type: NVARCHAR(40)
+  - name: billing_state
+    type: VARCHAR(40)
     nullable: true
     primary_key: false
     description: ''
-  - name: BillingCountry
-    type: NVARCHAR(40)
+  - name: billing_country
+    type: VARCHAR(40)
     nullable: true
     primary_key: false
     description: ''
-  - name: BillingPostalCode
-    type: NVARCHAR(10)
+  - name: billing_postal_code
+    type: VARCHAR(10)
     nullable: true
     primary_key: false
     description: ''
-  - name: Total
+  - name: total
     type: NUMERIC(10, 2)
     nullable: false
     primary_key: false
     description: ''
-- name: InvoiceLine
-  table: InvoiceLine
+- name: invoice_line
+  table: invoice_line
   schema: null
   description: ''
   aliases: []
   columns:
-  - name: InvoiceLineId
-    type: INTEGER
-    nullable: false
-    primary_key: true
-    description: ''
-  - name: InvoiceId
+  - name: invoice_line_id
     type: INTEGER
     nullable: false
     primary_key: false
     description: ''
-  - name: TrackId
+  - name: invoice_id
     type: INTEGER
     nullable: false
     primary_key: false
     description: ''
-  - name: UnitPrice
+  - name: track_id
+    type: INTEGER
+    nullable: false
+    primary_key: false
+    description: ''
+  - name: unit_price
     type: NUMERIC(10, 2)
     nullable: false
     primary_key: false
     description: ''
-  - name: Quantity
+  - name: quantity
     type: INTEGER
     nullable: false
     primary_key: false
     description: ''
-- name: MediaType
-  table: MediaType
+- name: media_type
+  table: media_type
   schema: null
   description: ''
   aliases: []
   columns:
-  - name: MediaTypeId
+  - name: media_type_id
     type: INTEGER
     nullable: false
-    primary_key: true
+    primary_key: false
     description: ''
-  - name: Name
-    type: NVARCHAR(120)
+  - name: name
+    type: VARCHAR(120)
     nullable: true
     primary_key: false
     description: ''
-- name: Playlist
-  table: Playlist
+- name: playlist
+  table: playlist
   schema: null
   description: ''
   aliases: []
   columns:
-  - name: PlaylistId
+  - name: playlist_id
     type: INTEGER
     nullable: false
-    primary_key: true
+    primary_key: false
     description: ''
-  - name: Name
-    type: NVARCHAR(120)
+  - name: name
+    type: VARCHAR(120)
     nullable: true
     primary_key: false
     description: ''
-- name: PlaylistTrack
-  table: PlaylistTrack
+- name: playlist_track
+  table: playlist_track
   schema: null
   description: ''
   aliases: []
   columns:
-  - name: PlaylistId
+  - name: playlist_id
     type: INTEGER
     nullable: false
-    primary_key: true
+    primary_key: false
     description: ''
-  - name: TrackId
+  - name: track_id
     type: INTEGER
     nullable: false
-    primary_key: true
+    primary_key: false
     description: ''
-- name: Track
-  table: Track
+- name: track
+  table: track
   schema: null
   description: ''
   aliases: []
   columns:
-  - name: TrackId
-    type: INTEGER
-    nullable: false
-    primary_key: true
-    description: ''
-  - name: Name
-    type: NVARCHAR(200)
-    nullable: false
-    primary_key: false
-    description: ''
-  - name: AlbumId
-    type: INTEGER
-    nullable: true
-    primary_key: false
-    description: ''
-  - name: MediaTypeId
+  - name: track_id
     type: INTEGER
     nullable: false
     primary_key: false
     description: ''
-  - name: GenreId
+  - name: name
+    type: VARCHAR(200)
+    nullable: false
+    primary_key: false
+    description: ''
+  - name: album_id
     type: INTEGER
     nullable: true
     primary_key: false
     description: ''
-  - name: Composer
-    type: NVARCHAR(220)
-    nullable: true
-    primary_key: false
-    description: ''
-  - name: Milliseconds
+  - name: media_type_id
     type: INTEGER
     nullable: false
     primary_key: false
     description: ''
-  - name: Bytes
+  - name: genre_id
     type: INTEGER
     nullable: true
     primary_key: false
     description: ''
-  - name: UnitPrice
+  - name: composer
+    type: VARCHAR(220)
+    nullable: true
+    primary_key: false
+    description: ''
+  - name: milliseconds
+    type: INTEGER
+    nullable: false
+    primary_key: false
+    description: ''
+  - name: bytes
+    type: INTEGER
+    nullable: true
+    primary_key: false
+    description: ''
+  - name: unit_price
     type: NUMERIC(10, 2)
     nullable: false
     primary_key: false
     description: ''
 relationships:
-- from_model: Album
-  to_model: Artist
+- from_model: album
+  to_model: artist
   type: many_to_one
   join:
-    from_column: ArtistId
-    to_column: ArtistId
+    from_column: artist_id
+    to_column: artist_id
   description: ''
-- from_model: Customer
-  to_model: Employee
+- from_model: customer
+  to_model: employee
   type: many_to_one
   join:
-    from_column: SupportRepId
-    to_column: EmployeeId
+    from_column: support_rep_id
+    to_column: employee_id
   description: ''
-- from_model: Employee
-  to_model: Employee
+- from_model: employee
+  to_model: employee
   type: many_to_one
   join:
-    from_column: ReportsTo
-    to_column: EmployeeId
+    from_column: reports_to
+    to_column: employee_id
   description: ''
-- from_model: Invoice
-  to_model: Customer
+- from_model: invoice
+  to_model: customer
   type: many_to_one
   join:
-    from_column: CustomerId
-    to_column: CustomerId
+    from_column: customer_id
+    to_column: customer_id
   description: ''
-- from_model: InvoiceLine
-  to_model: Track
+- from_model: invoice_line
+  to_model: invoice
   type: many_to_one
   join:
-    from_column: TrackId
-    to_column: TrackId
+    from_column: invoice_id
+    to_column: invoice_id
   description: ''
-- from_model: InvoiceLine
-  to_model: Invoice
+- from_model: invoice_line
+  to_model: track
   type: many_to_one
   join:
-    from_column: InvoiceId
-    to_column: InvoiceId
+    from_column: track_id
+    to_column: track_id
   description: ''
-- from_model: PlaylistTrack
-  to_model: Track
+- from_model: playlist_track
+  to_model: playlist
   type: many_to_one
   join:
-    from_column: TrackId
-    to_column: TrackId
+    from_column: playlist_id
+    to_column: playlist_id
   description: ''
-- from_model: PlaylistTrack
-  to_model: Playlist
+- from_model: playlist_track
+  to_model: track
   type: many_to_one
   join:
-    from_column: PlaylistId
-    to_column: PlaylistId
+    from_column: track_id
+    to_column: track_id
   description: ''
-- from_model: Track
-  to_model: MediaType
+- from_model: track
+  to_model: album
   type: many_to_one
   join:
-    from_column: MediaTypeId
-    to_column: MediaTypeId
+    from_column: album_id
+    to_column: album_id
   description: ''
-- from_model: Track
-  to_model: Genre
+- from_model: track
+  to_model: genre
   type: many_to_one
   join:
-    from_column: GenreId
-    to_column: GenreId
+    from_column: genre_id
+    to_column: genre_id
   description: ''
-- from_model: Track
-  to_model: Album
+- from_model: track
+  to_model: media_type
   type: many_to_one
   join:
-    from_column: AlbumId
-    to_column: AlbumId
+    from_column: media_type_id
+    to_column: media_type_id
   description: ''
 instructions: []

@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 
+from cli.entrypoint import DEFAULT_QUESTION_KEY, _pick_question
 from config.app_config import AppConfig
 from context_layer.service import get_context_service
 from context_layer.store import SearchHit
@@ -43,6 +44,16 @@ def _build_parser() -> argparse.ArgumentParser:
         help="include details of the retrieved context in the JSON output",
         action="store_true",
     )
+    parser.add_argument(
+        "--use-default",
+        "--default",
+        dest="use_default",
+        action="store_true",
+        help=(
+            f"Use built-in default question ({DEFAULT_QUESTION_KEY}) instead of prompting."
+        ),
+    )
+
     return parser
 
 
@@ -50,13 +61,7 @@ def main() -> int:
     parser = _build_parser()
     args = parser.parse_args()
 
-    question = (args.question or "").strip()
-    if not question:
-        question = input("Question: ").strip()
-
-    if not question:
-        print("Question cannot be empty.")
-        return 1
+    question = _pick_question(args.use_default)
 
     config = AppConfig()
     if not config.ENABLE_CONTEXT_LAYER:

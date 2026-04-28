@@ -4,7 +4,6 @@ from langgraph.graph import END, START, StateGraph
 from agent.nodes import (
     analyze_result,
     call_get_schema,
-    check_query,
     explain_result,
     generate_query,
     get_schema_for_candidate_tables,
@@ -26,7 +25,6 @@ builder.add_node(skip_pipeline)
 builder.add_node(call_get_schema)
 builder.add_node("get_schema", get_schema_for_candidate_tables)
 builder.add_node(generate_query)
-builder.add_node(check_query)
 builder.add_node("run_query", run_query)
 builder.add_node(analyze_result)
 builder.add_node(explain_result)
@@ -44,10 +42,9 @@ builder.add_conditional_edges(
 
 builder.add_edge("call_get_schema", "get_schema")
 builder.add_edge("get_schema", "generate_query")
-builder.add_edge("generate_query", "check_query")
 
 builder.add_conditional_edges(
-    "check_query",
+    "generate_query",
     should_execute,
     {"explain_result": "explain_result", "run_query": "run_query"},
 )

@@ -105,3 +105,11 @@ instructions:
       Once you’ve summed the purchases for every track, arrange them from highest to lowest.
       The tracks at the top of this list are the most bought of all time.
       Also List MediaType and Genre for each track.
+
+  - id: country_segmentation_logic
+    scope: sql
+    question: country agent revenue customer segment
+    instruction: |
+      When calculating revenue or metrics segmented by 'country' for sales agents, 
+      always group by the Customer's country (c.country), NOT the Employee's country. 
+      Sales agents in Chinook support global customers.

@@ -5,7 +5,6 @@ from langchain_core.runnables import RunnableConfig
 
 from agent.prompts import (
     ANALYZE_RESULT,
-    CHECK_QUERY,
     EXPLAIN_RESULT,
     GENERATE_QUERY,
     GET_SCHEMA_PROMPT,
@@ -210,12 +209,9 @@ def generate_query(state: AgentState):
             query_memory_context=state.get("query_memory_context", "Not available"),
         ),
     }
-    llm_with_tools = model.bind_tools([run_query_tool_with_interrupt])
-
-    # TODO: deal with check_query
-    # llm_with_tools = model.bind_tools(
-    #     [run_query_tool_with_interrupt], tool_choice="any"
-    # )
+    llm_with_tools = model.bind_tools(
+        [run_query_tool_with_interrupt], tool_choice="any"
+    )
 
     prompt_messages = [system_message]
 
@@ -237,7 +233,6 @@ def generate_query(state: AgentState):
         prompt_messages.append({"role": "user", "content": state["user_question"]})
 
     response = llm_with_tools.invoke(prompt_messages)
-    breakpoint()
     _log_node_response("Generate Query Response", response)
 
     if not response.tool_calls:
@@ -248,30 +243,10 @@ def generate_query(state: AgentState):
     current_retry_count = state["retry_count"] + 1
     _log_node_payload("Generated Query", generated_query)
 
-    return {"last_query": generated_query, "retry_count": current_retry_count}
-
-
-# TODO: Consider adding user_question to stop it from changing / breaking query structure on retry, or at least add it to the prompt so the model has more context on retries
-def check_query(state: AgentState):
-    system_message = {
-        "role": "system",
-        "content": CHECK_QUERY.format(
-            dialect=db.dialect, last_query=state["last_query"]
-        ),
-    }
-
-    llm_with_tools = model.bind_tools(
-        [run_query_tool_with_interrupt], tool_choice="any"
-    )
-    response = llm_with_tools.invoke([system_message])
-    _log_node_response("Check Query Response", response)
-    last_query = response.tool_calls[0]["args"]["query"]
-
-    _log_node_payload("Checked Query", last_query)
-
     return {
-        "last_query": last_query,
-        "previous_queries": [last_query],
+        "last_query": generated_query,
+        "retry_count": current_retry_count,
+        "previous_queries": [generated_query],
     }
 
 

@@ -23,11 +23,8 @@ Use these additional context channels when relevant:
 {query_memory_context}
 
 If context channels conflict, prioritize schema facts, then instruction context, then query memory examples.
-"""
 
-CHECK_QUERY = """
-You are a SQL expert with a strong attention to detail.
-Double check the {dialect} query for common mistakes, including:
+Double check your query for common mistakes, including:
 - Using NOT IN with NULL values
 - Using UNION when UNION ALL should have been used
 - Using BETWEEN for exclusive ranges
@@ -37,13 +34,7 @@ Double check the {dialect} query for common mistakes, including:
 - Casting to the correct data type
 - Using the proper columns for joins
 
-If there are any of the above mistakes, rewrite the query. If there are no mistakes,
-just reproduce the original query.
-
-Current Query:
-{last_query}
-
-You will call the appropriate tool to execute the query after running this check.
+IMPORTANT: Return ONLY the tool call. Do not output any explanation before or after the tool call. Ensure the SQL query is properly escaped.
 """
 
 ANALYZE_RESULT = """
@@ -192,4 +183,6 @@ User question: {user_question}
 Additional Context : {schema_context}
 
 Instruction Context : {instruction_context}
+
+You will call the appropriate tool to get the schema for the candidate tables.
 """
