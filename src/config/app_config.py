@@ -1,8 +1,7 @@
 import json
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 from dotenv import load_dotenv
 
@@ -36,6 +35,8 @@ class AppConfig:
     METADATA_CACHE_TTL_SECONDS: int | None = None
     METADATA_CACHE_BYPASS_DEFAULT: bool = False
     METADATA_CACHE_PATH: Path = ROOT_DIR / ".app_cache" / "metadata_cache.sqlite"
+
+    WEBUI_HISTORY_PATH: Path = ROOT_DIR / ".app_cache" / "webui_history.sqlite"
 
     ENABLE_CONTEXT_LAYER: bool = True
     CONTEXT_PROJECT_ID: str = "default"
@@ -84,7 +85,7 @@ class AppConfig:
     QUERY_MEMORY_MAX_ROWS_PER_DB: int = 5000
     FAILED_QUERY_LOG_MAX_ROWS_PER_DB: int = 20000
 
-    CLI_ASK_RESULT_CONFIRMATION: bool = True
+    ASK_RESULT_CONFIRMATION: bool = True
 
     def __post_init__(self):
         self._load_runtime_settings()

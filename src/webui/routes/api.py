@@ -262,3 +262,74 @@ def import_relationships(payload: RelationshipsImportRequest) -> dict[str, objec
 @router.post("/relationships/rebuild")
 def rebuild_relationships() -> dict[str, object]:
     return {"rebuilt": True, "count": len(_relationships_store)}
+
+
+class SaveMemoryRequest(BaseModel):
+    history_id: str | None = None
+    question: str
+    sql: str
+    db_output: str | None
+
+
+@router.post("/memory/save")
+def save_memory(req: SaveMemoryRequest):
+    from context_layer.service import (
+        get_context_service,
+        extract_tables_from_sql,
+        safe_parse_row_count,
+    )
+
+    service = get_context_service()
+    if not service:
+        raise HTTPException(status_code=500, detail="Context layer disabled")
+
+    row_count = safe_parse_row_count(req.db_output)
+    memory_id = service.record_verified_query(
+        question=req.question,
+        sql=req.sql,
+        tables=extract_tables_from_sql(req.sql),
+        row_count=row_count,
+        is_verified=True,
+        metadata={"source": "webui"},
+    )
+
+    if req.history_id:
+        from webui.history_store import HistoryStore
+
+        try:
+            HistoryStore().mark_saved(req.history_id, status=1)
+        except Exception:
+            pass
+
+    return {"status": "ok", "memory_id": memory_id}
+
+
+@router.post("/memory/reject")
+def reject_memory(req: SaveMemoryRequest):
+    if req.history_id:
+        from webui.history_store import HistoryStore
+
+        try:
+            HistoryStore().mark_saved(req.history_id, status=-1)
+        except Exception:
+            pass
+    return {"status": "ok"}
+
+
+@router.get("/history")
+def get_chat_history() -> dict[str, object]:
+    from webui.history_store import HistoryStore
+
+    store = HistoryStore()
+    return {"history": store.get_history()}
+
+
+@router.delete("/history/{history_id}")
+def delete_chat_history(history_id: str) -> dict[str, str]:
+    from webui.history_store import HistoryStore
+
+    try:
+        HistoryStore().delete_interaction(history_id)
+        return {"status": "ok"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

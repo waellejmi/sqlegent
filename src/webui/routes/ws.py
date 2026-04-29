@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import contextlib
-import json
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
@@ -117,14 +116,35 @@ async def chat_socket(websocket: WebSocket, session_id: str):
             final_answer = values.get("final_answer") or ""
             analysis = values.get("analysis_result")
             analysis_status = getattr(analysis, "status", None)
+            sql = values.get("last_query")
+            db_output = values.get("db_output")
+
+            try:
+                from webui.history_store import HistoryStore
+
+                store = HistoryStore()
+                history_id = store.add_interaction(
+                    question, sql, db_output, final_answer
+                )
+            except Exception as e:
+                import logging
+
+                logging.getLogger(__name__).warning("Failed to save history: %s", e)
+                history_id = None
+
+            from config.app_config import AppConfig
 
             await websocket.send_json(
                 {
                     "type": "final",
                     "answer": final_answer,
-                    "sql": values.get("last_query"),
+                    "sql": sql,
+                    "db_output": db_output,
                     "status": analysis_status,
                     "usage": getattr(usage_callback, "usage_metadata", None),
+                    "history_id": history_id,
+                    "ask_result_confirmation": AppConfig().ASK_RESULT_CONFIRMATION
+                    and AppConfig().ENABLE_CONTEXT_LAYER,
                 }
             )
             await websocket.send_json({"type": "done"})

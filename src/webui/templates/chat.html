@@ -1,22 +1,130 @@
 {% extends "base.html" %}
 {% block content %}
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <style>
+  .page {
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    height: calc(100vh - 61px);
+    display: flex;
+    flex-direction: column;
+  }
+  body {
+    overflow: hidden;
+  }
+  .app-container {
+    display: flex;
+    height: 100%;
+    width: 100%;
+    margin: 0;
+    gap: 0;
+  }
+  .sidebar {
+    width: 300px;
+    min-width: 300px;
+    background: #fdfdfd;
+    border-right: 1px solid #ddd;
+    border-radius: 0;
+    overflow-y: auto;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .sidebar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+  }
+  .sidebar h3 {
+    margin: 0;
+    font-size: 1.1em;
+    color: #333;
+  }
+  .new-chat-btn {
+    padding: 3px 8px;
+    font-size: 0.8em;
+    background: #0066cc;
+    color: white;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    text-decoration: none;
+  }
+  .new-chat-btn:hover {
+    background: #0052a3;
+  }
+  .history-item {
+    padding: 0.75rem;
+    background: #fff;
+    border: 1px solid #eee;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: background 0.2s;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+  .history-item-content {
+    flex: 1;
+    overflow: hidden;
+  }
+  .history-delete-btn {
+    background: transparent;
+    border: none;
+    color: #ccc;
+    font-size: 1.2em;
+    cursor: pointer;
+    padding: 0 0 0 5px;
+    opacity: 0;
+    transition: opacity 0.2s, color 0.2s;
+  }
+  .history-item:hover .history-delete-btn {
+    opacity: 1;
+  }
+  .history-delete-btn:hover {
+    color: #dc3545;
+  }
+  .history-item:hover {
+    background: #f0f0f0;
+  }
+  .history-date {
+    font-size: 0.8em;
+    color: #888;
+    margin-bottom: 0.25rem;
+  }
+  .history-question {
+    font-weight: bold;
+    color: #0066cc;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
   .chat-layout {
     display: flex;
     flex-direction: column;
-    height: calc(100vh - 120px);
-    max-width: 800px;
-    margin: 0 auto;
+    flex: 1;
+    min-width: 0;
+    position: relative;
+    background: transparent;
   }
   .chat-messages {
     flex: 1;
     overflow-y: auto;
-    padding: 1rem;
-    background: #fdfdfd;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    margin-bottom: 1rem;
-    font-family: sans-serif;
+    padding: 1rem 0;
+    background: transparent;
+    border: none;
+    margin-bottom: 0;
+  }
+  .chat-messages-inner {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 0 1rem;
+    display: flex;
+    flex-direction: column;
   }
   .message {
     margin-bottom: 1rem;
@@ -41,6 +149,34 @@
     border-left: 4px solid #00cc66;
     box-shadow: 0 1px 3px rgba(0,0,0,0.1);
   }
+  /* Markdown Styles inside AI Message */
+  .msg-ai table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 10px 0;
+  }
+  .msg-ai th, .msg-ai td {
+    border: 1px solid #ccc;
+    padding: 6px 8px;
+    text-align: left;
+  }
+  .msg-ai th {
+    background-color: #f9f9f9;
+  }
+  .msg-ai code {
+    background: #f4f4f4;
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-family: monospace;
+  }
+  .msg-ai pre code {
+    display: block;
+    padding: 10px;
+    background: #282c34;
+    color: #abb2bf;
+    overflow-x: auto;
+  }
+
   .reasoning-block {
     background: #f9f9f9;
     border-left: 4px solid #999;
@@ -70,24 +206,60 @@
     overflow-x: auto;
     margin-top: 0.5rem;
   }
+  .chat-controls-wrapper {
+    padding: 1rem 1rem 1.5rem 1rem;
+    display: flex;
+    justify-content: center;
+    background: linear-gradient(transparent, #f4f3ee 20%);
+  }
+  .chat-controls-container {
+    width: 100%;
+    max-width: 800px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+  .chat-status {
+    font-size: 0.75rem;
+    color: #666;
+    padding-left: 0.25rem;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  .chat-status:hover {
+    opacity: 0.7;
+  }
+  .db-dialect-badge {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: bold;
+    color: white;
+    font-size: 0.7rem;
+    margin-left: 0.4rem;
+  }
   .chat-controls {
     display: flex;
     gap: 0.5rem;
+    width: 100%;
   }
   .chat-controls textarea {
     flex: 1;
     padding: 0.75rem;
     border: 1px solid #ccc;
-    border-radius: 4px;
+    border-radius: 8px;
     resize: none;
     font-family: inherit;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
   }
   .chat-controls button {
     padding: 0 1.5rem;
     background: #0066cc;
     color: white;
     border: none;
-    border-radius: 4px;
+    border-radius: 8px;
     cursor: pointer;
   }
   .chat-controls button:hover {
@@ -114,23 +286,160 @@
     border: 1px solid #ccc;
     border-radius: 2px;
   }
+
+  .memory-btn-row {
+    margin-top: 10px;
+    font-size: 0.85em;
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+  }
+  .memory-btn {
+    padding: 5px 10px;
+    background: #f0f0f0;
+    color: #333;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    cursor: pointer;
+  }
+  .memory-btn.yes {
+    background: #e6f4ea;
+    border-color: #28a745;
+    color: #155724;
+  }
+  .memory-btn.yes:hover {
+    background: #c3e6cb;
+  }
+  .memory-btn.no {
+    background: #fce8e6;
+    border-color: #dc3545;
+    color: #721c24;
+  }
+  .memory-btn.no:hover {
+    background: #f5c6cb;
+  }
+  .memory-saved-text {
+    color: #28a745;
+    font-weight: bold;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  /* Connection Modal Styles */
+  .modal-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.5);
+    display: none; justify-content: center; align-items: center;
+    z-index: 1000;
+  }
+  .modal-content {
+    background: #fff; padding: 1.5rem; border-radius: 8px;
+    width: 450px; max-width: 90vw;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    position: relative;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+  .modal-close {
+    position: absolute; top: 10px; right: 10px;
+    background: transparent; border: none; font-size: 1.5rem; cursor: pointer; color: #888;
+  }
+  .modal-close:hover { color: #333; }
+  .conn-menu-btn {
+    display: block; width: 100%; text-align: left;
+    padding: 0.75rem 1rem; margin-bottom: 0.5rem;
+    background: #f8f9fa; border: 1px solid #ddd; border-radius: 4px;
+    cursor: pointer; font-size: 1rem; color: #333;
+  }
+  .conn-menu-btn:hover { background: #e9ecef; border-color: #ccc; }
+  .conn-form { display: none; flex-direction: column; gap: 0.75rem; margin-top: 1rem; }
+  .conn-form input { padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; }
+  .conn-form button { padding: 0.5rem; background: #0066cc; color: white; border: none; border-radius: 4px; cursor: pointer; }
+  .conn-form button:hover { background: #0052a3; }
+  .docker-item {
+     padding: 0.5rem; border: 1px solid #eee; margin-bottom: 0.5rem; border-radius: 4px; cursor: pointer;
+  }
+  .docker-item:hover { background: #f0f8ff; border-color: #0066cc; }
+  .back-btn { background: transparent; border: none; color: #0066cc; cursor: pointer; padding: 0; margin-bottom: 1rem; font-size: 0.9em; }
+  .back-btn:hover { text-decoration: underline; }
+  .loading-msg { font-style: italic; color: #666; }
 </style>
 
-<h1>AI Chat</h1>
+<div class="app-container">
+  <div class="sidebar" id="historySidebar">
+    <div class="sidebar-header">
+      <h3>Recent History</h3>
+      <a href="/chat" class="new-chat-btn">+ New</a>
+    </div>
+    <div id="historyList"></div>
+  </div>
 
-<div class="chat-layout">
-  <div id="chatMessages" class="chat-messages"></div>
-  
-  <div class="chat-controls">
-    <textarea id="question" rows="3" placeholder="Ask a question about your database..."></textarea>
-    <button id="askBtn" type="button">Send</button>
+  <div class="chat-layout">
+    <div id="chatMessages" class="chat-messages">
+      <div id="chatMessagesInner" class="chat-messages-inner"></div>
+    </div>
+    
+    <div class="chat-controls-wrapper">
+      <div class="chat-controls-container">
+        <div class="chat-controls">
+          <textarea id="question" rows="3" placeholder="Ask a question about your database..."></textarea>
+          <button id="askBtn" type="button">Send</button>
+        </div>
+        <div class="chat-status" id="dbStatus" onclick="openConnectionModal()" title="Click to change connection">
+          Connected to <strong id="dbNameStr" style="margin-left: 4px;">...</strong>
+          <span id="dbDialectBadge" class="db-dialect-badge" style="background-color: #666;">...</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Connection Modal -->
+<div id="connModal" class="modal-overlay" onclick="closeModal(event)">
+  <div class="modal-content" onclick="event.stopPropagation()">
+    <button class="modal-close" onclick="closeConnectionModal()">&times;</button>
+    <h2 style="margin-top: 0;">Select Target Source</h2>
+
+    <!-- Main Menu -->
+    <div id="connMenu">
+      <button class="conn-menu-btn" onclick="showForm('sqlite')">[1] SQLite file path</button>
+      <button class="conn-menu-btn" onclick="showForm('docker')">[2] Docker auto discovery</button>
+      <button class="conn-menu-btn" onclick="showForm('uri')">[3] Direct SQLAlchemy URI</button>
+    </div>
+
+    <!-- SQLite Form -->
+    <div id="formSqlite" class="conn-form">
+      <button class="back-btn" onclick="showMenu()">&larr; Back</button>
+      <label>SQLite File Path:</label>
+      <input type="text" id="sqliteInput" placeholder="/path/to/db.sqlite">
+      <button onclick="submitConnection('sqlite_path', document.getElementById('sqliteInput').value)">Connect</button>
+    </div>
+
+    <!-- Docker Form -->
+    <div id="formDocker" class="conn-form">
+      <button class="back-btn" onclick="showMenu()">&larr; Back</button>
+      <div id="dockerLoading" class="loading-msg">Scanning for containers...</div>
+      <div id="dockerList"></div>
+    </div>
+
+    <!-- Direct URI Form -->
+    <div id="formUri" class="conn-form">
+      <button class="back-btn" onclick="showMenu()">&larr; Back</button>
+      <label>SQLAlchemy URI:</label>
+      <input type="text" id="uriInput" placeholder="postgresql://user:pass@localhost:5432/db">
+      <button onclick="submitConnection('direct_uri', document.getElementById('uriInput').value)">Connect</button>
+    </div>
   </div>
 </div>
 
 <script>
-  const messagesDiv = document.getElementById("chatMessages");
+  const messagesWrapper = document.getElementById("chatMessages");
+  const messagesDiv = document.getElementById("chatMessagesInner");
   const askBtn = document.getElementById("askBtn");
   const questionInput = document.getElementById("question");
+  const sidebar = document.getElementById("historySidebar");
+  const historyList = document.getElementById("historyList");
   const sessionId = crypto.randomUUID();
   const protocol = location.protocol === "https:" ? "wss" : "ws";
   const ws = new WebSocket(`${protocol}://${location.host}/ws/chat/${sessionId}`);
@@ -138,6 +447,341 @@
   let currentAiMessage = null;
   let currentReasoning = null;
   let currentReasoningContent = null;
+  let lastQuestion = "";
+
+  // Modal Logic
+  const connModal = document.getElementById("connModal");
+  function openConnectionModal() {
+    connModal.style.display = "flex";
+    showMenu();
+  }
+  function closeConnectionModal() {
+    connModal.style.display = "none";
+  }
+  function closeModal(e) {
+    if (e.target === connModal) {
+      closeConnectionModal();
+    }
+  }
+  
+  function hideAllForms() {
+    document.getElementById("connMenu").style.display = "none";
+    document.getElementById("formSqlite").style.display = "none";
+    document.getElementById("formDocker").style.display = "none";
+    document.getElementById("formUri").style.display = "none";
+  }
+  function showMenu() {
+    hideAllForms();
+    document.getElementById("connMenu").style.display = "block";
+  }
+  
+  function showForm(type) {
+    hideAllForms();
+    if (type === 'sqlite') {
+      document.getElementById("formSqlite").style.display = "flex";
+      fetch('/api/connections')
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.default_sqlite_path) {
+            document.getElementById("sqliteInput").placeholder = data.default_sqlite_path;
+            if (!document.getElementById("sqliteInput").value) {
+                document.getElementById("sqliteInput").value = data.default_sqlite_path;
+            }
+          }
+        }).catch(() => {});
+    } else if (type === 'uri') {
+      document.getElementById("formUri").style.display = "flex";
+    } else if (type === 'docker') {
+      document.getElementById("formDocker").style.display = "flex";
+      document.getElementById("dockerLoading").style.display = "block";
+      document.getElementById("dockerList").innerHTML = "";
+      
+      fetch('/api/connections/docker')
+        .then(res => res.json())
+        .then(data => {
+          document.getElementById("dockerLoading").style.display = "none";
+          
+          if (data.docker_status !== "available") {
+            document.getElementById("dockerList").innerHTML = `<p style="color:red">Docker status: ${data.docker_status}</p>`;
+            return;
+          }
+          
+          const connectable = data.containers.filter(c => c.connectable && c.running);
+          if (connectable.length === 0) {
+            document.getElementById("dockerList").innerHTML = "<p>No supported running containers found.</p>";
+            return;
+          }
+          
+          let html = "";
+          connectable.forEach((c, idx) => {
+            html += `
+              <div class="docker-item" onclick="activateDocker('${c.id}')">
+                <strong>[${idx+1}] ${c.name}</strong><br>
+                <small>type=${c.db_type} | host=${c.host} | port=${c.port||'-'} | db=${c.database||'-'}</small>
+              </div>
+            `;
+          });
+          document.getElementById("dockerList").innerHTML = html;
+        })
+        .catch(err => {
+          document.getElementById("dockerLoading").style.display = "none";
+          document.getElementById("dockerList").innerHTML = "<p>Error loading Docker containers.</p>";
+        });
+    }
+  }
+
+  async function submitConnection(mode, value) {
+    if (!value) return;
+    try {
+      const res = await fetch('/api/connections', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({mode, value})
+      });
+      if (res.ok) {
+        closeConnectionModal();
+        loadConnectionStatus();
+      } else {
+        alert("Failed to change connection.");
+      }
+    } catch(err) {
+      console.error(err);
+      alert("Error changing connection.");
+    }
+  }
+
+  async function activateDocker(container_id) {
+    try {
+      const res = await fetch(`/api/connections/docker/${container_id}/activate`, {
+        method: 'POST'
+      });
+      if (res.ok) {
+        closeConnectionModal();
+        loadConnectionStatus();
+      } else {
+        alert("Failed to activate Docker connection.");
+      }
+    } catch(err) {
+      console.error(err);
+      alert("Error activating Docker connection.");
+    }
+  }
+
+  // Load Connection Status
+  async function loadConnectionStatus() {
+    try {
+      const res = await fetch('/api/connections');
+      if (!res.ok) return;
+      const data = await res.json();
+      const activeUri = data.active_uri;
+      if (!activeUri) return;
+      
+      const parts = activeUri.split("://");
+      if (parts.length < 2) return;
+      
+      const fullDialect = parts[0];
+      const dialect = fullDialect.split("+")[0].toLowerCase();
+      let rest = parts[1];
+      
+      let dbName = "Unknown";
+      if (dialect === "sqlite" || dialect === "duckdb") {
+         let pathSegment = rest;
+         if (rest.startsWith("///")) {
+            pathSegment = rest.substring(3);
+         } else if (rest.startsWith("//")) {
+            pathSegment = rest.substring(2);
+         } else if (rest.startsWith("/")) {
+            pathSegment = rest.substring(1);
+         }
+         const segments = pathSegment.split("/");
+         dbName = segments[segments.length - 1] || "db.sqlite";
+      } else {
+         const segments = rest.split("/");
+         let potentialDb = segments[segments.length - 1];
+         if (potentialDb.includes("?service_name=")) {
+           dbName = potentialDb.split("?service_name=")[1];
+         } else {
+           dbName = potentialDb;
+         }
+      }
+      
+      document.getElementById("dbNameStr").textContent = dbName;
+      
+      const dialectEl = document.getElementById("dbDialectBadge");
+      let badgeColor = "#555";
+      let dialectLabel = dialect.toUpperCase();
+      let textColor = "white";
+      
+      if (dialect === "postgresql" || dialect === "postgres") {
+        dialectLabel = "Postgres";
+        badgeColor = "#336791";
+      } else if (dialect === "mysql" || dialect === "mariadb") {
+        dialectLabel = "MySQL";
+        badgeColor = "#00758F";
+      } else if (dialect === "mssql") {
+        dialectLabel = "MS SQL";
+        badgeColor = "#CC292B";
+      } else if (dialect === "sqlite") {
+        dialectLabel = "SQLite";
+        badgeColor = "#003B57";
+      } else if (dialect === "oracle") {
+        dialectLabel = "Oracle";
+        badgeColor = "#F80000";
+      } else if (dialect === "duckdb") {
+        dialectLabel = "DuckDB";
+        badgeColor = "#FFF000";
+        textColor = "#000";
+      }
+      
+      dialectEl.textContent = dialectLabel;
+      dialectEl.style.backgroundColor = badgeColor;
+      dialectEl.style.color = textColor;
+    } catch(err) {
+      console.error("Failed to load connection status", err);
+    }
+  }
+  // Load History
+  async function loadHistory() {
+    try {
+      const res = await fetch('/api/history');
+      if (!res.ok) return;
+      const data = await res.json();
+      historyList.innerHTML = '';
+      data.history.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'history-item';
+        
+        const date = new Date(item.created_at * 1000);
+        const dateStr = date.toLocaleString();
+
+        div.innerHTML = `
+          <div class="history-item-content" onclick="renderHistoricalItem(this.parentElement.dataset.item)">
+            <div class="history-date">${dateStr}</div>
+            <div class="history-question" title="${item.question}">${item.question}</div>
+          </div>
+          <button class="history-delete-btn" title="Delete" onclick="deleteHistory(event, '${item.id}')">×</button>
+        `;
+        
+        // Storing data object for the onclick handler
+        div.dataset.item = JSON.stringify(item);
+        
+        // Handle rendering directly
+        div.querySelector('.history-item-content').onclick = function(e) {
+            renderHistoricalItem(JSON.parse(div.dataset.item));
+        };
+        
+        historyList.appendChild(div);
+      });
+    } catch(err) {
+      console.error("Failed to load history", err);
+    }
+  }
+
+  async function deleteHistory(e, id) {
+    e.stopPropagation();
+    if (!confirm("Are you sure you want to delete this chat history entry?")) return;
+    try {
+      const res = await fetch(`/api/history/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        loadHistory();
+      } else {
+        alert("Failed to delete history item.");
+      }
+    } catch (err) {
+      console.error("Failed to delete history", err);
+    }
+  }
+
+  function renderHistoricalItem(item) {
+    messagesDiv.innerHTML = ""; // clear current chat
+    createMessage("user", item.question);
+    
+    const aiMsg = createMessage("ai", "");
+    aiMsg.innerHTML = marked.parse(item.answer || "No answer generated.");
+    
+    if (item.sql) {
+      const sqlToggle = document.createElement("details");
+      sqlToggle.className = "reasoning-block";
+      const summary = document.createElement("summary");
+      summary.textContent = "Executed SQL";
+      const content = document.createElement("div");
+      content.className = "msg-sql";
+      content.textContent = item.sql;
+      sqlToggle.appendChild(summary);
+      sqlToggle.appendChild(content);
+      aiMsg.appendChild(sqlToggle);
+    }
+
+    addMemorySaveButton(aiMsg, item.question, item.sql, item.db_output, item.id, item.is_saved);
+    messagesWrapper.scrollTop = messagesWrapper.scrollHeight;
+  }
+
+  function addMemorySaveButton(parentDiv, question, sql, db_output, history_id, is_saved) {
+    if (!sql) return;
+    
+    const container = document.createElement("div");
+    container.className = "memory-btn-row";
+    
+    if (is_saved === 1) {
+      container.innerHTML = `<span class="memory-saved-text">✔ Saved to Memory</span>`;
+      parentDiv.appendChild(container);
+      return;
+    } else if (is_saved === -1) {
+      // previously rejected, do not show anything
+      return;
+    }
+
+    container.innerHTML = `<span>Was this correct?</span>`;
+    
+    const btnYes = document.createElement("button");
+    btnYes.className = "memory-btn yes";
+    btnYes.textContent = "✔";
+    
+    const btnNo = document.createElement("button");
+    btnNo.className = "memory-btn no";
+    btnNo.textContent = "✘";
+
+    btnYes.onclick = async () => {
+      btnYes.disabled = true;
+      btnNo.disabled = true;
+      container.innerHTML = `<span>Saving...</span>`;
+      try {
+        const res = await fetch("/api/memory/save", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({question, sql, db_output, history_id})
+        });
+        if (res.ok) {
+          container.innerHTML = `<span class="memory-saved-text">✔ Saved to Memory</span>`;
+          loadHistory(); // update the list
+        } else {
+          container.innerHTML = `<span>Failed to save</span>`;
+        }
+      } catch(e) {
+        container.innerHTML = `<span>Error saving</span>`;
+      }
+    };
+
+    btnNo.onclick = async () => {
+      btnYes.disabled = true;
+      btnNo.disabled = true;
+      container.style.display = 'none'; // hide immediately
+      if (history_id) {
+        try {
+          await fetch("/api/memory/reject", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({question, sql, db_output, history_id})
+          });
+          loadHistory(); // update the list
+        } catch(e) {}
+      }
+    };
+
+    container.appendChild(btnYes);
+    container.appendChild(btnNo);
+    parentDiv.appendChild(container);
+  }
 
   function createMessage(type, content) {
     const div = document.createElement("div");
@@ -145,49 +789,10 @@
     if (type === 'user' || type === 'system') {
        div.textContent = content;
     } else if (content) {
-       // Simple render markdown formatting for final answer if present
-       let html = content
-          .replace(/```sql([\s\S]*?)```/g, '<div class="msg-sql">$1</div>')
-          .replace(/```([^`]+)```/g, '<div class="msg-sql">$1</div>')
-          .replace(/`([^`]+)`/g, '<code>$1</code>')
-          .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-       
-       const rows = html.split('\n');
-       let inTable = false;
-       let tableHtml = '';
-       let finalHtml = [];
-       
-       for (let i = 0; i < rows.length; i++) {
-         let row = rows[i].trim();
-         if (row.startsWith('|') && row.endsWith('|')) {
-           if (row.includes('---')) continue;
-           if (!inTable) {
-             inTable = true;
-             tableHtml = '<table border="1" style="border-collapse: collapse; width: 100%; margin: 10px 0;">';
-           }
-           const cells = row.split('|').slice(1, -1);
-           tableHtml += '<tr>';
-           cells.forEach(c => tableHtml += `<td style="padding: 5px;">${c.trim()}</td>`);
-           tableHtml += '</tr>';
-         } else {
-           if (inTable) {
-             inTable = false;
-             tableHtml += '</table>';
-             finalHtml.push(tableHtml);
-             tableHtml = '';
-           }
-           finalHtml.push(rows[i]);
-         }
-       }
-       if (inTable) {
-         tableHtml += '</table>';
-         finalHtml.push(tableHtml);
-       }
-       
-       div.innerHTML = finalHtml.join('<br>');
+       div.innerHTML = marked.parse(content);
     }
     messagesDiv.appendChild(div);
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    messagesWrapper.scrollTop = messagesWrapper.scrollHeight;
     return div;
   }
 
@@ -212,7 +817,11 @@
     return currentReasoningContent;
   }
 
-  ws.onopen = () => createMessage("system", "Connected to agent.");
+  ws.onopen = () => {
+    createMessage("system", "Connected to agent.");
+    loadHistory(); // Load on start
+    loadConnectionStatus(); // Load connection info
+  };
   ws.onclose = () => createMessage("system", "Connection closed.");
   ws.onerror = () => createMessage("system", "Connection error.");
 
@@ -222,7 +831,7 @@
     if (msg.type === "transition") {
       const container = getOrCreateReasoning();
       container.textContent += `\n[transition] -> ${msg.node}`;
-      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+      messagesWrapper.scrollTop = messagesWrapper.scrollHeight;
       return;
     }
 
@@ -230,15 +839,13 @@
       // Tokens are intermediate reasoning thoughts
       const container = getOrCreateReasoning();
       container.textContent += msg.text;
-      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+      messagesWrapper.scrollTop = messagesWrapper.scrollHeight;
       return;
     }
     
     if (msg.type === "interrupt") {
-      if (currentReasoning) {
-         currentReasoning.open = false; // Collapse reasoning on interrupt
-      }
-      currentAiMessage = null; // Next message gets new bubble
+      if (currentReasoning) currentReasoning.open = false;
+      currentAiMessage = null; 
       currentReasoning = null;
       currentReasoningContent = null;
       
@@ -265,9 +872,7 @@
       acceptBtn.onclick = () => {
         createMessage("user", "Accepted SQL");
         ws.send(JSON.stringify({ type: "interrupt_response", payload: { type: "accept" } }));
-        currentAiMessage = null;
-        currentReasoning = null;
-        currentReasoningContent = null;
+        currentAiMessage = null; currentReasoning = null; currentReasoningContent = null;
         container.remove();
       };
 
@@ -276,9 +881,7 @@
       rejectBtn.onclick = () => {
         createMessage("user", "Rejected SQL");
         ws.send(JSON.stringify({ type: "interrupt_response", payload: { type: "reject" } }));
-        currentAiMessage = null;
-        currentReasoning = null;
-        currentReasoningContent = null;
+        currentAiMessage = null; currentReasoning = null; currentReasoningContent = null;
         container.remove();
       };
 
@@ -288,9 +891,7 @@
         const val = textarea.value.trim();
         createMessage("user", "Edited SQL");
         ws.send(JSON.stringify({ type: "interrupt_response", payload: { type: "edit", edited_query: val } }));
-        currentAiMessage = null;
-        currentReasoning = null;
-        currentReasoningContent = null;
+        currentAiMessage = null; currentReasoning = null; currentReasoningContent = null;
         container.remove();
       };
 
@@ -300,9 +901,7 @@
         const val = textarea.value.trim();
         createMessage("user", `Feedback: ${val}`);
         ws.send(JSON.stringify({ type: "interrupt_response", payload: { type: "response", feedback: val } }));
-        currentAiMessage = null;
-        currentReasoning = null;
-        currentReasoningContent = null;
+        currentAiMessage = null; currentReasoning = null; currentReasoningContent = null;
         container.remove();
       };
 
@@ -310,44 +909,57 @@
       container.appendChild(btnRow);
       
       messagesDiv.appendChild(container);
-      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+      messagesWrapper.scrollTop = messagesWrapper.scrollHeight;
       return;
     }
     
     if (msg.type === "final") {
-      if (currentReasoning) {
-        currentReasoning.open = false; // auto close on finish
+      if (currentReasoning) currentReasoning.open = false;
+      
+      let aiMsg = currentAiMessage;
+      if (!aiMsg) {
+        aiMsg = createMessage("ai", "");
       }
-      currentAiMessage = null;
-      currentReasoning = null;
-      currentReasoningContent = null;
       
       if (msg.answer) {
-        createMessage("ai", msg.answer);
+        const answerDiv = document.createElement("div");
+        answerDiv.innerHTML = marked.parse(msg.answer);
+        aiMsg.appendChild(answerDiv);
       }
       
       if (msg.sql) {
-        const sqlMsg = createMessage("system", "Final Query Executed:");
-        const sqlDiv = document.createElement("div");
-        sqlDiv.className = "msg-sql";
-        sqlDiv.textContent = msg.sql;
-        sqlMsg.appendChild(sqlDiv);
+        const sqlToggle = document.createElement("details");
+        sqlToggle.className = "reasoning-block";
+        const summary = document.createElement("summary");
+        summary.textContent = "Executed SQL";
+        const content = document.createElement("div");
+        content.className = "msg-sql";
+        content.textContent = msg.sql;
+        sqlToggle.appendChild(summary);
+        sqlToggle.appendChild(content);
+        aiMsg.appendChild(sqlToggle);
       }
+
+      if (msg.ask_result_confirmation) {
+        addMemorySaveButton(aiMsg, lastQuestion, msg.sql, msg.db_output, msg.history_id, 0);
+      }
+      
+      currentAiMessage = null;
+      currentReasoning = null;
+      currentReasoningContent = null;
+      messagesWrapper.scrollTop = messagesWrapper.scrollHeight;
+      loadHistory(); // Refresh history
       return;
     }
     
     if (msg.type === "error") {
-      currentAiMessage = null;
-      currentReasoning = null;
-      currentReasoningContent = null;
+      currentAiMessage = null; currentReasoning = null; currentReasoningContent = null;
       createMessage("system", `Error: ${msg.message}`);
       return;
     }
     
     if (msg.type === "done") {
-      currentAiMessage = null;
-      currentReasoning = null;
-      currentReasoningContent = null;
+      currentAiMessage = null; currentReasoning = null; currentReasoningContent = null;
     }
   };
 
@@ -355,6 +967,7 @@
     const question = questionInput.value.trim();
     if (!question) return;
     
+    lastQuestion = question;
     createMessage("user", question);
     questionInput.value = "";
     

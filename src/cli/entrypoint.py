@@ -17,6 +17,7 @@ from cli.interactive import (
     display_transition,
     get_user_interrupt_response,
 )
+from cli.questions import DEFAULT_QUESTION_KEY, DEFAULT_QUESTIONS
 from config.app_config import AppConfig
 from config.db_config import DBConfig
 from context_layer.service import (
@@ -27,43 +28,6 @@ from context_layer.service import (
 from utils.logger_setup import LoggerSetup
 
 LoggerSetup.configure_logging()
-# logger = LoggerSetup().get_logger(__name__, logging.INFO)
-# logger.disabled = False
-
-DEFAULT_QUESTIONS = {
-    "success": "Which genre on average has the longest tracks?",
-    "empty_result": "give me the names of all employees born after 1990-01-01",
-    "skipped": "What is the airspeed velocity of an unladen swallow?",
-    "complex1": "Which 5 artists generated the most revenue, and what is their total revenue and number of tracks sold?",
-    "complex2": "Which customers spent more than the average customer spending, and what is their total amount spent?",
-    "instruction_test": "List top 4 most bought tracks of all time.",
-    "northwind": "Find the top 3 employees who generated the highest total revenue from orders in 1997, including the employee’s full name, total revenue, and the number of distinct customers they served. Only include orders where the total order amount exceeds $5,000.",
-    "hard1": """
-For each country, identify the top-performing sales support agent (employee) based on total revenue from customers they support, but only considering customers who have purchased tracks from at least 3 different genres and have at least 2 invoices in different years.
-
-For each selected agent-country pair:
-
-Compute the average revenue per customer (only among qualifying customers).
-Find the most frequently purchased artist (by track count, not revenue) among those customers.
-Compute the percentage of revenue contributed by the top 5 tracks (by revenue) within that segment.
-
-Return:
-
-Country
-Agent full name
-Total revenue
-Average revenue per customer
-Most popular artist name
-Top-5-track revenue percentage
-
-Constraints:
-
-Break ties in agent ranking by number of invoices handled, then by earliest hire date.
-Exclude any customers who have ever purchased a track priced below the global median track price.
-Only include countries where at least 2 agents compete under these constraints.
-""",
-}
-DEFAULT_QUESTION_KEY = "hard1"
 
 
 def _on_stream_message(message: AIMessageChunk) -> None:
@@ -116,7 +80,7 @@ def _pick_question(use_default: bool) -> str:
 
 
 def _persist_cli_outcome(values: dict) -> None:
-    if AppConfig().ENABLE_CONTEXT_LAYER and AppConfig().CLI_ASK_RESULT_CONFIRMATION:
+    if AppConfig().ENABLE_CONTEXT_LAYER and AppConfig().ASK_RESULT_CONFIRMATION:
         analysis_result = values.get("analysis_result")
         if analysis_result and analysis_result.status == "success":
             question = values.get("user_question") or ""
