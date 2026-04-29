@@ -1,14 +1,20 @@
-from dataclasses import dataclass
+import json
+import logging
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from dotenv import load_dotenv
 
 load_dotenv()
 
+logger = logging.getLogger(__name__)
+
 
 @dataclass
 class AppConfig:
     ROOT_DIR: Path = Path(__file__).resolve().parent.parent.parent
+    RUNTIME_SETTINGS_PATH: Path = ROOT_DIR / ".app_config" / "settings.json"
 
     # LOG_LEVEL: str = "INFO"
     LOG_LEVEL: str = "DEBUG"
@@ -79,3 +85,50 @@ class AppConfig:
     FAILED_QUERY_LOG_MAX_ROWS_PER_DB: int = 20000
 
     CLI_ASK_RESULT_CONFIRMATION: bool = True
+
+    def __post_init__(self):
+        self._load_runtime_settings()
+
+    def _load_runtime_settings(self):
+        if not self.RUNTIME_SETTINGS_PATH.exists():
+            return
+
+        try:
+            with open(self.RUNTIME_SETTINGS_PATH, "r") as f:
+                data = json.load(f)
+
+            for key, value in data.items():
+                if hasattr(self, key) and key not in [
+                    "ROOT_DIR",
+                    "RUNTIME_SETTINGS_PATH",
+                ]:
+                    original_val = getattr(self, key)
+                    if isinstance(original_val, Path) and value is not None:
+                        setattr(self, key, Path(value))
+                    else:
+                        setattr(self, key, value)
+        except Exception as e:
+            logger.error(
+                f"Failed to load runtime settings from {self.RUNTIME_SETTINGS_PATH}: {e}"
+            )
+
+    def save_runtime_settings(self):
+        try:
+            self.RUNTIME_SETTINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+            data = {}
+            for key, value in self.__dict__.items():
+                if key in ["ROOT_DIR", "RUNTIME_SETTINGS_PATH"]:
+                    continue
+                if isinstance(value, Path):
+                    data[key] = str(value)
+                else:
+                    data[key] = value
+
+            with open(self.RUNTIME_SETTINGS_PATH, "w") as f:
+                json.dump(data, f, indent=2)
+        except Exception as e:
+            logger.error(
+                f"Failed to save runtime settings to {self.RUNTIME_SETTINGS_PATH}: {e}"
+            )
+            raise

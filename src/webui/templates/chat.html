@@ -1,74 +1,376 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>AI Chat</h1>
-<p>WebSocket stream with interrupt support.</p>
+<style>
+  .chat-layout {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 120px);
+    max-width: 800px;
+    margin: 0 auto;
+  }
+  .chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem;
+    background: #fdfdfd;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-bottom: 1rem;
+    font-family: sans-serif;
+  }
+  .message {
+    margin-bottom: 1rem;
+    padding: 0.75rem;
+    border-radius: 4px;
+    line-height: 1.4;
+  }
+  .msg-system {
+    background: #f0f0f0;
+    color: #666;
+    font-size: 0.9em;
+    padding: 0.5rem;
+  }
+  .msg-user {
+    background: #e0f0ff;
+    margin-left: 20%;
+    border-left: 4px solid #0066cc;
+  }
+  .msg-ai {
+    background: #fff;
+    margin-right: 20%;
+    border-left: 4px solid #00cc66;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  }
+  .reasoning-block {
+    background: #f9f9f9;
+    border-left: 4px solid #999;
+    margin-bottom: 0.5rem;
+    font-size: 0.9em;
+  }
+  .reasoning-block summary {
+    cursor: pointer;
+    padding: 0.5rem;
+    color: #555;
+    font-weight: bold;
+    user-select: none;
+  }
+  .reasoning-content {
+    padding: 0.5rem;
+    white-space: pre-wrap;
+    font-family: monospace;
+    color: #444;
+  }
+  .msg-sql {
+    background: #282c34;
+    color: #abb2bf;
+    font-family: monospace;
+    padding: 1rem;
+    border-radius: 4px;
+    white-space: pre-wrap;
+    overflow-x: auto;
+    margin-top: 0.5rem;
+  }
+  .chat-controls {
+    display: flex;
+    gap: 0.5rem;
+  }
+  .chat-controls textarea {
+    flex: 1;
+    padding: 0.75rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    resize: none;
+    font-family: inherit;
+  }
+  .chat-controls button {
+    padding: 0 1.5rem;
+    background: #0066cc;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .chat-controls button:hover {
+    background: #0052a3;
+  }
+  .interrupt-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    padding: 1rem;
+    background: #fff3e0;
+    border: 1px solid #ffcc80;
+    border-radius: 4px;
+  }
+  .interrupt-buttons {
+    display: flex;
+    gap: 0.5rem;
+  }
+  .interrupt-textarea {
+    width: 100%;
+    font-family: monospace;
+    padding: 0.5rem;
+    border: 1px solid #ccc;
+    border-radius: 2px;
+  }
+</style>
 
-<div class="chat-controls">
-  <textarea id="question" rows="3" placeholder="Ask question..."></textarea>
-  <button id="askBtn" type="button">Send</button>
+<h1>AI Chat</h1>
+
+<div class="chat-layout">
+  <div id="chatMessages" class="chat-messages"></div>
+  
+  <div class="chat-controls">
+    <textarea id="question" rows="3" placeholder="Ask a question about your database..."></textarea>
+    <button id="askBtn" type="button">Send</button>
+  </div>
 </div>
 
-<pre id="chatOutput" class="panel"></pre>
-
 <script>
-  const output = document.getElementById("chatOutput");
+  const messagesDiv = document.getElementById("chatMessages");
   const askBtn = document.getElementById("askBtn");
   const questionInput = document.getElementById("question");
   const sessionId = crypto.randomUUID();
   const protocol = location.protocol === "https:" ? "wss" : "ws";
   const ws = new WebSocket(`${protocol}://${location.host}/ws/chat/${sessionId}`);
 
-  function append(line) {
-    output.textContent += line + "\n";
-    output.scrollTop = output.scrollHeight;
+  let currentAiMessage = null;
+  let currentReasoning = null;
+  let currentReasoningContent = null;
+
+  function createMessage(type, content) {
+    const div = document.createElement("div");
+    div.className = `message msg-${type}`;
+    if (type === 'user' || type === 'system') {
+       div.textContent = content;
+    } else if (content) {
+       // Simple render markdown formatting for final answer if present
+       let html = content
+          .replace(/```sql([\s\S]*?)```/g, '<div class="msg-sql">$1</div>')
+          .replace(/```([^`]+)```/g, '<div class="msg-sql">$1</div>')
+          .replace(/`([^`]+)`/g, '<code>$1</code>')
+          .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+       
+       const rows = html.split('\n');
+       let inTable = false;
+       let tableHtml = '';
+       let finalHtml = [];
+       
+       for (let i = 0; i < rows.length; i++) {
+         let row = rows[i].trim();
+         if (row.startsWith('|') && row.endsWith('|')) {
+           if (row.includes('---')) continue;
+           if (!inTable) {
+             inTable = true;
+             tableHtml = '<table border="1" style="border-collapse: collapse; width: 100%; margin: 10px 0;">';
+           }
+           const cells = row.split('|').slice(1, -1);
+           tableHtml += '<tr>';
+           cells.forEach(c => tableHtml += `<td style="padding: 5px;">${c.trim()}</td>`);
+           tableHtml += '</tr>';
+         } else {
+           if (inTable) {
+             inTable = false;
+             tableHtml += '</table>';
+             finalHtml.push(tableHtml);
+             tableHtml = '';
+           }
+           finalHtml.push(rows[i]);
+         }
+       }
+       if (inTable) {
+         tableHtml += '</table>';
+         finalHtml.push(tableHtml);
+       }
+       
+       div.innerHTML = finalHtml.join('<br>');
+    }
+    messagesDiv.appendChild(div);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    return div;
   }
 
-  ws.onopen = () => append("[ws] connected");
-  ws.onclose = () => append("[ws] closed");
-  ws.onerror = () => append("[ws] error");
+  function getOrCreateReasoning() {
+    if (!currentAiMessage) {
+      currentAiMessage = createMessage("ai", "");
+    }
+    if (!currentReasoning) {
+      currentReasoning = document.createElement("details");
+      currentReasoning.className = "reasoning-block";
+      const summary = document.createElement("summary");
+      summary.textContent = "Agent Reasoning / Output Stream";
+      currentReasoningContent = document.createElement("div");
+      currentReasoningContent.className = "reasoning-content";
+      
+      currentReasoning.appendChild(summary);
+      currentReasoning.appendChild(currentReasoningContent);
+      currentAiMessage.appendChild(currentReasoning);
+      // Automatically open if first reasoning block
+      currentReasoning.open = true;
+    }
+    return currentReasoningContent;
+  }
+
+  ws.onopen = () => createMessage("system", "Connected to agent.");
+  ws.onclose = () => createMessage("system", "Connection closed.");
+  ws.onerror = () => createMessage("system", "Connection error.");
 
   ws.onmessage = (event) => {
     const msg = JSON.parse(event.data);
-    if (msg.type === "token") {
-      output.textContent += msg.text;
-      output.scrollTop = output.scrollHeight;
-      return;
-    }
-    if (msg.type === "interrupt") {
-      append("\n[interrupt] SQL review requested. Auto-accept from demo UI.");
-      ws.send(JSON.stringify({
-        type: "interrupt_response",
-        payload: { type: "accept" }
-      }));
-      return;
-    }
+    
     if (msg.type === "transition") {
-      append(`\n[transition] ${msg.node}`);
+      const container = getOrCreateReasoning();
+      container.textContent += `\n[transition] -> ${msg.node}`;
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
       return;
     }
+
+    if (msg.type === "token") {
+      // Tokens are intermediate reasoning thoughts
+      const container = getOrCreateReasoning();
+      container.textContent += msg.text;
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+      return;
+    }
+    
+    if (msg.type === "interrupt") {
+      if (currentReasoning) {
+         currentReasoning.open = false; // Collapse reasoning on interrupt
+      }
+      currentAiMessage = null; // Next message gets new bubble
+      currentReasoning = null;
+      currentReasoningContent = null;
+      
+      const sqlQuery = msg.payload?.[0]?.args?.query || "";
+      
+      const container = document.createElement("div");
+      container.className = "interrupt-controls";
+      
+      const title = document.createElement("div");
+      title.innerHTML = "<strong>SQL Review Requested:</strong>";
+      container.appendChild(title);
+
+      const textarea = document.createElement("textarea");
+      textarea.className = "interrupt-textarea";
+      textarea.rows = 8;
+      textarea.value = sqlQuery;
+      container.appendChild(textarea);
+
+      const btnRow = document.createElement("div");
+      btnRow.className = "interrupt-buttons";
+
+      const acceptBtn = document.createElement("button");
+      acceptBtn.textContent = "Accept";
+      acceptBtn.onclick = () => {
+        createMessage("user", "Accepted SQL");
+        ws.send(JSON.stringify({ type: "interrupt_response", payload: { type: "accept" } }));
+        currentAiMessage = null;
+        currentReasoning = null;
+        currentReasoningContent = null;
+        container.remove();
+      };
+
+      const rejectBtn = document.createElement("button");
+      rejectBtn.textContent = "Reject";
+      rejectBtn.onclick = () => {
+        createMessage("user", "Rejected SQL");
+        ws.send(JSON.stringify({ type: "interrupt_response", payload: { type: "reject" } }));
+        currentAiMessage = null;
+        currentReasoning = null;
+        currentReasoningContent = null;
+        container.remove();
+      };
+
+      const editBtn = document.createElement("button");
+      editBtn.textContent = "Submit Edit";
+      editBtn.onclick = () => {
+        const val = textarea.value.trim();
+        createMessage("user", "Edited SQL");
+        ws.send(JSON.stringify({ type: "interrupt_response", payload: { type: "edit", edited_query: val } }));
+        currentAiMessage = null;
+        currentReasoning = null;
+        currentReasoningContent = null;
+        container.remove();
+      };
+
+      const feedbackBtn = document.createElement("button");
+      feedbackBtn.textContent = "Submit Feedback";
+      feedbackBtn.onclick = () => {
+        const val = textarea.value.trim();
+        createMessage("user", `Feedback: ${val}`);
+        ws.send(JSON.stringify({ type: "interrupt_response", payload: { type: "response", feedback: val } }));
+        currentAiMessage = null;
+        currentReasoning = null;
+        currentReasoningContent = null;
+        container.remove();
+      };
+
+      btnRow.append(acceptBtn, editBtn, feedbackBtn, rejectBtn);
+      container.appendChild(btnRow);
+      
+      messagesDiv.appendChild(container);
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+      return;
+    }
+    
     if (msg.type === "final") {
-      append(`\n[final] status=${msg.status || "unknown"}`);
-      if (msg.answer) append(msg.answer);
-      if (msg.sql) append(`\n[sql]\n${msg.sql}`);
+      if (currentReasoning) {
+        currentReasoning.open = false; // auto close on finish
+      }
+      currentAiMessage = null;
+      currentReasoning = null;
+      currentReasoningContent = null;
+      
+      if (msg.answer) {
+        createMessage("ai", msg.answer);
+      }
+      
+      if (msg.sql) {
+        const sqlMsg = createMessage("system", "Final Query Executed:");
+        const sqlDiv = document.createElement("div");
+        sqlDiv.className = "msg-sql";
+        sqlDiv.textContent = msg.sql;
+        sqlMsg.appendChild(sqlDiv);
+      }
       return;
     }
+    
     if (msg.type === "error") {
-      append(`\n[error] ${msg.message}`);
+      currentAiMessage = null;
+      currentReasoning = null;
+      currentReasoningContent = null;
+      createMessage("system", `Error: ${msg.message}`);
       return;
     }
+    
     if (msg.type === "done") {
-      append("\n[done]");
+      currentAiMessage = null;
+      currentReasoning = null;
+      currentReasoningContent = null;
     }
   };
 
   askBtn.addEventListener("click", () => {
     const question = questionInput.value.trim();
-    if (!question) {
-      append("[client] question required");
-      return;
-    }
-    append(`\n[user] ${question}`);
+    if (!question) return;
+    
+    createMessage("user", question);
+    questionInput.value = "";
+    
+    currentAiMessage = null;
+    currentReasoning = null;
+    currentReasoningContent = null;
+    
     ws.send(JSON.stringify({ type: "ask", question }));
+  });
+
+  // Handle Enter key (Shift+Enter for newline)
+  questionInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      askBtn.click();
+    }
   });
 </script>
 {% endblock %}

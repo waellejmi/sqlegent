@@ -78,38 +78,14 @@ def settings_page(request: Request):
     )
 
 
-@router.get("/relationships")
-def relationships_page(request: Request):
-    return render_template(
-        request,
-        "relationships.html",
-        {
-            "page": "relationships",
-            "title": "Relationships",
-        },
-    )
-
-
-@router.get("/relationships/import")
-def relationships_import_page(request: Request):
-    return render_template(
-        request,
-        "relationships_import.html",
-        {
-            "page": "relationships-import",
-            "title": "Import Relationships",
-        },
-    )
-
-
-@router.get("/context")
+@router.get("/semantic")
 def context_page(request: Request):
     return render_template(
         request,
-        "context.html",
+        "semantic.html",
         {
-            "page": "context",
-            "title": "Context",
+            "page": "semantic",
+            "title": "Semantic Layer",
         },
     )
 

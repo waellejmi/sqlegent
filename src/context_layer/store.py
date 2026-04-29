@@ -58,6 +58,8 @@ class ContextStore:
         return sqlite3.connect(self._db_path, timeout=10)
 
     def _ensure_db(self) -> None:
+        if isinstance(self._db_path, str):
+            self._db_path = Path(self._db_path)
         self._db_path.parent.mkdir(parents=True, exist_ok=True)
         with self._connect() as conn:
             conn.execute(

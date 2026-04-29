@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  .layout {
+    display: flex;
+    gap: 1rem;
+    height: calc(100vh - 100px);
+  }
+  .sidebar {
+    flex: 0 0 250px;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    border-right: 1px solid #ddd;
+    padding-right: 1rem;
+  }
+  .main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .yaml-viewer {
+    flex: 1;
+    overflow-y: auto;
+    background: #f4f4f4;
+    padding: 1rem;
+    border-radius: 4px;
+    font-family: monospace;
+    white-space: pre-wrap;
+  }
+  .file-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    overflow-y: auto;
+  }
+  .file-list li {
+    padding: 0.5rem;
+    cursor: pointer;
+    border-bottom: 1px solid #eee;
+  }
+  .file-list li:hover {
+    background: #f0f0f0;
+  }
+  .file-list li.active {
+    background: #e0e0ff;
+    font-weight: bold;
+  }
+</style>
+
+<h1>Semantic Layer</h1>
+<p>Context stats, reindex control, and YAML architecture viewer.</p>
+
+<div class="layout">
+  <div class="sidebar">
+    <div>
+      <select id="profileSelect" style="width: 100%; padding: 0.5rem; margin-bottom: 0.5rem;">
+        <option value="">Select Profile...</option>
+      </select>
+      <button id="reindexBtn" type="button" style="width: 100%;">Run Reindex</button>
+    </div>
+    
+    <h4>Files</h4>
+    <ul id="fileList" class="file-list"></ul>
+  </div>
+
+  <div class="main-content">
+    <h4>Context Stats</h4>
+    <pre id="contextStats" class="panel" style="max-height: 150px; margin-bottom: 1rem;">Loading...</pre>
+    
+    <h4>YAML Viewer</h4>
+    <div id="yamlViewer" class="yaml-viewer">Select a file to view its contents.</div>
+  </div>
+</div>
+
+<script>
+  const statsEl = document.getElementById("contextStats");
+  const reindexBtn = document.getElementById("reindexBtn");
+  const profileSelect = document.getElementById("profileSelect");
+  const fileList = document.getElementById("fileList");
+  const yamlViewer = document.getElementById("yamlViewer");
+
+  async function loadStats() {
+    try {
+      const stats = await fetch("/api/context/stats").then((r) => r.json());
+      statsEl.textContent = JSON.stringify(stats, null, 2);
+    } catch (err) {
+      statsEl.textContent = String(err);
+    }
+  }
+
+  async function loadProfiles() {
+    try {
+      const { profiles } = await fetch("/api/context/profiles").then((r) => r.json());
+      profileSelect.innerHTML = '<option value="">Select Profile...</option>';
+      profiles.forEach(p => {
+        const opt = document.createElement("option");
+        opt.value = p;
+        opt.textContent = p;
+        profileSelect.appendChild(opt);
+      });
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  async function loadFiles(profile) {
+    fileList.innerHTML = "";
+    yamlViewer.textContent = "Select a file to view its contents.";
+    if (!profile) return;
+    
+    try {
+      const { files } = await fetch(`/api/context/files/${encodeURIComponent(profile)}`).then((r) => r.json());
+      files.forEach(f => {
+        const li = document.createElement("li");
+        li.textContent = f;
+        li.onclick = () => {
+          document.querySelectorAll("#fileList li").forEach(el => el.classList.remove("active"));
+          li.classList.add("active");
+          loadFileContent(profile, f);
+        };
+        fileList.appendChild(li);
+      });
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  async function loadFileContent(profile, file) {
+    yamlViewer.textContent = "Loading...";
+    try {
+      const { content } = await fetch(`/api/context/files/${encodeURIComponent(profile)}/${encodeURIComponent(file)}`).then((r) => r.json());
+      yamlViewer.textContent = content;
+    } catch (err) {
+      yamlViewer.textContent = String(err);
+    }
+  }
+
+  profileSelect.addEventListener("change", (e) => {
+    loadFiles(e.target.value);
+  });
+
+  reindexBtn.addEventListener("click", async () => {
+    const semanticProfile = profileSelect.value || null;
+    const payload = { semantic_profile: semanticProfile };
+    try {
+      const res = await fetch("/api/context/reindex", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      statsEl.textContent = JSON.stringify(data, null, 2);
+      await loadStats();
+    } catch (err) {
+      statsEl.textContent = String(err);
+    }
+  });
+
+  loadStats();
+  loadProfiles();
+</script>
+{% endblock %}

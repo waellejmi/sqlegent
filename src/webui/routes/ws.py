@@ -74,6 +74,8 @@ async def chat_socket(websocket: WebSocket, session_id: str):
             initial_state = build_initial_state(question)
 
             async def on_message(message_chunk):
+                # Don't stream tokens during chat execution to UI - they get logged
+                # as intermediate steps and final answer handles the output
                 text = stream_chunk_to_text(message_chunk)
                 if text:
                     await websocket.send_json(

@@ -29,10 +29,7 @@ class ContextReindexRequest(BaseModel):
 
 
 class SettingsUpdateRequest(BaseModel):
-    HUMAN_SQL_REVIEW: bool | None = None
-    EXECUTE_SQL_QUERIES: bool | None = None
-    CONTEXT_AUTO_INDEX_ON_STARTUP: bool | None = None
-    CLI_ASK_RESULT_CONFIRMATION: bool | None = None
+    model_config = {"extra": "allow"}
 
 
 class RelationshipsImportRequest(BaseModel):
@@ -135,22 +132,43 @@ def activate_docker_connection(container_id: str) -> dict[str, str]:
 @router.get("/config/app")
 def get_app_config() -> dict[str, object]:
     config = AppConfig()
-    return {
-        "HUMAN_SQL_REVIEW": config.HUMAN_SQL_REVIEW,
-        "EXECUTE_SQL_QUERIES": config.EXECUTE_SQL_QUERIES,
-        "CONTEXT_AUTO_INDEX_ON_STARTUP": config.CONTEXT_AUTO_INDEX_ON_STARTUP,
-        "CLI_ASK_RESULT_CONFIRMATION": config.CLI_ASK_RESULT_CONFIRMATION,
-        "ENABLE_CONTEXT_LAYER": config.ENABLE_CONTEXT_LAYER,
-        "CONTEXT_STORE_PATH": str(config.CONTEXT_STORE_PATH),
-    }
+    data = {}
+    for key, value in config.__dict__.items():
+        if key in ["ROOT_DIR", "RUNTIME_SETTINGS_PATH"] or key.startswith("_"):
+            continue
+        data[key] = (
+            str(value) if isinstance(value, __import__("pathlib").Path) else value
+        )
+    return data
 
 
 @router.put("/config/app")
 def update_app_config(payload: SettingsUpdateRequest) -> dict[str, object]:
-    # Runtime config is dataclass constants today. Stub response for UI wiring.
+    config = AppConfig()
+    updated_fields = payload.model_dump(exclude_none=True)
+
+    for key, value in updated_fields.items():
+        if hasattr(config, key) and key not in ["ROOT_DIR", "RUNTIME_SETTINGS_PATH"]:
+            original_val = getattr(config, key)
+            if (
+                isinstance(original_val, __import__("pathlib").Path)
+                and value is not None
+            ):
+                setattr(config, key, __import__("pathlib").Path(value))
+            elif isinstance(original_val, int) and value is not None:
+                setattr(config, key, int(value))
+            elif isinstance(original_val, float) and value is not None:
+                setattr(config, key, float(value))
+            elif isinstance(original_val, bool) and value is not None:
+                setattr(config, key, bool(value))
+            else:
+                setattr(config, key, value)
+
+    config.save_runtime_settings()
+
     return {
-        "updated": payload.model_dump(exclude_none=True),
-        "note": "Runtime AppConfig update is not persisted yet.",
+        "updated": updated_fields,
+        "note": "Settings saved to runtime config.",
     }
 
 
@@ -167,6 +185,63 @@ def context_stats() -> dict[str, object]:
     from context_layer.service import get_context_service
 
     return get_context_service().get_stats()
+
+
+@router.get("/context/profiles")
+def context_profiles() -> dict[str, list[str]]:
+    config = AppConfig()
+    mdl_dir = config.MDL_DIR
+    profiles = ["."]  # root profile for _baseline.generated.yaml
+    if mdl_dir.exists() and mdl_dir.is_dir():
+        for d in mdl_dir.iterdir():
+            if d.is_dir():
+                profiles.append(d.name)
+    return {"profiles": profiles}
+
+
+@router.get("/context/files/{profile}")
+def context_files(profile: str) -> dict[str, list[str]]:
+    config = AppConfig()
+
+    if profile == ".":
+        profile_dir = config.MDL_DIR
+        # Only direct files in root
+        files = [
+            f.name for f in profile_dir.iterdir() if f.is_file() and f.suffix == ".yaml"
+        ]
+        return {"files": files}
+
+    profile_dir = config.MDL_DIR / profile
+    files = []
+    if profile_dir.exists() and profile_dir.is_dir():
+        for f in profile_dir.rglob(config.MDL_FILE_GLOB):
+            if f.is_file():
+                # return relative path to profile dir
+                files.append(str(f.relative_to(profile_dir)))
+    return {"files": files}
+
+
+@router.get("/context/files/{profile}/{file_path:path}")
+def context_file_content(profile: str, file_path: str) -> dict[str, str]:
+    config = AppConfig()
+    target_file = config.MDL_DIR / profile / file_path
+
+    # Basic path traversal protection
+    try:
+        target_file = target_file.resolve()
+        if not str(target_file).startswith(str((config.MDL_DIR / profile).resolve())):
+            raise HTTPException(status_code=400, detail="Invalid path")
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid path")
+
+    if not target_file.exists() or not target_file.is_file():
+        raise HTTPException(status_code=404, detail="File not found")
+
+    try:
+        content = target_file.read_text(encoding="utf-8")
+        return {"content": content}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/relationships")

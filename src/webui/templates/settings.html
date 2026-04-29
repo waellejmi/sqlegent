@@ -1,18 +1,140 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>Settings</h1>
-<p>Runtime config view and draft update endpoint.</p>
+<style>
+  .settings-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    max-width: 500px;
+    margin-bottom: 2rem;
+  }
+  .setting-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem;
+    background: #f9f9f9;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+  }
+  .setting-item label {
+    font-weight: bold;
+    cursor: pointer;
+  }
+  .save-btn {
+    align-self: flex-start;
+  }
+  #statusMsg {
+    margin-left: 1rem;
+    color: green;
+  }
+  .setting-item input[type="text"], .setting-item input[type="number"] {
+    width: 250px;
+    padding: 0.25rem;
+  }
+</style>
 
-<pre id="settings" class="panel">Loading...</pre>
+<h1>Settings</h1>
+<p>Runtime config settings. Saved to <code>.app_cache/settings.json</code>.</p>
+
+<form id="settingsForm" class="settings-form">
+  <div id="dynamicFields"></div>
+  <div>
+    <button type="submit" class="save-btn">Save Settings</button>
+    <span id="statusMsg"></span>
+  </div>
+</form>
+
+<h3>Raw Config Output</h3>
+<pre id="settingsOutput" class="panel">Loading...</pre>
 
 <script>
-  fetch("/api/config/app")
-    .then((r) => r.json())
-    .then((data) => {
-      document.getElementById("settings").textContent = JSON.stringify(data, null, 2);
-    })
-    .catch((err) => {
-      document.getElementById("settings").textContent = String(err);
-    });
+  const form = document.getElementById("settingsForm");
+  const output = document.getElementById("settingsOutput");
+  const statusMsg = document.getElementById("statusMsg");
+  const dynamicFields = document.getElementById("dynamicFields");
+  let currentData = {};
+
+  async function loadSettings() {
+    try {
+      const res = await fetch("/api/config/app");
+      currentData = await res.json();
+      output.textContent = JSON.stringify(currentData, null, 2);
+      
+      dynamicFields.innerHTML = "";
+      for (const [key, val] of Object.entries(currentData)) {
+        const div = document.createElement("div");
+        div.className = "setting-item";
+        const label = document.createElement("label");
+        label.textContent = key;
+        label.htmlFor = key;
+        
+        let input;
+        if (typeof val === "boolean") {
+          input = document.createElement("input");
+          input.type = "checkbox";
+          input.checked = val;
+        } else if (typeof val === "number") {
+          input = document.createElement("input");
+          input.type = "number";
+          input.step = "any";
+          input.value = val;
+        } else {
+          input = document.createElement("input");
+          input.type = "text";
+          input.value = val !== null ? val : "";
+        }
+        input.id = key;
+        input.name = key;
+        
+        div.appendChild(label);
+        div.appendChild(input);
+        dynamicFields.appendChild(div);
+      }
+    } catch (err) {
+      output.textContent = String(err);
+    }
+  }
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    statusMsg.textContent = "Saving...";
+    
+    const payload = {};
+    for (const [key, val] of Object.entries(currentData)) {
+      const el = document.getElementById(key);
+      if (!el) continue;
+      if (el.type === "checkbox") {
+        payload[key] = el.checked;
+      } else if (el.type === "number") {
+        payload[key] = Number(el.value);
+      } else {
+        payload[key] = el.value || null;
+      }
+    }
+
+    try {
+      const res = await fetch("/api/config/app", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      
+      if (res.ok) {
+        statusMsg.textContent = "Saved!";
+        setTimeout(() => statusMsg.textContent = "", 2000);
+        await loadSettings();
+      } else {
+        statusMsg.textContent = "Error saving";
+        statusMsg.style.color = "red";
+      }
+    } catch (err) {
+      statusMsg.textContent = "Network error";
+      statusMsg.style.color = "red";
+    }
+  });
+
+  loadSettings();
 </script>
 {% endblock %}
