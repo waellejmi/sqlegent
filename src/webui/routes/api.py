@@ -69,17 +69,19 @@ def health() -> dict[str, str]:
 def list_connections() -> dict[str, object]:
     db_config = DBConfig()
     uri = db_config.get_database_uri()
-    
+
     db_name = "Unknown"
     dialect = "unknown"
     try:
         if uri:
             from sqlalchemy.engine import make_url
+
             url = make_url(uri)
             dialect = url.drivername.split("+")[0].lower()
             if dialect in ["sqlite", "duckdb"]:
                 if url.database:
                     import pathlib
+
                     db_name = pathlib.Path(url.database).name
                 else:
                     db_name = "db.sqlite"
@@ -177,12 +179,12 @@ def update_app_config(payload: SettingsUpdateRequest) -> dict[str, object]:
                 and value is not None
             ):
                 setattr(config, key, __import__("pathlib").Path(value))
+            elif isinstance(original_val, bool) and value is not None:
+                setattr(config, key, bool(value))
             elif isinstance(original_val, int) and value is not None:
                 setattr(config, key, int(value))
             elif isinstance(original_val, float) and value is not None:
                 setattr(config, key, float(value))
-            elif isinstance(original_val, bool) and value is not None:
-                setattr(config, key, bool(value))
             else:
                 setattr(config, key, value)
 
@@ -247,12 +249,12 @@ def context_files(profile: str) -> dict[str, list[str]]:
 @router.get("/context/files/{profile}/{file_path:path}")
 def context_file_content(profile: str, file_path: str) -> dict[str, str]:
     config = AppConfig()
-    
+
     if profile == ".":
         profile_dir = config.MDL_DIR
     else:
         profile_dir = config.MDL_DIR / "databases" / profile
-        
+
     target_file = profile_dir / file_path
 
     # Basic path traversal protection

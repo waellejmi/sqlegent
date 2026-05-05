@@ -1,59 +1,250 @@
 {% extends "base.html" %}
 {% block content %}
 <style>
-  .settings-form {
+  .settings-container {
     display: flex;
-    flex-direction: column;
-    gap: 1rem;
-    max-width: 500px;
+    gap: 2rem;
+    max-width: 1000px;
     margin-bottom: 2rem;
   }
+  
+  .settings-nav {
+    flex: 0 0 220px;
+    border-right: 1px solid #ddd;
+    padding-right: 1rem;
+  }
+  .settings-nav ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    position: sticky;
+    top: 20px;
+  }
+  .settings-nav li {
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    border-radius: 4px;
+    margin-bottom: 0.25rem;
+    transition: background-color 0.2s;
+    font-size: 0.95rem;
+  }
+  .settings-nav li:hover {
+    background-color: #f0f0f0;
+  }
+  .settings-nav li.active {
+    background-color: #e0f0ff;
+    font-weight: bold;
+    color: #0066cc;
+  }
+
+  .settings-content {
+    flex: 1;
+  }
+  .settings-section {
+    display: none;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .settings-section.active {
+    display: flex;
+  }
+  .settings-section h2 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #eee;
+    color: #333;
+  }
+  
   .setting-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.5rem;
-    background: #f9f9f9;
-    border-radius: 4px;
-    border: 1px solid #ddd;
+    padding: 0.75rem 1rem;
+    background: #fdfdfd;
+    border-radius: 6px;
+    border: 1px solid #e0e0e0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.02);
   }
+  
   .setting-item label {
-    font-weight: bold;
+    font-weight: 500;
+    cursor: pointer;
+    flex: 1;
+    color: #444;
+    font-size: 0.95rem;
+  }
+  
+  .setting-control {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+  
+  .setting-item input[type="text"] {
+    width: 280px;
+    padding: 0.4rem 0.6rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 0.9rem;
+  }
+
+  /* Range + Number layout */
+  .range-number-group {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .range-number-group input[type="range"] {
+    width: 140px;
     cursor: pointer;
   }
-  .save-btn {
-    align-self: flex-start;
+  .range-number-group input[type="number"] {
+    width: 80px;
+    padding: 0.4rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    text-align: right;
+    font-family: monospace;
+    font-size: 0.9rem;
   }
+  
+  /* Toggle Switch Styles */
+  .switch {
+    position: relative;
+    display: inline-block;
+    width: 36px;
+    height: 20px;
+    margin: 0;
+  }
+  .switch input { 
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+  .slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+    border-radius: 20px;
+  }
+  .slider:before {
+    position: absolute;
+    content: "";
+    height: 14px;
+    width: 14px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+  }
+  input:checked + .slider { background-color: #00cc66; }
+  input:checked + .slider:before { transform: translateX(16px); }
+
+  .actions-bar {
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid #ddd;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+  
   #statusMsg {
-    margin-left: 1rem;
-    color: green;
+    font-weight: bold;
+    font-size: 0.95rem;
   }
-  .setting-item input[type="text"], .setting-item input[type="number"] {
-    width: 250px;
-    padding: 0.25rem;
+  
+  .uncategorized {
+    opacity: 0.8;
   }
 </style>
 
 <h1>Settings</h1>
-<p>Runtime config settings. Saved to <code>.app_cache/settings.json</code>.</p>
+<p style="color: #666; margin-bottom: 2rem;">Runtime configuration settings. Changes are saved to <code>.app_cache/settings.json</code>.</p>
 
-<form id="settingsForm" class="settings-form">
-  <div id="dynamicFields"></div>
-  <div>
-    <button type="submit" class="save-btn">Save Settings</button>
-    <span id="statusMsg"></span>
+<div class="settings-container">
+  <div class="settings-nav">
+    <ul id="navMenu">
+      <!-- Navigation items injected here -->
+    </ul>
   </div>
-</form>
+  
+  <div class="settings-content">
+    <form id="settingsForm">
+      <div id="dynamicSections">
+        <!-- Sections injected here -->
+      </div>
+      
+      <div class="actions-bar">
+        <button type="submit" class="save-btn" style="padding: 0.6rem 1.2rem; cursor: pointer; background: #0066cc; color: white; border: none; border-radius: 4px; font-weight: bold; font-size: 1rem; transition: background 0.2s;">Save Settings</button>
+        <span id="statusMsg"></span>
+      </div>
+    </form>
+  </div>
+</div>
 
-<h3>Raw Config Output</h3>
-<pre id="settingsOutput" class="panel">Loading...</pre>
+<h3 style="margin-top: 3rem;">Raw Config Output</h3>
+<pre id="settingsOutput" class="panel" style="font-size: 0.85rem; max-height: 400px; overflow-y: auto;">Loading...</pre>
 
 <script>
+  const categories = {
+    "LLM Setup": ["LLM_PROVIDER", "LLM_MODEL_LIST", "LLM_ACTIVE_MODEL"],
+    "Agent Execution": ["HUMAN_SQL_REVIEW", "EXECUTE_SQL_QUERIES", "MAX_SQL_RETRIES", "ASK_RESULT_CONFIRMATION"],
+    "Embedding": ["EMBEDDING_MODEL_NAME", "EMBEDDING_OFFLINE", "EMBEDDING_DEVICE", "EMBEDDING_NORMALIZE", "EMBEDDING_BATCH_SIZE"],
+    "Context Layer": ["ENABLE_CONTEXT_LAYER", "CONTEXT_PROJECT_ID", "CONTEXT_DEBUG_LOG", "CONTEXT_AUTO_INDEX_ON_STARTUP", "CONTEXT_REQUIRE_SEMANTIC_PROFILE", "CONTEXT_DEFAULT_SEMANTIC_PROFILE", "ENABLE_SCHEMA_CONTEXT", "ENABLE_INSTRUCTION_CONTEXT", "ENABLE_QUERY_MEMORY", "ENABLE_FAILED_QUERY_LOG", "MDL_DIR", "MDL_COMMON_SUBDIR", "MDL_DATABASES_SUBDIR", "MDL_FILE_GLOB", "MDL_BASELINE_FILE", "MDL_AUTO_GENERATE_BASELINE"],
+    "Retrieval & Memory": ["SCHEMA_CONTEXT_TOP_K", "INSTRUCTION_CONTEXT_TOP_K", "QUERY_MEMORY_TOP_K", "SCHEMA_CONTEXT_MIN_SIMILARITY", "INSTRUCTION_CONTEXT_MIN_SIMILARITY", "QUERY_MEMORY_MIN_SIMILARITY", "SCHEMA_CONTEXT_MAX_CHARS", "INSTRUCTION_CONTEXT_MAX_CHARS", "QUERY_MEMORY_MAX_CHARS", "QUERY_MEMORY_REQUIRE_VERIFIED", "QUERY_MEMORY_REQUIRE_NON_EMPTY", "QUERY_MEMORY_MAX_ROWS_PER_DB", "FAILED_QUERY_LOG_MAX_ROWS_PER_DB"],
+    "Logging & UI": ["LOG_LEVEL", "LOG_JSON", "LOG_REQUESTS", "LOG_NODE_PAYLOADS", "LOG_MAX_CHARS", "LOG_MAX_ITEMS", "LOG_RESPONSE_MAX_CHARS", "SHOW_AGENT_GRAPH", "SHOW_NODE_HISTORY"],
+    "Cache & Paths": ["METADATA_CACHE_ENABLED", "METADATA_CACHE_TTL_SECONDS", "METADATA_CACHE_BYPASS_DEFAULT", "METADATA_CACHE_PATH", "WEBUI_HISTORY_PATH", "CONTEXT_STORE_PATH"]
+  };
+
+  const navMenu = document.getElementById("navMenu");
+  const dynamicSections = document.getElementById("dynamicSections");
   const form = document.getElementById("settingsForm");
   const output = document.getElementById("settingsOutput");
   const statusMsg = document.getElementById("statusMsg");
-  const dynamicFields = document.getElementById("dynamicFields");
+  
   let currentData = {};
+
+  function determineCategory(key) {
+    for (const [cat, keys] of Object.entries(categories)) {
+      if (keys.includes(key)) return cat;
+    }
+    return "Other";
+  }
+
+  function activateTab(tabId) {
+    document.querySelectorAll('.settings-nav li').forEach(li => li.classList.remove('active'));
+    document.querySelectorAll('.settings-section').forEach(sec => sec.classList.remove('active'));
+    
+    document.getElementById(`nav-${tabId}`).classList.add('active');
+    document.getElementById(`section-${tabId}`).classList.add('active');
+  }
+
+  function getStepForNumber(key, val) {
+      if (key.includes("SIMILARITY")) return "0.01";
+      return "1";
+  }
+
+  function getMinForNumber(key) {
+      if (key.includes("SIMILARITY")) return "0";
+      return "0";
+  }
+
+  function getMaxForNumber(key) {
+      if (key.includes("SIMILARITY")) return "1";
+      if (key.includes("TOP_K")) return "20";
+      if (key.includes("RETRIES")) return "10";
+      if (key.includes("MAX_CHARS")) return "100000";
+      if (key.includes("MAX_ROWS")) return "50000";
+      if (key.includes("MAX_ITEMS")) return "100";
+      return "10000";
+  }
 
   async function loadSettings() {
     try {
@@ -61,36 +252,153 @@
       currentData = await res.json();
       output.textContent = JSON.stringify(currentData, null, 2);
       
-      dynamicFields.innerHTML = "";
-      for (const [key, val] of Object.entries(currentData)) {
-        const div = document.createElement("div");
-        div.className = "setting-item";
-        const label = document.createElement("label");
-        label.textContent = key;
-        label.htmlFor = key;
-        
-        let input;
-        if (typeof val === "boolean") {
-          input = document.createElement("input");
-          input.type = "checkbox";
-          input.checked = val;
-        } else if (typeof val === "number") {
-          input = document.createElement("input");
-          input.type = "number";
-          input.step = "any";
-          input.value = val;
-        } else {
-          input = document.createElement("input");
-          input.type = "text";
-          input.value = val !== null ? val : "";
-        }
-        input.id = key;
-        input.name = key;
-        
-        div.appendChild(label);
-        div.appendChild(input);
-        dynamicFields.appendChild(div);
+      navMenu.innerHTML = "";
+      dynamicSections.innerHTML = "";
+      
+      // Group keys
+      const grouped = {};
+      for (const key of Object.keys(currentData)) {
+        const cat = determineCategory(key);
+        if (!grouped[cat]) grouped[cat] = [];
+        grouped[cat].push(key);
       }
+      
+      // Sort categories (force Other to end)
+      const sortedCategories = Object.keys(categories).filter(c => grouped[c]);
+      if (grouped["Other"]) sortedCategories.push("Other");
+
+      let isFirst = true;
+
+      for (const cat of sortedCategories) {
+        const tabId = cat.replace(/[^a-zA-Z0-9]/g, '');
+        
+        // Nav Item
+        const li = document.createElement("li");
+        li.id = `nav-${tabId}`;
+        li.textContent = cat;
+        li.onclick = () => activateTab(tabId);
+        navMenu.appendChild(li);
+        
+        // Section container
+        const section = document.createElement("div");
+        section.id = `section-${tabId}`;
+        section.className = "settings-section";
+        if (isFirst) {
+            li.classList.add("active");
+            section.classList.add("active");
+            isFirst = false;
+        }
+        
+        const h2 = document.createElement("h2");
+        h2.textContent = cat;
+        section.appendChild(h2);
+        
+        // Add items
+        const booleanKeys = [
+          "LOG_JSON", "LOG_REQUESTS", "LOG_NODE_PAYLOADS", "HUMAN_SQL_REVIEW", 
+          "EXECUTE_SQL_QUERIES", "SHOW_AGENT_GRAPH", "SHOW_NODE_HISTORY", 
+          "METADATA_CACHE_ENABLED", "METADATA_CACHE_BYPASS_DEFAULT", "ENABLE_CONTEXT_LAYER", 
+          "CONTEXT_DEBUG_LOG", "CONTEXT_AUTO_INDEX_ON_STARTUP", "CONTEXT_REQUIRE_SEMANTIC_PROFILE", 
+          "EMBEDDING_OFFLINE", "EMBEDDING_NORMALIZE", "ENABLE_SCHEMA_CONTEXT", 
+          "ENABLE_INSTRUCTION_CONTEXT", "ENABLE_QUERY_MEMORY", "ENABLE_FAILED_QUERY_LOG", 
+          "MDL_AUTO_GENERATE_BASELINE", "QUERY_MEMORY_REQUIRE_VERIFIED", 
+          "QUERY_MEMORY_REQUIRE_NON_EMPTY", "ASK_RESULT_CONFIRMATION"
+        ];
+        
+        for (const key of grouped[cat]) {
+          const val = currentData[key];
+          const isBool = typeof val === "boolean" || booleanKeys.includes(key);
+          
+          const itemDiv = document.createElement("div");
+          itemDiv.className = "setting-item";
+          if (cat === "Other") itemDiv.classList.add("uncategorized");
+          
+          const label = document.createElement("label");
+          label.textContent = key;
+          label.htmlFor = `input-${key}`;
+          label.title = key;
+          
+          const controlDiv = document.createElement("div");
+          controlDiv.className = "setting-control";
+          
+          if (isBool) {
+            const labelSwitch = document.createElement("label");
+            labelSwitch.className = "switch";
+            
+            const input = document.createElement("input");
+            input.type = "checkbox";
+            input.id = `input-${key}`;
+            input.dataset.key = key;
+            input.dataset.type = "boolean";
+            input.checked = (val === true || val === 1 || val === "true");
+            
+            const span = document.createElement("span");
+            span.className = "slider";
+            
+            labelSwitch.appendChild(input);
+            labelSwitch.appendChild(span);
+            controlDiv.appendChild(labelSwitch);
+            
+          } else if (typeof val === "number" || (val === null && (key.includes("TOP_K") || key.includes("MAX_") || key.includes("SIMILARITY") || key.includes("SECONDS")))) {
+            // Number / Range
+            const group = document.createElement("div");
+            group.className = "range-number-group";
+            
+            const range = document.createElement("input");
+            range.type = "range";
+            range.step = getStepForNumber(key, val);
+            range.min = getMinForNumber(key);
+            range.max = getMaxForNumber(key);
+            range.value = val !== null ? val : range.min;
+            
+            const num = document.createElement("input");
+            num.type = "number";
+            num.id = `input-${key}`;
+            num.dataset.key = key;
+            num.dataset.type = "number";
+            num.step = range.step;
+            num.min = range.min;
+            num.value = val !== null ? val : "";
+            num.placeholder = "null";
+            
+            // Sync logic
+            range.addEventListener("input", (e) => { num.value = e.target.value; });
+            num.addEventListener("input", (e) => { 
+                if (e.target.value !== "") range.value = e.target.value; 
+            });
+            
+            group.appendChild(range);
+            group.appendChild(num);
+            controlDiv.appendChild(group);
+            
+          } else if (Array.isArray(val) || key === "LLM_MODEL_LIST") {
+            const input = document.createElement("input");
+            input.type = "text";
+            input.id = `input-${key}`;
+            input.dataset.key = key;
+            input.dataset.type = "array";
+            input.value = Array.isArray(val) ? val.join(", ") : val;
+            controlDiv.appendChild(input);
+            
+          } else {
+            const input = document.createElement("input");
+            input.type = "text";
+            input.id = `input-${key}`;
+            input.dataset.key = key;
+            input.dataset.type = "string";
+            input.value = val !== null ? val : "";
+            input.placeholder = "null";
+            controlDiv.appendChild(input);
+          }
+          
+          itemDiv.appendChild(label);
+          itemDiv.appendChild(controlDiv);
+          section.appendChild(itemDiv);
+        }
+        
+        dynamicSections.appendChild(section);
+      }
+      
     } catch (err) {
       output.textContent = String(err);
     }
@@ -99,19 +407,26 @@
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     statusMsg.textContent = "Saving...";
+    statusMsg.style.color = "black";
     
     const payload = {};
-    for (const [key, val] of Object.entries(currentData)) {
-      const el = document.getElementById(key);
-      if (!el) continue;
-      if (el.type === "checkbox") {
-        payload[key] = el.checked;
-      } else if (el.type === "number") {
-        payload[key] = Number(el.value);
-      } else {
-        payload[key] = el.value || null;
-      }
-    }
+    const inputs = document.querySelectorAll("[data-key]");
+    
+    inputs.forEach(el => {
+        const key = el.dataset.key;
+        const type = el.dataset.type;
+        
+        if (type === "boolean") {
+            payload[key] = el.checked;
+        } else if (type === "number") {
+            payload[key] = el.value === "" ? null : Number(el.value);
+        } else if (type === "array") {
+            const arr = el.value.split(",").map(s => s.trim()).filter(s => s.length > 0);
+            payload[key] = arr;
+        } else {
+            payload[key] = el.value === "" ? null : el.value;
+        }
+    });
 
     try {
       const res = await fetch("/api/config/app", {
@@ -122,15 +437,16 @@
       const data = await res.json();
       
       if (res.ok) {
-        statusMsg.textContent = "Saved!";
-        setTimeout(() => statusMsg.textContent = "", 2000);
+        statusMsg.textContent = "Saved successfully!";
+        statusMsg.style.color = "green";
+        setTimeout(() => statusMsg.textContent = "", 2500);
         await loadSettings();
       } else {
-        statusMsg.textContent = "Error saving";
+        statusMsg.textContent = "Error saving: " + JSON.stringify(data);
         statusMsg.style.color = "red";
       }
     } catch (err) {
-      statusMsg.textContent = "Network error";
+      statusMsg.textContent = "Network error while saving.";
       statusMsg.style.color = "red";
     }
   });

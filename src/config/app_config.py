@@ -16,11 +16,16 @@ class AppConfig:
     RUNTIME_SETTINGS_PATH: Path = ROOT_DIR / ".app_config" / "settings.json"
 
     LLM_PROVIDER: str = "groq"
-    LLM_MODEL_LIST: list[str] = field(default_factory=lambda: ["openai/gpt-oss-20b", "qwen/qwen3-32b", "openai/gpt-oss-120b"])
+    LLM_MODEL_LIST: list[str] = field(
+        default_factory=lambda: [
+            "openai/gpt-oss-20b",
+            "qwen/qwen3-32b",
+            "openai/gpt-oss-120b",
+        ]
+    )
     LLM_ACTIVE_MODEL: str = "openai/gpt-oss-20b"
 
-    # LOG_LEVEL: str = "INFO"
-    LOG_LEVEL: str = "DEBUG"
+    LOG_LEVEL: str = "INFO"
     LOG_JSON: bool = False
     LOG_REQUESTS: bool = False
     LOG_NODE_PAYLOADS: bool = True
