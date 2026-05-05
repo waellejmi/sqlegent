@@ -17,3 +17,5 @@ tests/c.py
 
 # Big files
 data/northwind.db
+semantic/**/_baseline.generated.yaml
+

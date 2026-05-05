@@ -145,7 +145,7 @@ def get_app_config() -> dict[str, object]:
 @router.put("/config/app")
 def update_app_config(payload: SettingsUpdateRequest) -> dict[str, object]:
     config = AppConfig()
-    updated_fields = payload.model_dump(exclude_none=True)
+    updated_fields = payload.model_dump(exclude_unset=True)
 
     for key, value in updated_fields.items():
         if hasattr(config, key) and key not in ["ROOT_DIR", "RUNTIME_SETTINGS_PATH"]:
@@ -191,9 +191,10 @@ def context_stats() -> dict[str, object]:
 def context_profiles() -> dict[str, list[str]]:
     config = AppConfig()
     mdl_dir = config.MDL_DIR
-    profiles = ["."]  # root profile for _baseline.generated.yaml
-    if mdl_dir.exists() and mdl_dir.is_dir():
-        for d in mdl_dir.iterdir():
+    profiles = []
+    dbs_dir = mdl_dir / "databases"
+    if dbs_dir.exists() and dbs_dir.is_dir():
+        for d in dbs_dir.iterdir():
             if d.is_dir():
                 profiles.append(d.name)
     return {"profiles": profiles}
@@ -211,7 +212,7 @@ def context_files(profile: str) -> dict[str, list[str]]:
         ]
         return {"files": files}
 
-    profile_dir = config.MDL_DIR / profile
+    profile_dir = config.MDL_DIR / "databases" / profile
     files = []
     if profile_dir.exists() and profile_dir.is_dir():
         for f in profile_dir.rglob(config.MDL_FILE_GLOB):
@@ -224,12 +225,18 @@ def context_files(profile: str) -> dict[str, list[str]]:
 @router.get("/context/files/{profile}/{file_path:path}")
 def context_file_content(profile: str, file_path: str) -> dict[str, str]:
     config = AppConfig()
-    target_file = config.MDL_DIR / profile / file_path
+    
+    if profile == ".":
+        profile_dir = config.MDL_DIR
+    else:
+        profile_dir = config.MDL_DIR / "databases" / profile
+        
+    target_file = profile_dir / file_path
 
     # Basic path traversal protection
     try:
         target_file = target_file.resolve()
-        if not str(target_file).startswith(str((config.MDL_DIR / profile).resolve())):
+        if not str(target_file).startswith(str(profile_dir.resolve())):
             raise HTTPException(status_code=400, detail="Invalid path")
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid path")

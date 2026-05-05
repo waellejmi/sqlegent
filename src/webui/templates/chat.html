@@ -364,13 +364,58 @@
   .back-btn { background: transparent; border: none; color: #0066cc; cursor: pointer; padding: 0; margin-bottom: 1rem; font-size: 0.9em; }
   .back-btn:hover { text-decoration: underline; }
   .loading-msg { font-style: italic; color: #666; }
+
+  /* Toggle Switch Styles */
+  .switch {
+    position: relative;
+    display: inline-block;
+    width: 36px;
+    height: 20px;
+    margin: 0;
+  }
+  .switch input { 
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+  .slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+    border-radius: 20px;
+  }
+  .slider:before {
+    position: absolute;
+    content: "";
+    height: 14px;
+    width: 14px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+  }
+  input:checked + .slider {
+    background-color: #00cc66;
+  }
+  input:checked + .slider:before {
+    transform: translateX(16px);
+  }
 </style>
 
 <div class="app-container">
   <div class="sidebar" id="historySidebar">
     <div class="sidebar-header">
-      <h3>Recent History</h3>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <h3>Recent History</h3>
+        <span id="historySearchIcon" style="cursor: pointer; font-size: 1.2em; color: #666;" title="Search History">&#x2315;</span>
+      </div>
       <a href="/chat" class="new-chat-btn">+ New</a>
+    </div>
+    <div id="historySearchContainer" style="display: none; margin-bottom: 10px;">
+      <input type="search" id="historySearch" placeholder="Search history..." style="width: 100%; padding: 4px 8px; font-size: 0.9em; border: 1px solid #ccc; border-radius: 4px;">
     </div>
     <div id="historyList"></div>
   </div>
@@ -386,9 +431,18 @@
           <textarea id="question" rows="3" placeholder="Ask a question about your database..."></textarea>
           <button id="askBtn" type="button">Send</button>
         </div>
-        <div class="chat-status" id="dbStatus" onclick="openConnectionModal()" title="Click to change connection">
-          Connected to <strong id="dbNameStr" style="margin-left: 4px;">...</strong>
-          <span id="dbDialectBadge" class="db-dialect-badge" style="background-color: #666;">...</span>
+        <div style="display: flex; justify-content: space-between; padding-left: 0.25rem; padding-right: 0.25rem;">
+          <div class="chat-status" style="cursor: default;">
+            Connected to 
+            <span onclick="openConnectionModal()" style="cursor: pointer; display: inline-flex; align-items: center;" title="Click to change connection">
+              <strong id="dbNameStr" style="margin-left: 4px; margin-right: 4px;">...</strong>
+              <span id="dbDialectBadge" class="db-dialect-badge" style="background-color: #666;">...</span>
+            </span>
+          </div>
+          <div class="chat-status" style="cursor: default;">
+            Profile:
+            <strong id="profileLabel" onclick="openProfileModal()" style="cursor: pointer; margin-left: 4px;" title="Click to select semantic profile">No Profile Selected</strong>
+          </div>
         </div>
       </div>
     </div>
@@ -433,6 +487,35 @@
   </div>
 </div>
 
+<!-- Profile Modal -->
+<div id="profileModal" class="modal-overlay" onclick="closeProfileModal(event)">
+  <div class="modal-content" onclick="event.stopPropagation()">
+    <button class="modal-close" onclick="closeProfileModal()">&times;</button>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; margin-top: 0; padding-right: 20px;">
+      <h2 style="margin: 0;">Semantic Profile</h2>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 0.9em; font-weight: bold; color: #555;">Context Layer</span>
+        <label class="switch" title="Enable Context Layer">
+          <input type="checkbox" id="contextToggle" onchange="toggleContextLayer(this.checked)">
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+    
+    <div id="profileMenu" style="margin-bottom: 1rem;">
+      <!-- Profile list will be injected here -->
+    </div>
+    
+    <div style="margin-top: 1rem; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #eee; padding-top: 1rem;">
+      <div style="font-size: 0.9em; display: flex; align-items: center;">
+        <input type="checkbox" id="saveProfileDefault" checked style="margin-right: 5px;">
+        <label for="saveProfileDefault" style="cursor: pointer;">Set as default for future chats</label>
+      </div>
+      <a href="http://127.0.0.1:8000/semantic" style="color: #0066cc; text-decoration: none; font-weight: bold;">+ Create a new profile</a>
+    </div>
+  </div>
+</div>
+
 <script>
   const messagesWrapper = document.getElementById("chatMessages");
   const messagesDiv = document.getElementById("chatMessagesInner");
@@ -461,6 +544,90 @@
   function closeModal(e) {
     if (e.target === connModal) {
       closeConnectionModal();
+    }
+  }
+
+  // Profile Modal Logic
+  const profileModal = document.getElementById("profileModal");
+  function openProfileModal() {
+    profileModal.style.display = "flex";
+    loadProfiles();
+  }
+  function closeProfileModal(e) {
+    if (e && e.target !== profileModal && e.target !== document.querySelector('#profileModal .modal-close')) return;
+    profileModal.style.display = "none";
+  }
+
+  async function toggleContextLayer(enabled) {
+    try {
+      await fetch('/api/config/app', {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ENABLE_CONTEXT_LAYER: enabled})
+      });
+    } catch(err) {
+      console.error(err);
+    }
+  }
+
+  async function selectProfile(profileName) {
+    try {
+      const isDefault = document.getElementById("saveProfileDefault").checked;
+      const targetProfile = profileName || null;
+      
+      // Close modal immediately so user sees the background update
+      closeProfileModal();
+      
+      // Update UI to show loading state
+      document.getElementById("profileLabel").textContent = "Indexing...";
+      document.body.style.cursor = "wait";
+      
+      if (isDefault) {
+        await fetch('/api/config/app', {
+          method: 'PUT',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({CONTEXT_DEFAULT_SEMANTIC_PROFILE: targetProfile})
+        });
+      }
+      
+      await fetch('/api/context/reindex', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({semantic_profile: targetProfile})
+      });
+      
+      document.getElementById("profileLabel").textContent = targetProfile || "No Profile Selected";
+      document.body.style.cursor = "default";
+    } catch(err) {
+      console.error(err);
+      document.getElementById("profileLabel").textContent = "Error Indexing";
+      document.body.style.cursor = "default";
+    }
+  }
+
+  async function loadProfiles() {
+    try {
+      const res = await fetch('/api/context/profiles');
+      const data = await res.json();
+      let html = `<button class="conn-menu-btn" onclick="selectProfile('')"><em>None (No Profile)</em></button>`;
+      data.profiles.forEach(p => {
+        html += `<button class="conn-menu-btn" onclick="selectProfile('${p}')">${p}</button>`;
+      });
+      document.getElementById("profileMenu").innerHTML = html;
+    } catch(err) {
+      console.error(err);
+    }
+  }
+
+  async function loadProfileStatus() {
+    try {
+      const res = await fetch('/api/config/app');
+      const data = await res.json();
+      const profile = data.CONTEXT_DEFAULT_SEMANTIC_PROFILE;
+      document.getElementById("profileLabel").textContent = profile || "No Profile Selected";
+      document.getElementById("contextToggle").checked = data.ENABLE_CONTEXT_LAYER;
+    } catch(err) {
+      console.error(err);
     }
   }
   
@@ -640,23 +807,96 @@
       console.error("Failed to load connection status", err);
     }
   }
+  let allHistory = [];
+
+  document.getElementById("historySearchIcon").addEventListener("click", () => {
+    const container = document.getElementById("historySearchContainer");
+    if (container.style.display === "none") {
+      container.style.display = "block";
+      document.getElementById("historySearch").focus();
+    } else {
+      container.style.display = "none";
+      document.getElementById("historySearch").value = "";
+      renderHistoryList(allHistory);
+    }
+  });
+  
+  document.getElementById("historySearch").addEventListener("input", (e) => {
+    const q = e.target.value.toLowerCase();
+    const filtered = allHistory.filter(item => 
+      (item.question && item.question.toLowerCase().includes(q)) || 
+      (item.db_name && item.db_name.toLowerCase().includes(q))
+    );
+    renderHistoryList(filtered);
+  });
+
   // Load History
   async function loadHistory() {
     try {
       const res = await fetch('/api/history');
       if (!res.ok) return;
       const data = await res.json();
+      allHistory = data.history;
+      renderHistoryList(allHistory);
+    } catch(err) {
+      console.error("Failed to load history", err);
+    }
+  }
+
+  function getDialectStyles(dialect) {
+      let badgeColor = "#555";
+      let dialectLabel = dialect ? dialect.toUpperCase() : "UNKNOWN";
+      let textColor = "white";
+      
+      if (!dialect) return { badgeColor, dialectLabel, textColor };
+
+      if (dialect === "postgresql" || dialect === "postgres") {
+        dialectLabel = "Postgres";
+        badgeColor = "#336791";
+      } else if (dialect === "mysql" || dialect === "mariadb") {
+        dialectLabel = "MySQL";
+        badgeColor = "#00758F";
+      } else if (dialect === "mssql") {
+        dialectLabel = "MS SQL";
+        badgeColor = "#CC292B";
+      } else if (dialect === "sqlite") {
+        dialectLabel = "SQLite";
+        badgeColor = "#003B57";
+      } else if (dialect === "oracle") {
+        dialectLabel = "Oracle";
+        badgeColor = "#F80000";
+      } else if (dialect === "duckdb") {
+        dialectLabel = "DuckDB";
+        badgeColor = "#FFF000";
+        textColor = "#000";
+      }
+      return { badgeColor, dialectLabel, textColor };
+  }
+
+  function renderHistoryList(historyArray) {
       historyList.innerHTML = '';
-      data.history.forEach(item => {
+      historyArray.forEach(item => {
         const div = document.createElement('div');
         div.className = 'history-item';
         
         const date = new Date(item.created_at * 1000);
         const dateStr = date.toLocaleString();
+        
+        let dbHtml = "";
+        if (item.db_name) {
+            const styles = getDialectStyles(item.db_dialect);
+            dbHtml = `<span style="font-size:0.7em; color:#666; margin-left:auto;">
+              ${item.db_name}
+              <span style="background-color:${styles.badgeColor}; color:${styles.textColor}; padding:2px 4px; border-radius:3px; margin-left:4px;">${styles.dialectLabel}</span>
+            </span>`;
+        }
 
         div.innerHTML = `
           <div class="history-item-content" onclick="renderHistoricalItem(this.parentElement.dataset.item)">
-            <div class="history-date">${dateStr}</div>
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <div class="history-date">${dateStr}</div>
+              ${dbHtml}
+            </div>
             <div class="history-question" title="${item.question}">${item.question}</div>
           </div>
           <button class="history-delete-btn" title="Delete" onclick="deleteHistory(event, '${item.id}')">×</button>
@@ -672,9 +912,6 @@
         
         historyList.appendChild(div);
       });
-    } catch(err) {
-      console.error("Failed to load history", err);
-    }
   }
 
   async function deleteHistory(e, id) {
@@ -821,6 +1058,7 @@
     createMessage("system", "Connected to agent.");
     loadHistory(); // Load on start
     loadConnectionStatus(); // Load connection info
+    loadProfileStatus(); // Load profile info
   };
   ws.onclose = () => createMessage("system", "Connection closed.");
   ws.onerror = () => createMessage("system", "Connection error.");

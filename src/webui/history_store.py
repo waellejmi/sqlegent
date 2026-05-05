@@ -14,6 +14,8 @@ class ChatHistoryRecord(TypedDict):
     answer: str | None
     created_at: int
     is_saved: int
+    db_name: str | None
+    db_dialect: str | None
 
 
 class HistoryStore:
@@ -37,7 +39,9 @@ class HistoryStore:
                     db_output TEXT,
                     answer TEXT,
                     created_at INTEGER NOT NULL,
-                    is_saved INTEGER DEFAULT 0
+                    is_saved INTEGER DEFAULT 0,
+                    db_name TEXT,
+                    db_dialect TEXT
                 )
                 """
             )
@@ -47,6 +51,11 @@ class HistoryStore:
                 )
             except sqlite3.OperationalError:
                 pass  # column already exists
+            try:
+                conn.execute("ALTER TABLE webui_chat_history ADD COLUMN db_name TEXT")
+                conn.execute("ALTER TABLE webui_chat_history ADD COLUMN db_dialect TEXT")
+            except sqlite3.OperationalError:
+                pass
 
     def add_interaction(
         self,
@@ -54,16 +63,18 @@ class HistoryStore:
         sql: str | None,
         db_output: str | None,
         answer: str | None,
+        db_name: str | None = None,
+        db_dialect: str | None = None,
     ) -> str:
         record_id = str(uuid.uuid4())
         created_at = int(time.time())
         with self._connect() as conn:
             conn.execute(
                 """
-                INSERT INTO webui_chat_history (id, question, sql, db_output, answer, created_at)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO webui_chat_history (id, question, sql, db_output, answer, created_at, db_name, db_dialect)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (record_id, question, sql, db_output, answer, created_at),
+                (record_id, question, sql, db_output, answer, created_at, db_name, db_dialect),
             )
             return record_id
 
@@ -72,7 +83,7 @@ class HistoryStore:
             conn.row_factory = sqlite3.Row
             rows = conn.execute(
                 """
-                SELECT id, question, sql, db_output, answer, created_at, is_saved
+                SELECT id, question, sql, db_output, answer, created_at, is_saved, db_name, db_dialect
                 FROM webui_chat_history
                 ORDER BY created_at DESC
                 LIMIT ?

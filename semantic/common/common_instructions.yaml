@@ -1,0 +1,8 @@
+instructions:
+  - id: default_sql_guardrails
+    scope: sql
+    is_default: true
+    instruction: |
+      Use explicit JOIN keys from known relationships, avoid SELECT *, and select only required columns.
+      Prefer deterministic ordering when returning top N lists.
+

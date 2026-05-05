@@ -1,6 +1,7 @@
+from sqlglot import func
+
 from tools.database import validate_sql
 
-sql_query = "SELECT Artist.Name AS artist_name, SUM(InvoiceLine.UnitPrice * InvoiceLine.Quantity) AS total_revenue, SUM(InvoiceLine.Quantity) AS total_tracks_sold FROM Artist JOIN Album ON Artist.ArtistId = Album.ArtistId JOIN Track ON Album.AlbumId = Track.AlbumId JOIN InvoiceLine ON Track.TrackId = InvoiceLine.TrackId GROUP BY Artist.ArtistId ORDER BY total_revenue DESC LIMIT 5;"
 sql_query = """
 WITH median_price AS (
     SELECT PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY unit_price) AS med
