@@ -1,17 +1,19 @@
 from langchain_groq import ChatGroq
 
 from config.env_config import EnvConfig
+from config.app_config import AppConfig
 
-config = EnvConfig()
+def get_model():
+    env_config = EnvConfig()
+    app_config = AppConfig()
+    
+    return ChatGroq(
+        model=app_config.LLM_ACTIVE_MODEL,
+        api_key=env_config.LLM_API_KEY,
+        temperature=0,
+        max_tokens=None,
+        reasoning_format="parsed",
+        timeout=None,
+        max_retries=2,
+    )
 
-model = ChatGroq(
-    model="openai/gpt-oss-20b",
-    # model="qwen/qwen3-32b",
-    # model="openai/gpt-oss-120b",
-    api_key=config.LLM_API_KEY,
-    temperature=0,
-    max_tokens=None,
-    reasoning_format="parsed",
-    timeout=None,
-    max_retries=2,
-)

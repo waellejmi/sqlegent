@@ -129,29 +129,17 @@ async def chat_socket(websocket: WebSocket, session_id: str):
                     db_cfg = DBConfig()
                     uri = db_cfg.get_database_uri()
                     if uri:
-                        parts = uri.split("://")
-                        if len(parts) >= 2:
-                            full_dialect = parts[0]
-                            db_dialect = full_dialect.split("+")[0].lower()
-                            rest = parts[1]
-                            
-                            if db_dialect in ["sqlite", "duckdb"]:
-                                path_segment = rest
-                                if rest.startswith("///"):
-                                    path_segment = rest[3:]
-                                elif rest.startswith("//"):
-                                    path_segment = rest[2:]
-                                elif rest.startswith("/"):
-                                    path_segment = rest[1:]
-                                segments = path_segment.split("/")
-                                db_name = segments[-1] if segments[-1] else "db.sqlite"
+                        from sqlalchemy.engine import make_url
+                        url = make_url(uri)
+                        db_dialect = url.drivername.split("+")[0].lower()
+                        if db_dialect in ["sqlite", "duckdb"]:
+                            if url.database:
+                                import pathlib
+                                db_name = pathlib.Path(url.database).name
                             else:
-                                segments = rest.split("/")
-                                potential_db = segments[-1]
-                                if "?service_name=" in potential_db:
-                                    db_name = potential_db.split("?service_name=")[1]
-                                else:
-                                    db_name = potential_db
+                                db_name = "db.sqlite"
+                        else:
+                            db_name = url.database
                 except Exception as e:
                     import logging
                     logging.getLogger(__name__).warning("Could not get DB config for history: %s", e)

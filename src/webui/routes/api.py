@@ -68,8 +68,30 @@ def health() -> dict[str, str]:
 @router.get("/connections")
 def list_connections() -> dict[str, object]:
     db_config = DBConfig()
+    uri = db_config.get_database_uri()
+    
+    db_name = "Unknown"
+    dialect = "unknown"
+    try:
+        if uri:
+            from sqlalchemy.engine import make_url
+            url = make_url(uri)
+            dialect = url.drivername.split("+")[0].lower()
+            if dialect in ["sqlite", "duckdb"]:
+                if url.database:
+                    import pathlib
+                    db_name = pathlib.Path(url.database).name
+                else:
+                    db_name = "db.sqlite"
+            else:
+                db_name = url.database if url.database else "Unknown"
+    except Exception:
+        pass
+
     return {
-        "active_uri": db_config.get_database_uri(),
+        "active_uri": uri,
+        "db_name": db_name,
+        "dialect": dialect,
         "default_sqlite_path": str(db_config.DEFAULT_SQLITE_PATH),
         "config_file": str(db_config.CONFIG_FILE),
     }

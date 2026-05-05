@@ -439,9 +439,15 @@
               <span id="dbDialectBadge" class="db-dialect-badge" style="background-color: #666;">...</span>
             </span>
           </div>
-          <div class="chat-status" style="cursor: default;">
-            Profile:
-            <strong id="profileLabel" onclick="openProfileModal()" style="cursor: pointer; margin-left: 4px;" title="Click to select semantic profile">No Profile Selected</strong>
+          <div style="display: flex; gap: 15px;">
+            <div class="chat-status" style="cursor: default;">
+              Model:
+              <strong id="modelLabel" onclick="openModelModal()" style="cursor: pointer; margin-left: 4px; color: #0066cc;" title="Click to select LLM model">...</strong>
+            </div>
+            <div class="chat-status" style="cursor: default;">
+              Profile:
+              <strong id="profileLabel" onclick="openProfileModal()" style="cursor: pointer; margin-left: 4px;" title="Click to select semantic profile">No Profile Selected</strong>
+            </div>
           </div>
         </div>
       </div>
@@ -516,6 +522,20 @@
   </div>
 </div>
 
+<!-- Model Modal -->
+<div id="modelModal" class="modal-overlay" onclick="closeModelModal(event)">
+  <div class="modal-content" onclick="event.stopPropagation()">
+    <button class="modal-close" onclick="closeModelModal()">&times;</button>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; margin-top: 0; padding-right: 20px;">
+      <h2 style="margin: 0;">LLM Model</h2>
+    </div>
+    
+    <div id="modelMenu" style="margin-bottom: 1rem;">
+      <!-- Model list will be injected here -->
+    </div>
+  </div>
+</div>
+
 <script>
   const messagesWrapper = document.getElementById("chatMessages");
   const messagesDiv = document.getElementById("chatMessagesInner");
@@ -565,6 +585,30 @@
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({ENABLE_CONTEXT_LAYER: enabled})
       });
+    } catch(err) {
+      console.error(err);
+    }
+  }
+
+  // Model Modal Logic
+  const modelModal = document.getElementById("modelModal");
+  function openModelModal() {
+    modelModal.style.display = "flex";
+  }
+  function closeModelModal(e) {
+    if (e && e.target !== modelModal && e.target !== document.querySelector('#modelModal .modal-close')) return;
+    modelModal.style.display = "none";
+  }
+
+  async function selectModel(modelName) {
+    try {
+      await fetch('/api/config/app', {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({LLM_ACTIVE_MODEL: modelName})
+      });
+      document.getElementById("modelLabel").textContent = modelName;
+      closeModelModal();
     } catch(err) {
       console.error(err);
     }
@@ -623,9 +667,24 @@
     try {
       const res = await fetch('/api/config/app');
       const data = await res.json();
+      
+      // Load Profile
       const profile = data.CONTEXT_DEFAULT_SEMANTIC_PROFILE;
       document.getElementById("profileLabel").textContent = profile || "No Profile Selected";
       document.getElementById("contextToggle").checked = data.ENABLE_CONTEXT_LAYER;
+      
+      // Load Model Info
+      const activeModel = data.LLM_ACTIVE_MODEL || "openai/gpt-oss-20b";
+      document.getElementById("modelLabel").textContent = activeModel;
+      
+      let modelHtml = "";
+      if (data.LLM_MODEL_LIST) {
+          data.LLM_MODEL_LIST.forEach(m => {
+            modelHtml += `<button class="conn-menu-btn" onclick="selectModel('${m}')">${m}</button>`;
+          });
+      }
+      document.getElementById("modelMenu").innerHTML = modelHtml;
+      
     } catch(err) {
       console.error(err);
     }
@@ -740,69 +799,18 @@
       const res = await fetch('/api/connections');
       if (!res.ok) return;
       const data = await res.json();
-      const activeUri = data.active_uri;
-      if (!activeUri) return;
       
-      const parts = activeUri.split("://");
-      if (parts.length < 2) return;
-      
-      const fullDialect = parts[0];
-      const dialect = fullDialect.split("+")[0].toLowerCase();
-      let rest = parts[1];
-      
-      let dbName = "Unknown";
-      if (dialect === "sqlite" || dialect === "duckdb") {
-         let pathSegment = rest;
-         if (rest.startsWith("///")) {
-            pathSegment = rest.substring(3);
-         } else if (rest.startsWith("//")) {
-            pathSegment = rest.substring(2);
-         } else if (rest.startsWith("/")) {
-            pathSegment = rest.substring(1);
-         }
-         const segments = pathSegment.split("/");
-         dbName = segments[segments.length - 1] || "db.sqlite";
-      } else {
-         const segments = rest.split("/");
-         let potentialDb = segments[segments.length - 1];
-         if (potentialDb.includes("?service_name=")) {
-           dbName = potentialDb.split("?service_name=")[1];
-         } else {
-           dbName = potentialDb;
-         }
-      }
+      const dbName = data.db_name || "Unknown";
+      const dialect = data.dialect || "unknown";
       
       document.getElementById("dbNameStr").textContent = dbName;
       
       const dialectEl = document.getElementById("dbDialectBadge");
-      let badgeColor = "#555";
-      let dialectLabel = dialect.toUpperCase();
-      let textColor = "white";
+      const styles = getDialectStyles(dialect);
       
-      if (dialect === "postgresql" || dialect === "postgres") {
-        dialectLabel = "Postgres";
-        badgeColor = "#336791";
-      } else if (dialect === "mysql" || dialect === "mariadb") {
-        dialectLabel = "MySQL";
-        badgeColor = "#00758F";
-      } else if (dialect === "mssql") {
-        dialectLabel = "MS SQL";
-        badgeColor = "#CC292B";
-      } else if (dialect === "sqlite") {
-        dialectLabel = "SQLite";
-        badgeColor = "#003B57";
-      } else if (dialect === "oracle") {
-        dialectLabel = "Oracle";
-        badgeColor = "#F80000";
-      } else if (dialect === "duckdb") {
-        dialectLabel = "DuckDB";
-        badgeColor = "#FFF000";
-        textColor = "#000";
-      }
-      
-      dialectEl.textContent = dialectLabel;
-      dialectEl.style.backgroundColor = badgeColor;
-      dialectEl.style.color = textColor;
+      dialectEl.textContent = styles.dialectLabel;
+      dialectEl.style.backgroundColor = styles.badgeColor;
+      dialectEl.style.color = styles.textColor;
     } catch(err) {
       console.error("Failed to load connection status", err);
     }

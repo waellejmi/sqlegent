@@ -1,6 +1,6 @@
 import json
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -14,6 +14,10 @@ logger = logging.getLogger(__name__)
 class AppConfig:
     ROOT_DIR: Path = Path(__file__).resolve().parent.parent.parent
     RUNTIME_SETTINGS_PATH: Path = ROOT_DIR / ".app_config" / "settings.json"
+
+    LLM_PROVIDER: str = "groq"
+    LLM_MODEL_LIST: list[str] = field(default_factory=lambda: ["openai/gpt-oss-20b", "qwen/qwen3-32b", "openai/gpt-oss-120b"])
+    LLM_ACTIVE_MODEL: str = "openai/gpt-oss-20b"
 
     # LOG_LEVEL: str = "INFO"
     LOG_LEVEL: str = "DEBUG"

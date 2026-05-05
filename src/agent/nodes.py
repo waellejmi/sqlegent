@@ -15,7 +15,7 @@ from agent.prompts import (
 from agent.state import AgentState, AnalysisResult, SkipDecision
 from config.app_config import AppConfig
 from context_layer.service import get_context_service
-from llm.model import model
+from llm.model import get_model
 from tools.database import (
     _get_config_flag,
     db,
@@ -110,7 +110,7 @@ def skip_pipeline(state: AgentState):
             schema_context=state.get("schema_context", "Not available"),
         ),
     }
-    structured_model = model.with_structured_output(SkipDecision)
+    structured_model = get_model().with_structured_output(SkipDecision)
     result = structured_model.invoke([system_message])
 
     _log_node_payload("Skip Decision", result)
@@ -127,7 +127,7 @@ def should_skip(state: AgentState):
 
 
 def call_get_schema(state: AgentState):
-    llm_with_tools = model.bind_tools([get_schema_tool_with_cache], tool_choice="any")
+    llm_with_tools = get_model().bind_tools([get_schema_tool_with_cache], tool_choice="any")
     current_retry_count = state["retry_count"]
     if (
         state["analysis_result"] is not None
@@ -209,7 +209,7 @@ def generate_query(state: AgentState):
             query_memory_context=state.get("query_memory_context", "Not available"),
         ),
     }
-    llm_with_tools = model.bind_tools(
+    llm_with_tools = get_model().bind_tools(
         [run_query_tool_with_interrupt], tool_choice="any"
     )
 
@@ -284,7 +284,7 @@ def analyze_result(state: AgentState):
             instruction_context=state.get("instruction_context", "Not available"),
         ),
     }
-    structured_llm = model.with_structured_output(AnalysisResult)
+    structured_llm = get_model().with_structured_output(AnalysisResult)
 
     response = structured_llm.invoke([system_message])
 
@@ -341,7 +341,7 @@ def explain_result(state: AgentState):
             explanation=state["analysis_result"].explanation,
         ),
     }
-    response = model.invoke([system_message])
+    response = get_model().invoke([system_message])
     final_answer = _ai_message_to_text(response)
     _log_node_payload("Explanation", _ai_message_to_text(response))
     return {
