@@ -65,11 +65,7 @@ async def chat_socket(websocket: WebSocket, session_id: str):
             except Exception:
                 usage_callback = None
 
-            config = make_runnable_config(
-                bypass_cache=bool(request.get("bypass_cache", False)),
-                invalidate_cache=bool(request.get("invalidate_cache", False)),
-                usage_callback=usage_callback,
-            )
+            config = make_runnable_config(usage_callback=usage_callback)
             initial_state = build_initial_state(question)
 
             async def on_message(message_chunk):

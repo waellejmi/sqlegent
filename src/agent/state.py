@@ -1,8 +1,6 @@
 from operator import add
 from typing import Annotated, Literal, TypedDict
 
-from langchain_core.messages import AnyMessage
-from langgraph.graph import add_messages
 from pydantic import BaseModel
 
 
@@ -16,9 +14,13 @@ class SkipDecision(BaseModel):
     skip: bool = False
 
 
-class AgentState(TypedDict):
-    messages: Annotated[list[AnyMessage], add_messages]
+class SynthesisResult(BaseModel):
+    synthesized_question: str
+
+
+class SqlAgentState(TypedDict):
     user_question: str
+    last_user_question: str | None
 
     available_tables: list[str]
 

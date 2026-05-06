@@ -33,15 +33,8 @@ mcp = FastMCP("sql-mcp-server")
 agent = build_agent()
 
 
-def _make_config(
-    bypass_cache: bool = False,
-    invalidate_cache: bool = False,
-) -> RunnableConfig:
-    return make_runnable_config(
-        bypass_cache=bypass_cache,
-        invalidate_cache=invalidate_cache,
-        usage_callback=UsageMetadataCallbackHandler(),
-    )
+def _make_config() -> RunnableConfig:
+    return make_runnable_config(usage_callback=UsageMetadataCallbackHandler())
 
 
 async def _run_agent_auto_accept(initial_state: dict, config: RunnableConfig) -> str:
@@ -71,8 +64,6 @@ async def _run_agent_auto_accept(initial_state: dict, config: RunnableConfig) ->
 @mcp.tool()
 async def ask_database(
     question: str,
-    bypass_cache: bool = False,
-    invalidate_cache: bool = False,
 ) -> str:
     """
     Answer a natural language question about the database.
@@ -88,10 +79,7 @@ async def ask_database(
         A natural language answer based on the query results.
     """
     logger.info(f"ask_database called with: {question!r}")
-    config = _make_config(
-        bypass_cache=bypass_cache,
-        invalidate_cache=invalidate_cache,
-    )
+    config = _make_config()
     initial_state = build_initial_state(question)
     return await _run_agent_auto_accept(initial_state, config)
 
@@ -99,8 +87,6 @@ async def ask_database(
 @mcp.tool()
 async def generate_sql(
     question: str,
-    bypass_cache: bool = False,
-    invalidate_cache: bool = False,
 ) -> str:
     """
     Generate a validated SQL query for a natural language question without executing it.
@@ -122,10 +108,7 @@ async def generate_sql(
     AppConfig.__dataclass_fields__["EXECUTE_SQL_QUERIES"].default = False
 
     try:
-        config = _make_config(
-            bypass_cache=bypass_cache,
-            invalidate_cache=invalidate_cache,
-        )
+        config = _make_config()
         initial_state = build_initial_state(question)
 
         async for _ in agent.astream(

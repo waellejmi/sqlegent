@@ -65,6 +65,11 @@ def _build_parser() -> argparse.ArgumentParser:
             f"Use built-in default question ({DEFAULT_QUESTION_KEY}) instead of prompting."
         ),
     )
+    parser.add_argument(
+        "--chat",
+        action="store_true",
+        help="Enable the conversational Orchestrator",
+    )
     return parser
 
 
@@ -82,6 +87,7 @@ def _pick_question(use_default: bool) -> str:
 def _persist_cli_outcome(values: dict) -> None:
     if AppConfig().ENABLE_CONTEXT_LAYER and AppConfig().ASK_RESULT_CONFIRMATION:
         analysis_result = values.get("analysis_result")
+        # In chat mode, values might not have analysis_result directly.
         if analysis_result and analysis_result.status == "success":
             question = values.get("user_question") or ""
             sql = values.get("last_query") or ""
@@ -118,30 +124,47 @@ def _persist_cli_outcome(values: dict) -> None:
             )
 
 
-async def _run_cli_agent(question: str) -> None:
+async def _run_cli_agent(question: str, is_chat: bool) -> None:
     print("--- Starting Agent ---")
     usage = UsageMetadataCallbackHandler()
-    config = make_runnable_config(
-        bypass_cache=False,
-        invalidate_cache=False,
-        usage_callback=usage,
-    )
+    config = make_runnable_config(usage_callback=usage)
 
-    initial_state = build_initial_state(question)
-    agent, final_state = await run_agent_with_interrupt(
-        input_state=initial_state,
-        config=config,
-        interrupt_handler=get_user_interrupt_response,
-        on_message=_on_stream_message,
-        on_transition=display_transition,
-    )
+    if is_chat:
+        from langchain_core.messages import HumanMessage
 
-    if AppConfig().SHOW_NODE_HISTORY:
-        print("\n--- Full Node History ---")
-        for i, state in enumerate(agent.get_state_history(config)):
-            print(f"Checkpoint {i}: next={state.next} ")
+        while True:
+            initial_state = {"messages": [HumanMessage(content=question)]}
+            agent, final_state = await run_agent_with_interrupt(
+                input_state=initial_state,
+                config=config,
+                interrupt_handler=get_user_interrupt_response,
+                on_message=_on_stream_message,
+                on_transition=display_transition,
+            )
 
-    _persist_cli_outcome(final_state.values)
+            print()  # Add a newline after the agent's response
+            question = input("User: ").strip()
+            if question == ":q":
+                print("Exiting chat...")
+                break
+            while not question:
+                question = input("User: ").strip()
+    else:
+        initial_state = build_initial_state(question)
+        agent, final_state = await run_agent_with_interrupt(
+            input_state=initial_state,
+            config=config,
+            interrupt_handler=get_user_interrupt_response,
+            on_message=_on_stream_message,
+            on_transition=display_transition,
+        )
+
+        if AppConfig().SHOW_NODE_HISTORY:
+            print("\n--- Full Node History ---")
+            for i, state in enumerate(agent.get_state_history(config)):
+                print(f"Checkpoint {i}: next={state.next} ")
+
+        _persist_cli_outcome(final_state.values)
 
     print("\n--- Token Usage ---")
     print(usage.usage_metadata)
@@ -150,6 +173,9 @@ async def _run_cli_agent(question: str) -> None:
 def main() -> int:
     parser = _build_parser()
     args = parser.parse_args()
+
+    if args.chat:
+        AppConfig.ENABLE_ORCHESTRATOR = True
 
     if args.context_reindex:
         db_config = DBConfig()
@@ -169,5 +195,5 @@ def main() -> int:
     run_context_index_once(args.semantic_profile)
 
     question = _pick_question(args.use_default)
-    asyncio.run(_run_cli_agent(question))
+    asyncio.run(_run_cli_agent(question, is_chat=args.chat))
     return 0

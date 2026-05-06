@@ -33,6 +33,7 @@ class AppConfig:
     LOG_MAX_ITEMS: int = 10
     LOG_RESPONSE_MAX_CHARS: int = 300
 
+    ENABLE_ORCHESTRATOR: bool = True
     HUMAN_SQL_REVIEW: bool = False
     EXECUTE_SQL_QUERIES: bool = True
     MAX_SQL_RETRIES: int = 2
@@ -43,6 +44,7 @@ class AppConfig:
     METADATA_CACHE_ENABLED: bool = True
     METADATA_CACHE_TTL_SECONDS: int | None = None
     METADATA_CACHE_BYPASS_DEFAULT: bool = False
+    METADATA_CACHE_INVALIDATE_DEFAULT: bool = False
     METADATA_CACHE_PATH: Path = ROOT_DIR / ".app_cache" / "metadata_cache.sqlite"
 
     WEBUI_HISTORY_PATH: Path = ROOT_DIR / ".app_cache" / "webui_history.sqlite"

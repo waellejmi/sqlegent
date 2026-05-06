@@ -186,3 +186,16 @@ Instruction Context : {instruction_context}
 
 You will call the appropriate tool to get the schema for the candidate tables.
 """
+
+QUESTION_SYNTHESIS_PROMPT = """
+You are a context synthesizer for a database query system.
+Your goal is to rewrite the user's current question into a complete, standalone sentence that can be answered by a SQL database.
+
+USER'S CURRENT QUESTION: {user_question}
+USER'S PREVIOUS QUESTION (for context): {last_user_question}
+
+INSTRUCTIONS:
+1. If the current question contains pronouns (it, them, those) or implicit references to the previous question, resolve them using the previous question's context.
+2. If the current question is a completely new topic and does not relate to the previous question, drop the old context entirely and just rewrite the new question clearly.
+3. Output ONLY the standalone rewritten question. Do not add any explanations, preambles, or conversational filler.
+"""

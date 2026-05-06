@@ -67,20 +67,10 @@ def _build_database_components():
 db, get_schema_tool, run_query_tool = _build_database_components()
 
 
-def _get_config_flag(
-    config: RunnableConfig | None, flag: str, default: bool = False
-) -> bool:
-    if not config:
-        return default
-    configurable = config.get("configurable") if isinstance(config, dict) else None
-    if not isinstance(configurable, dict):
-        return default
-    return bool(configurable.get(flag, default))
-
-
-def list_tables_with_cache(
-    *, bypass_cache: bool = False, invalidate_cache: bool = False
-) -> list[str]:
+def list_tables_with_cache() -> list[str]:
+    app_config = AppConfig()
+    bypass_cache = app_config.METADATA_CACHE_BYPASS_DEFAULT
+    invalidate_cache = app_config.METADATA_CACHE_INVALIDATE_DEFAULT
     if invalidate_cache:
         invalidate_metadata_cache(DBConfig().get_database_uri())
 
@@ -108,7 +98,7 @@ def list_tables_with_cache(
     args_schema=get_schema_tool.args_schema,
 )
 def get_schema_tool_with_cache(table_names: str, config: RunnableConfig | None = None):
-    bypass_cache = _get_config_flag(config, "metadata_bypass_cache", False)
+    bypass_cache = AppConfig().METADATA_CACHE_BYPASS_DEFAULT
     normalized_table_names = normalize_table_names_csv(table_names)
     operation_args = {"table_names": normalized_table_names}
 

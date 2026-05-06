@@ -14,11 +14,13 @@ from agent.nodes import (
     should_retry,
     should_skip,
     skip_pipeline,
+    question_synthesis,
 )
-from agent.state import AgentState
+from agent.state import SqlAgentState
 from config.app_config import AppConfig
 
-builder = StateGraph(AgentState)
+builder = StateGraph(SqlAgentState)
+builder.add_node(question_synthesis)
 builder.add_node(list_tables)
 builder.add_node(retrieve_context)
 builder.add_node(skip_pipeline)
@@ -29,7 +31,8 @@ builder.add_node("run_query", run_query)
 builder.add_node(analyze_result)
 builder.add_node(explain_result)
 
-builder.add_edge(START, "list_tables")
+builder.add_edge(START, "question_synthesis")
+builder.add_edge("question_synthesis", "list_tables")
 builder.add_edge("list_tables", "retrieve_context")
 builder.add_edge("retrieve_context", "skip_pipeline")
 

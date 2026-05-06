@@ -4,12 +4,11 @@ from langchain_core.callbacks.usage import UsageMetadataCallbackHandler
 from langchain_core.messages import HumanMessage
 from langchain_core.runnables import RunnableConfig
 
-from agent.state import AgentState
+from agent.state import SqlAgentState
 
 
-def build_initial_state(question: str) -> AgentState:
-    return AgentState(
-        messages=[HumanMessage(content=question)],
+def build_initial_state(question: str) -> SqlAgentState:
+    return SqlAgentState(
         user_question=question,
         last_query=None,
         previous_queries=[],
@@ -20,13 +19,13 @@ def build_initial_state(question: str) -> AgentState:
         schema_context=None,
         instruction_context=None,
         query_memory_context=None,
+        last_user_question=None,
     )
 
 
 def make_runnable_config(
+    thread_id: str | None = None,
     *,
-    bypass_cache: bool = False,
-    invalidate_cache: bool = False,
     usage_callback: UsageMetadataCallbackHandler | None = None,
 ) -> RunnableConfig:
     callbacks: list[UsageMetadataCallbackHandler] = []
@@ -35,9 +34,7 @@ def make_runnable_config(
 
     return RunnableConfig(
         configurable={
-            "thread_id": str(uuid.uuid4()),
-            "metadata_bypass_cache": bypass_cache,
-            "metadata_invalidate_cache": invalidate_cache,
+            "thread_id": thread_id if thread_id is not None else str(uuid.uuid4()),
         },
         callbacks=callbacks,
     )

@@ -9,15 +9,15 @@ from agent.prompts import (
     GENERATE_QUERY,
     GET_SCHEMA_PROMPT,
     HANDLE_IRRELEVANT_RESULT,
+    QUESTION_SYNTHESIS_PROMPT,
     REGEN_PROMPTS,
     SHOULD_SKIP,
 )
-from agent.state import AgentState, AnalysisResult, SkipDecision
+from agent.state import AnalysisResult, SkipDecision, SqlAgentState, SynthesisResult
 from config.app_config import AppConfig
 from context_layer.service import get_context_service
 from llm.model import get_model
 from tools.database import (
-    _get_config_flag,
     db,
     get_schema_tool_with_cache,
     list_tables_with_cache,
@@ -58,17 +58,39 @@ def _ai_message_to_text(message: AIMessage) -> str:
     return "".join(parts)
 
 
-def list_tables(_state: AgentState, config: RunnableConfig | None = None):
-    bypass_cache = _get_config_flag(
-        config,
-        "metadata_bypass_cache",
-        AppConfig().METADATA_CACHE_BYPASS_DEFAULT,
+def question_synthesis(state: SqlAgentState):
+    last_user_question = state.get("last_user_question")
+    current_question = state["user_question"]
+
+    if not last_user_question:
+        _log_node_payload("Question Synthesis (Skipped)", current_question)
+        return {"user_question": current_question}
+
+    system_message = {
+        "role": "system",
+        "content": QUESTION_SYNTHESIS_PROMPT.format(
+            user_question=current_question,
+            last_user_question=last_user_question,
+        ),
+    }
+
+    structured_model = get_model().with_structured_output(SynthesisResult)
+    result = structured_model.invoke([system_message])
+
+    _log_node_payload(
+        "Question Synthesis",
+        {
+            "original": current_question,
+            "last": last_user_question,
+            "synthesized": result.synthesized_question,
+        },
     )
-    invalidate_cache = _get_config_flag(config, "metadata_invalidate_cache", False)
-    result = list_tables_with_cache(
-        bypass_cache=bypass_cache,
-        invalidate_cache=invalidate_cache,
-    )
+
+    return {"user_question": result.synthesized_question}
+
+
+def list_tables(_state: SqlAgentState):
+    result = list_tables_with_cache()
 
     _log_node_payload("List of tables in the database", result)
     if not result:
@@ -77,7 +99,7 @@ def list_tables(_state: AgentState, config: RunnableConfig | None = None):
     return {"available_tables": result}
 
 
-def retrieve_context(state: AgentState):
+def retrieve_context(state: SqlAgentState):
     if not AppConfig().ENABLE_CONTEXT_LAYER:
         return
 
@@ -101,7 +123,7 @@ def retrieve_context(state: AgentState):
     }
 
 
-def skip_pipeline(state: AgentState):
+def skip_pipeline(state: SqlAgentState):
     system_message = {
         "role": "system",
         "content": SHOULD_SKIP.format(
@@ -119,15 +141,17 @@ def skip_pipeline(state: AgentState):
     }
 
 
-def should_skip(state: AgentState):
+def should_skip(state: SqlAgentState):
     if state["skip_decision"] and state["skip_decision"].skip:
         return "explain_result"
 
     return "call_get_schema"
 
 
-def call_get_schema(state: AgentState):
-    llm_with_tools = get_model().bind_tools([get_schema_tool_with_cache], tool_choice="any")
+def call_get_schema(state: SqlAgentState):
+    llm_with_tools = get_model().bind_tools(
+        [get_schema_tool_with_cache], tool_choice="any"
+    )
     current_retry_count = state["retry_count"]
     if (
         state["analysis_result"] is not None
@@ -171,7 +195,7 @@ def call_get_schema(state: AgentState):
 
 
 def get_schema_for_candidate_tables(
-    state: AgentState, config: RunnableConfig | None = None
+    state: SqlAgentState, config: RunnableConfig | None = None
 ):
     candidate_tables = state.get("candidate_tables", [])
     if not candidate_tables:
@@ -196,7 +220,7 @@ def get_schema_for_candidate_tables(
     return {"schema_for_candidate_tables": schema_text}
 
 
-def generate_query(state: AgentState):
+def generate_query(state: SqlAgentState):
     system_message = {
         "role": "system",
         "content": GENERATE_QUERY.format(
@@ -250,13 +274,13 @@ def generate_query(state: AgentState):
     }
 
 
-def should_execute(_state: AgentState):
+def should_execute(_state: SqlAgentState):
     if not AppConfig().EXECUTE_SQL_QUERIES:
         return "explain_result"
     return "run_query"
 
 
-def run_query(state: AgentState, config: RunnableConfig | None = None):
+def run_query(state: SqlAgentState, config: RunnableConfig | None = None):
     last_gen_query = state.get("last_query")
     if not last_gen_query:
         logger.warning("No query found to be executed.")
@@ -271,7 +295,7 @@ def run_query(state: AgentState, config: RunnableConfig | None = None):
     return {"db_output": db_txt}
 
 
-def analyze_result(state: AgentState):
+def analyze_result(state: SqlAgentState):
     db_output = state.get("db_output", "Empty, 0 rows returned")
 
     system_message = {
@@ -296,7 +320,7 @@ def analyze_result(state: AgentState):
     }
 
 
-def should_retry(state: AgentState):
+def should_retry(state: SqlAgentState):
     analysis_result = state.get("analysis_result")
 
     if state["retry_count"] < AppConfig().MAX_SQL_RETRIES:
@@ -314,13 +338,13 @@ def should_retry(state: AgentState):
     return "explain_result"
 
 
-def explain_result(state: AgentState):
+def explain_result(state: SqlAgentState):
     if not AppConfig().EXECUTE_SQL_QUERIES:
         explanation = f"SQL execution is disabled. Skipping query . Here is last generated query: {state['last_query']}"
         _log_node_payload("No Execution", explanation)
         return {
             "final_answer": explanation,
-            "messages": [AIMessage(content=explanation)],
+            "last_user_question": state["user_question"],
         }
 
     if state["skip_decision"] and state["skip_decision"].skip:
@@ -328,7 +352,7 @@ def explain_result(state: AgentState):
         _log_node_payload("Skip Explanation", explanation)
         return {
             "final_answer": explanation,
-            "messages": [AIMessage(content=explanation)],
+            "last_user_question": state["user_question"],
         }
 
     system_message = {
@@ -346,5 +370,5 @@ def explain_result(state: AgentState):
     _log_node_payload("Explanation", _ai_message_to_text(response))
     return {
         "final_answer": final_answer,
-        "messages": [response],
+        "last_user_question": state["user_question"],
     }

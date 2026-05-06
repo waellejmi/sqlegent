@@ -1,10 +1,9 @@
+import json
 import logging
 from datetime import UTC, datetime
-import json
 from typing import Any
 
 from config.app_config import AppConfig
-
 
 _THIRD_PARTY_LOGGERS = (
     "groq",
