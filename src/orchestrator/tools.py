@@ -1,13 +1,10 @@
+import json
 from typing import Annotated
 
-from langchain_core.messages import AIMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
 
 from agent.graph import agent as nl2sql_agent
-from config.app_config import AppConfig
-
-
 from app.state_factory import build_initial_state
 
 
@@ -24,7 +21,17 @@ def call_nl2sql_tool(
     """
     initial_state = build_initial_state(user_question)
 
-    # We pass the same config to the subagent so thread_id is preserved for its memory
     result = nl2sql_agent.invoke(initial_state, config=config)
+    analysis_result = result.get("analysis_result")
+    payload = {
+        "question": user_question,
+        "answer": result.get(
+            "final_answer", "Error: No final answer produced by subagent."
+        ),
+        "sql": result.get("last_query"),
+        "db_output": result.get("db_output"),
+        "analysis_status": getattr(analysis_result, "status", None),
+        "analysis_explanation": getattr(analysis_result, "explanation", None),
+    }
 
-    return result.get("final_answer", "Error: No final answer produced by subagent.")
+    return json.dumps(payload, ensure_ascii=False)

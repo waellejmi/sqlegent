@@ -4,8 +4,10 @@ import contextlib
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
-from app.agent_runtime import run_agent_with_interrupt, stream_chunk_to_text
+from app.agent_runtime import run_agent_with_interrupt
+from app.chat_persistence import extract_tool_payload, save_chat_history
 from app.state_factory import build_initial_state, make_runnable_config
+from utils.message_helpers import stream_chunk_to_text
 
 router = APIRouter()
 
@@ -109,46 +111,24 @@ async def chat_socket(websocket: WebSocket, session_id: str):
                 continue
 
             values = final_state.values
-            final_answer = values.get("final_answer") or ""
-            analysis = values.get("analysis_result")
-            analysis_status = getattr(analysis, "status", None)
-            sql = values.get("last_query")
-            db_output = values.get("db_output")
+            payload = extract_tool_payload(values.get("messages", []))
+            analysis_status = payload.get("analysis_status") if payload else None
+            final_answer = (
+                payload.get("answer")
+                if payload and payload.get("answer")
+                else values.get("final_answer") or ""
+            )
+            sql = payload.get("sql") if payload else values.get("last_query")
+            db_output = (
+                payload.get("db_output") if payload else values.get("db_output")
+            )
 
-            try:
-                from webui.history_store import HistoryStore
-                from config.db_config import DBConfig
-
-                db_name = None
-                db_dialect = None
-                try:
-                    db_cfg = DBConfig()
-                    uri = db_cfg.get_database_uri()
-                    if uri:
-                        from sqlalchemy.engine import make_url
-                        url = make_url(uri)
-                        db_dialect = url.drivername.split("+")[0].lower()
-                        if db_dialect in ["sqlite", "duckdb"]:
-                            if url.database:
-                                import pathlib
-                                db_name = pathlib.Path(url.database).name
-                            else:
-                                db_name = "db.sqlite"
-                        else:
-                            db_name = url.database
-                except Exception as e:
-                    import logging
-                    logging.getLogger(__name__).warning("Could not get DB config for history: %s", e)
-
-                store = HistoryStore()
-                history_id = store.add_interaction(
-                    question, sql, db_output, final_answer, db_name, db_dialect
-                )
-            except Exception as e:
-                import logging
-
-                logging.getLogger(__name__).warning("Failed to save history: %s", e)
-                history_id = None
+            history_id = save_chat_history(
+                question=question,
+                answer=final_answer,
+                sql=sql,
+                db_output=db_output,
+            )
 
             from config.app_config import AppConfig
 

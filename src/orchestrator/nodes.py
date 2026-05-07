@@ -1,7 +1,6 @@
 from langchain_core.messages import SystemMessage
 from langgraph.prebuilt import ToolNode
 
-from config.app_config import AppConfig
 from llm.model import get_model
 from orchestrator.prompts import ORCHESTRATOR_SYSTEM_PROMPT
 from orchestrator.state import OrchestratorState

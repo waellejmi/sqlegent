@@ -4,7 +4,8 @@ import asyncio
 from langchain_core.callbacks.usage import UsageMetadataCallbackHandler
 from langchain_core.messages import AIMessageChunk
 
-from app.agent_runtime import run_agent_with_interrupt, stream_chunk_to_text
+from app.agent_runtime import run_agent_with_interrupt
+from app.chat_persistence import extract_tool_payload, save_chat_history
 from app.context_ops import (
     print_context_stats,
     run_context_index_once,
@@ -25,6 +26,8 @@ from context_layer.service import (
     get_context_service,
     safe_parse_row_count,
 )
+from utils.message_helpers import extract_last_ai_message
+from utils.message_helpers import stream_chunk_to_text
 from utils.logger_setup import LoggerSetup
 
 LoggerSetup.configure_logging()
@@ -65,10 +68,16 @@ def _build_parser() -> argparse.ArgumentParser:
             f"Use built-in default question ({DEFAULT_QUESTION_KEY}) instead of prompting."
         ),
     )
-    parser.add_argument(
+    mode_group = parser.add_mutually_exclusive_group()
+    mode_group.add_argument(
         "--chat",
         action="store_true",
-        help="Enable the conversational Orchestrator",
+        help="Force conversational orchestrator mode.",
+    )
+    mode_group.add_argument(
+        "--nl2sql",
+        action="store_true",
+        help="Force direct NL2SQL mode.",
     )
     return parser
 
@@ -142,6 +151,42 @@ async def _run_cli_agent(question: str, is_chat: bool) -> None:
                 on_transition=display_transition,
             )
 
+            values = final_state.values
+            messages = values.get("messages", [])
+            payload = extract_tool_payload(messages)
+            final_answer = payload.get("answer") if payload else None
+            if not final_answer:
+                final_answer = extract_last_ai_message(values)
+
+            save_chat_history(
+                question=question,
+                answer=final_answer,
+                sql=payload.get("sql") if payload else None,
+                db_output=payload.get("db_output") if payload else None,
+            )
+
+            if (
+                payload
+                and payload.get("analysis_status") == "success"
+                and AppConfig().ENABLE_CONTEXT_LAYER
+                and AppConfig().ASK_RESULT_CONFIRMATION
+            ):
+                row_count = safe_parse_row_count(payload.get("db_output"))
+                confirmation = input("\nWas result correct? [y/N]: ").strip()
+                is_verified = confirmation.lower() in {"y", "yes"}
+                if is_verified and payload.get("sql"):
+                    service = get_context_service()
+                    memory_id = service.record_verified_query(
+                        question=payload.get("question") or question,
+                        sql=payload["sql"],
+                        tables=extract_tables_from_sql(payload["sql"]),
+                        row_count=row_count,
+                        is_verified=True,
+                        metadata={"source": "cli-chat"},
+                    )
+                    if memory_id:
+                        print(f"Stored verified NL->SQL memory id: {memory_id}")
+
             print()  # Add a newline after the agent's response
             question = input("User: ").strip()
             if question == ":q":
@@ -176,6 +221,8 @@ def main() -> int:
 
     if args.chat:
         AppConfig.ENABLE_ORCHESTRATOR = True
+    elif args.nl2sql:
+        AppConfig.ENABLE_ORCHESTRATOR = False
 
     if args.context_reindex:
         db_config = DBConfig()
@@ -195,5 +242,6 @@ def main() -> int:
     run_context_index_once(args.semantic_profile)
 
     question = _pick_question(args.use_default)
-    asyncio.run(_run_cli_agent(question, is_chat=args.chat))
+    is_chat = args.chat or (AppConfig().ENABLE_ORCHESTRATOR and not args.nl2sql)
+    asyncio.run(_run_cli_agent(question, is_chat=is_chat))
     return 0

@@ -3,20 +3,7 @@ import json
 import readline
 from typing import Any
 
-NODE_FRIENDLY_NAMES = {
-    "chat": "Thinking...",
-    "tools": "Querying Database...",
-    "question_synthesis": "Synthesizing Question...",
-    "list_tables": "Viewing Tables...",
-    "retrieve_context": "Retrieving Context...",
-    "skip_pipeline": "Checking Requirements...",
-    "call_get_schema": "Selecting Tables...",
-    "get_schema": "Getting Schemas...",
-    "generate_query": "Generating Query...",
-    "run_query": "Executing Query...",
-    "analyze_result": "Analyzing Result...",
-    "explain_result": "Formatting Result...",
-}
+from utils.node_labels import get_friendly_node_name
 
 
 def display_streaming_content(content: str) -> None:
@@ -24,7 +11,7 @@ def display_streaming_content(content: str) -> None:
 
 
 def display_transition(node_name: str) -> None:
-    friendly_name = NODE_FRIENDLY_NAMES.get(node_name)
+    friendly_name = get_friendly_node_name(node_name)
     if friendly_name:
         print(f"\n[ {friendly_name} ]", flush=True)
 

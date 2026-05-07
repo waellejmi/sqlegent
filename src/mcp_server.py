@@ -5,13 +5,14 @@ from langchain_core.runnables import RunnableConfig
 from langgraph.types import Command
 from mcp.server.fastmcp import FastMCP
 
-from app.agent_runtime import build_agent, extract_last_ai_message
+from app.agent_runtime import build_agent
 from app.state_factory import build_initial_state, make_runnable_config
 from config.db_config import DBConfig
 from context_layer.service import extract_tables_from_sql, get_context_service
 from tools.database import db
 from tools.metadata_cache import invalidate_metadata_cache
 from utils.logger_setup import LoggerSetup
+from utils.message_helpers import extract_last_ai_message
 
 LoggerSetup.configure_logging()
 logger = LoggerSetup.get_logger(__name__, logging.INFO)
