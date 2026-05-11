@@ -177,6 +177,15 @@
     overflow-x: auto;
   }
 
+  .transition-node {
+    font-size: 0.8em;
+    color: #888;
+    font-weight: 300;
+    display: block;
+    margin-bottom: 2px;
+  }
+
+
   .reasoning-block {
     background: #f9f9f9;
     border-left: 4px solid #999;
@@ -537,6 +546,22 @@
 </div>
 
 <script>
+  const NODE_FRIENDLY_NAMES = {
+    "chat": "Thinking...",
+    "tools": "Querying Database...",
+    "sql_pipeline": "Querying Database...",
+    "question_synthesis": "Synthesizing Question...",
+    "list_tables": "Viewing Tables...",
+    "retrieve_context": "Retrieving Context...",
+    "skip_pipeline": "Checking Requirements...",
+    "call_get_schema": "Selecting Tables...",
+    "get_schema": "Getting Schemas...",
+    "generate_query": "Generating Query...",
+    "run_query": "Executing Query...",
+    "analyze_result": "Analyzing Result...",
+    "explain_result": "Formatting Result..."
+  };
+
   const messagesWrapper = document.getElementById("chatMessages");
   const messagesDiv = document.getElementById("chatMessagesInner");
   const askBtn = document.getElementById("askBtn");
@@ -548,8 +573,8 @@
   const ws = new WebSocket(`${protocol}://${location.host}/ws/chat/${sessionId}`);
 
   let currentAiMessage = null;
-  let currentReasoning = null;
   let currentReasoningContent = null;
+  let currentAnswerContent = null;
   let lastQuestion = "";
 
   // Modal Logic
@@ -1041,23 +1066,42 @@
     return div;
   }
 
+  
+  function getOrCreateAnswer() {
+    if (!currentAiMessage) {
+      currentAiMessage = createMessage("ai", "");
+    }
+    if (!currentAnswerContent) {
+      currentAnswerContent = document.createElement("div");
+      currentAnswerContent.className = "msg-answer";
+      currentAiMessage.appendChild(currentAnswerContent);
+    }
+    return currentAnswerContent;
+  }
+
   function getOrCreateReasoning() {
     if (!currentAiMessage) {
       currentAiMessage = createMessage("ai", "");
     }
-    if (!currentReasoning) {
-      currentReasoning = document.createElement("details");
-      currentReasoning.className = "reasoning-block";
+    if (!currentReasoningContent) {
+      const details = document.createElement("details");
+      details.className = "reasoning-block";
+      
       const summary = document.createElement("summary");
+      summary.className = "reasoning-summary";
       summary.textContent = "Agent Reasoning / Output Stream";
+      
       currentReasoningContent = document.createElement("div");
       currentReasoningContent.className = "reasoning-content";
       
-      currentReasoning.appendChild(summary);
-      currentReasoning.appendChild(currentReasoningContent);
-      currentAiMessage.appendChild(currentReasoning);
-      // Automatically open if first reasoning block
-      currentReasoning.open = true;
+      details.appendChild(summary);
+      details.appendChild(currentReasoningContent);
+      currentAiMessage.appendChild(details);
+      
+      // Store reference to summary to update it
+      currentReasoningContent._summary = summary;
+      currentReasoningContent._details = details;
+      details.open = true;
     }
     return currentReasoningContent;
   }
@@ -1076,23 +1120,32 @@
     
     if (msg.type === "transition") {
       const container = getOrCreateReasoning();
-      container.textContent += `\n[transition] -> ${msg.node}`;
+      const friendlyName = NODE_FRIENDLY_NAMES[msg.node];
+      if (friendlyName) {
+        // Update the summary to show the current transition
+        if (container._summary) {
+          container._summary.textContent = `[ ${friendlyName} ]`;
+        }
+        
+        // Add to history
+        const nodeEl = document.createElement("div");
+        nodeEl.className = "transition-node";
+        nodeEl.textContent = `[ ${friendlyName} ]`;
+        container.appendChild(nodeEl);
+      }
       messagesWrapper.scrollTop = messagesWrapper.scrollHeight;
       return;
     }
 
     if (msg.type === "token") {
-      // Tokens are intermediate reasoning thoughts
-      const container = getOrCreateReasoning();
-      container.textContent += msg.text;
+      const container = getOrCreateAnswer();
+      container.appendChild(document.createTextNode(msg.text));
       messagesWrapper.scrollTop = messagesWrapper.scrollHeight;
       return;
     }
     
     if (msg.type === "interrupt") {
-      if (currentReasoning) currentReasoning.open = false;
       currentAiMessage = null; 
-      currentReasoning = null;
       currentReasoningContent = null;
       
       const sqlQuery = msg.payload?.[0]?.args?.query || "";
@@ -1118,7 +1171,7 @@
       acceptBtn.onclick = () => {
         createMessage("user", "Accepted SQL");
         ws.send(JSON.stringify({ type: "interrupt_response", payload: { type: "accept" } }));
-        currentAiMessage = null; currentReasoning = null; currentReasoningContent = null;
+        currentAiMessage = null; currentReasoningContent = null; currentAnswerContent = null;
         container.remove();
       };
 
@@ -1127,7 +1180,7 @@
       rejectBtn.onclick = () => {
         createMessage("user", "Rejected SQL");
         ws.send(JSON.stringify({ type: "interrupt_response", payload: { type: "reject" } }));
-        currentAiMessage = null; currentReasoning = null; currentReasoningContent = null;
+        currentAiMessage = null; currentReasoningContent = null; currentAnswerContent = null;
         container.remove();
       };
 
@@ -1137,7 +1190,7 @@
         const val = textarea.value.trim();
         createMessage("user", "Edited SQL");
         ws.send(JSON.stringify({ type: "interrupt_response", payload: { type: "edit", edited_query: val } }));
-        currentAiMessage = null; currentReasoning = null; currentReasoningContent = null;
+        currentAiMessage = null; currentReasoningContent = null; currentAnswerContent = null;
         container.remove();
       };
 
@@ -1147,7 +1200,7 @@
         const val = textarea.value.trim();
         createMessage("user", `Feedback: ${val}`);
         ws.send(JSON.stringify({ type: "interrupt_response", payload: { type: "response", feedback: val } }));
-        currentAiMessage = null; currentReasoning = null; currentReasoningContent = null;
+        currentAiMessage = null; currentReasoningContent = null; currentAnswerContent = null;
         container.remove();
       };
 
@@ -1160,17 +1213,21 @@
     }
     
     if (msg.type === "final") {
-      if (currentReasoning) currentReasoning.open = false;
-      
+      if (currentReasoningContent && currentReasoningContent._details) {
+        currentReasoningContent._details.open = false;
+      }
       let aiMsg = currentAiMessage;
       if (!aiMsg) {
         aiMsg = createMessage("ai", "");
       }
       
       if (msg.answer) {
-        const answerDiv = document.createElement("div");
+        let answerDiv = currentAnswerContent;
+        if (!answerDiv) {
+          answerDiv = document.createElement("div");
+          aiMsg.appendChild(answerDiv);
+        }
         answerDiv.innerHTML = marked.parse(msg.answer);
-        aiMsg.appendChild(answerDiv);
       }
       
       if (msg.sql) {
@@ -1191,7 +1248,6 @@
       }
       
       currentAiMessage = null;
-      currentReasoning = null;
       currentReasoningContent = null;
       messagesWrapper.scrollTop = messagesWrapper.scrollHeight;
       loadHistory(); // Refresh history
@@ -1199,13 +1255,13 @@
     }
     
     if (msg.type === "error") {
-      currentAiMessage = null; currentReasoning = null; currentReasoningContent = null;
+      currentAiMessage = null; currentReasoningContent = null; currentAnswerContent = null;
       createMessage("system", `Error: ${msg.message}`);
       return;
     }
     
     if (msg.type === "done") {
-      currentAiMessage = null; currentReasoning = null; currentReasoningContent = null;
+      currentAiMessage = null; currentReasoningContent = null; currentAnswerContent = null;
     }
   };
 
@@ -1218,8 +1274,8 @@
     questionInput.value = "";
     
     currentAiMessage = null;
-    currentReasoning = null;
     currentReasoningContent = null;
+    currentAnswerContent = null;
     
     ws.send(JSON.stringify({ type: "ask", question }));
   });

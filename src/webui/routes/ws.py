@@ -7,7 +7,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from app.agent_runtime import run_agent_with_interrupt
 from app.chat_persistence import extract_tool_payload, save_chat_history
 from app.state_factory import build_initial_state, make_runnable_config
-from utils.message_helpers import stream_chunk_to_text
+from utils.message_helpers import stream_chunk_to_text, extract_last_ai_message
 
 router = APIRouter()
 
@@ -68,7 +68,12 @@ async def chat_socket(websocket: WebSocket, session_id: str):
                 usage_callback = None
 
             config = make_runnable_config(usage_callback=usage_callback)
-            initial_state = build_initial_state(question)
+            from config.app_config import AppConfig
+            if AppConfig().ENABLE_ORCHESTRATOR:
+                from langchain_core.messages import HumanMessage
+                initial_state = {"messages": [HumanMessage(content=question)]}
+            else:
+                initial_state = build_initial_state(question)
 
             async def on_message(message_chunk):
                 # Don't stream tokens during chat execution to UI - they get logged
@@ -118,6 +123,8 @@ async def chat_socket(websocket: WebSocket, session_id: str):
                 if payload and payload.get("answer")
                 else values.get("final_answer") or ""
             )
+            if not final_answer:
+                final_answer = extract_last_ai_message(values)
             sql = payload.get("sql") if payload else values.get("last_query")
             db_output = (
                 payload.get("db_output") if payload else values.get("db_output")
