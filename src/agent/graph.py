@@ -1,4 +1,3 @@
-from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, START, StateGraph
 
 from agent.nodes import (
@@ -8,13 +7,13 @@ from agent.nodes import (
     generate_query,
     get_schema_for_candidate_tables,
     list_tables,
+    question_synthesis,
     retrieve_context,
     run_query,
     should_execute,
     should_retry,
     should_skip,
     skip_pipeline,
-    question_synthesis,
 )
 from agent.state import SqlAgentState
 from config.app_config import AppConfig
@@ -66,9 +65,7 @@ builder.add_conditional_edges(
 
 builder.add_edge("explain_result", END)
 
-checkpointer = InMemorySaver()
-
-agent = builder.compile(checkpointer=checkpointer)
+agent = builder.compile()
 
 # Go to mermaid.live to visualize the graph
 if AppConfig().SHOW_AGENT_GRAPH:

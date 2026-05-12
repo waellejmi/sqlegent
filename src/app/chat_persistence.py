@@ -31,7 +31,13 @@ def extract_database_identity() -> tuple[str | None, str | None]:
 
 
 def extract_tool_payload(messages: list[AnyMessage]) -> dict[str, Any] | None:
+    from langchain_core.messages import HumanMessage
+    
     for message in reversed(messages):
+        if isinstance(message, HumanMessage):
+            # Stop searching if we hit the user's message for the current turn.
+            break
+
         if not isinstance(message, ToolMessage):
             continue
 
@@ -61,6 +67,7 @@ def save_chat_history(
     answer: str | None,
     sql: str | None,
     db_output: str | None,
+    session_id: str | None = None,
 ) -> str:
     db_name, db_dialect = extract_database_identity()
     store = HistoryStore()
@@ -71,4 +78,5 @@ def save_chat_history(
         answer=answer,
         db_name=db_name,
         db_dialect=db_dialect,
+        session_id=session_id,
     )

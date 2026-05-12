@@ -28,7 +28,6 @@ async def _ws_interrupt_handler(websocket: WebSocket, interrupt_info):
 
 @router.websocket("/chat/{session_id}")
 async def chat_socket(websocket: WebSocket, session_id: str):
-    del session_id
     await websocket.accept()
 
     try:
@@ -67,11 +66,12 @@ async def chat_socket(websocket: WebSocket, session_id: str):
             except Exception:
                 usage_callback = None
 
-            config = make_runnable_config(usage_callback=usage_callback)
+            config = make_runnable_config(thread_id=session_id, usage_callback=usage_callback)
             from config.app_config import AppConfig
             if AppConfig().ENABLE_ORCHESTRATOR:
                 from langchain_core.messages import HumanMessage
                 initial_state = {"messages": [HumanMessage(content=question)]}
+                # If using Postgres/SqliteSaver, the checkpointer will automatically append to this thread_id
             else:
                 initial_state = build_initial_state(question)
 
@@ -135,6 +135,7 @@ async def chat_socket(websocket: WebSocket, session_id: str):
                 answer=final_answer,
                 sql=sql,
                 db_output=db_output,
+                session_id=session_id,
             )
 
             from config.app_config import AppConfig

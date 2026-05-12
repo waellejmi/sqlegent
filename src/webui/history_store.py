@@ -16,6 +16,7 @@ class ChatHistoryRecord(TypedDict):
     is_saved: int
     db_name: str | None
     db_dialect: str | None
+    session_id: str | None
 
 
 class HistoryStore:
@@ -41,6 +42,7 @@ class HistoryStore:
                     created_at INTEGER NOT NULL,
                     is_saved INTEGER DEFAULT 0,
                     db_name TEXT,
+                    session_id TEXT,
                     db_dialect TEXT
                 )
                 """
@@ -56,6 +58,19 @@ class HistoryStore:
                 conn.execute("ALTER TABLE webui_chat_history ADD COLUMN db_dialect TEXT")
             except sqlite3.OperationalError:
                 pass
+            try:
+                conn.execute("ALTER TABLE webui_chat_history ADD COLUMN session_id TEXT")
+            except sqlite3.OperationalError:
+                pass
+            
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS webui_chat_sessions (
+                    session_id TEXT PRIMARY KEY,
+                    title TEXT
+                )
+                """
+            )
 
     def add_interaction(
         self,
@@ -65,30 +80,32 @@ class HistoryStore:
         answer: str | None,
         db_name: str | None = None,
         db_dialect: str | None = None,
+        session_id: str | None = None,
     ) -> str:
         record_id = str(uuid.uuid4())
         created_at = int(time.time())
         with self._connect() as conn:
             conn.execute(
                 """
-                INSERT INTO webui_chat_history (id, question, sql, db_output, answer, created_at, db_name, db_dialect)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO webui_chat_history (id, question, sql, db_output, answer, created_at, db_name, db_dialect, session_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (record_id, question, sql, db_output, answer, created_at, db_name, db_dialect),
+                (record_id, question, sql, db_output, answer, created_at, db_name, db_dialect, session_id),
             )
             return record_id
 
-    def get_history(self, limit: int = 50) -> list[ChatHistoryRecord]:
+    def get_history(self, session_id: str | None = None, limit: int = 50) -> list[ChatHistoryRecord]:
         with self._connect() as conn:
             conn.row_factory = sqlite3.Row
             rows = conn.execute(
                 """
-                SELECT id, question, sql, db_output, answer, created_at, is_saved, db_name, db_dialect
+                SELECT id, question, sql, db_output, answer, created_at, is_saved, db_name, db_dialect, session_id
                 FROM webui_chat_history
-                ORDER BY created_at DESC
+                WHERE (? IS NULL OR session_id = ?)
+                ORDER BY created_at ASC
                 LIMIT ?
                 """,
-                (limit,),
+                (session_id, session_id, limit,),
             ).fetchall()
             return [dict(row) for row in rows]  # type: ignore
 
@@ -109,3 +126,37 @@ class HistoryStore:
     def delete_interaction(self, history_id: str):
         with self._connect() as conn:
             conn.execute("DELETE FROM webui_chat_history WHERE id = ?", (history_id,))
+
+    def get_sessions(self, limit: int = 50) -> list[dict]:
+        with self._connect() as conn:
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute(
+                """
+                SELECT h.session_id, MAX(h.created_at) as last_active, COUNT(h.id) as interaction_count, 
+                       COALESCE(s.title, (SELECT question FROM webui_chat_history w2 WHERE w2.session_id = h.session_id ORDER BY created_at ASC LIMIT 1)) as title
+                FROM webui_chat_history h
+                LEFT JOIN webui_chat_sessions s ON h.session_id = s.session_id
+                WHERE h.session_id IS NOT NULL
+                GROUP BY h.session_id
+                ORDER BY last_active DESC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+            return [dict(row) for row in rows]
+
+    def rename_session(self, session_id: str, title: str):
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO webui_chat_sessions (session_id, title)
+                VALUES (?, ?)
+                ON CONFLICT(session_id) DO UPDATE SET title=excluded.title
+                """,
+                (session_id, title)
+            )
+
+    def delete_session(self, session_id: str):
+        with self._connect() as conn:
+            conn.execute("DELETE FROM webui_chat_history WHERE session_id = ?", (session_id,))
+            conn.execute("DELETE FROM webui_chat_sessions WHERE session_id = ?", (session_id,))

@@ -57,7 +57,7 @@ async def _run_agent_auto_accept(initial_state: dict, config: RunnableConfig) ->
         if not resume_required:
             break
 
-    final_state = agent.get_state(config)
+    final_state = await agent.aget_state(config)
     answer = extract_last_ai_message(final_state.values)
     return answer or "Agent completed but produced no output."
 
@@ -119,7 +119,7 @@ async def generate_sql(
         ):
             pass
 
-        final_state = agent.get_state(config)
+        final_state = await agent.aget_state(config)
         last_query = final_state.values.get("last_query")
 
         if not last_query:

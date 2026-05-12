@@ -7,15 +7,18 @@ from langchain_core.messages import AIMessageChunk
 from langgraph.types import Command
 
 
-def build_agent():
+async def build_agent():
     from config.app_config import AppConfig
+    from app.checkpointer import get_async_checkpointer
+
+    checkpointer = await get_async_checkpointer()
 
     if AppConfig().ENABLE_ORCHESTRATOR:
-        from orchestrator.graph import agent
+        from orchestrator.graph import builder
     else:
-        from agent.graph import agent
+        from agent.graph import builder
 
-    return agent
+    return builder.compile(checkpointer=checkpointer)
 
 
 async def run_agent_with_interrupt(
@@ -26,7 +29,7 @@ async def run_agent_with_interrupt(
     on_message: Callable[[AIMessageChunk], None | Awaitable[None]] | None = None,
     on_transition: Callable[[str], None | Awaitable[None]] | None = None,
 ):
-    agent = build_agent()
+    agent = await build_agent()
 
     stream_mode: list[str] = (
         ["updates", "messages", "debug"] if on_message else ["updates", "debug"]
@@ -88,5 +91,5 @@ async def run_agent_with_interrupt(
         if not resume_required:
             break
 
-    final_state = agent.get_state(config)
+    final_state = await agent.aget_state(config)
     return agent, final_state

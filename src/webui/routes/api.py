@@ -348,11 +348,11 @@ def reject_memory(req: SaveMemoryRequest):
 
 
 @router.get("/history")
-def get_chat_history() -> dict[str, object]:
+def get_chat_history(session_id: str | None = None) -> dict[str, object]:
     from webui.history_store import HistoryStore
 
     store = HistoryStore()
-    return {"history": store.get_history()}
+    return {"history": store.get_history(session_id=session_id)}
 
 
 @router.delete("/history/{history_id}")
@@ -361,6 +361,33 @@ def delete_chat_history(history_id: str) -> dict[str, str]:
 
     try:
         HistoryStore().delete_interaction(history_id)
+        return {"status": "ok"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/sessions")
+def get_chat_sessions() -> dict[str, object]:
+    from webui.history_store import HistoryStore
+    store = HistoryStore()
+    return {"sessions": store.get_sessions()}
+
+class RenameSessionRequest(BaseModel):
+    title: str
+
+@router.patch("/sessions/{session_id}")
+def rename_chat_session(session_id: str, req: RenameSessionRequest) -> dict[str, str]:
+    from webui.history_store import HistoryStore
+    try:
+        HistoryStore().rename_session(session_id, req.title)
+        return {"status": "ok"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/sessions/{session_id}")
+def delete_chat_session(session_id: str) -> dict[str, str]:
+    from webui.history_store import HistoryStore
+    try:
+        HistoryStore().delete_session(session_id)
         return {"status": "ok"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

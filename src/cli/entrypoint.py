@@ -188,12 +188,14 @@ async def _run_cli_agent(question: str, is_chat: bool) -> None:
                         print(f"Stored verified NL->SQL memory id: {memory_id}")
 
             print()  # Add a newline after the agent's response
-            question = input("User: ").strip()
+            while True:
+                question = input("User: ").strip()
+                if question:
+                    break
+            
             if question == ":q":
                 print("Exiting chat...")
                 break
-            while not question:
-                question = input("User: ").strip()
     else:
         initial_state = build_initial_state(question)
         agent, final_state = await run_agent_with_interrupt(
@@ -206,8 +208,10 @@ async def _run_cli_agent(question: str, is_chat: bool) -> None:
 
         if AppConfig().SHOW_NODE_HISTORY:
             print("\n--- Full Node History ---")
-            for i, state in enumerate(agent.get_state_history(config)):
+            i = 0
+            async for state in agent.aget_state_history(config):
                 print(f"Checkpoint {i}: next={state.next} ")
+                i += 1
 
         _persist_cli_outcome(final_state.values)
 
