@@ -4,9 +4,10 @@ from langgraph.prebuilt import ToolNode
 from llm.model import get_model
 from orchestrator.prompts import ORCHESTRATOR_SYSTEM_PROMPT
 from orchestrator.state import OrchestratorState
-from orchestrator.tools import call_nl2sql_tool
+from tools.database import get_schema_tool_with_cache, list_tables_with_cache
+from tools.nl2sql_pipeline import call_nl2sql_tool
 
-tools = [call_nl2sql_tool]
+tools = [call_nl2sql_tool, get_schema_tool_with_cache, list_tables_with_cache]
 tool_node = ToolNode(tools)
 
 

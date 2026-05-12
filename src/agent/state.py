@@ -19,6 +19,7 @@ class SynthesisResult(BaseModel):
 
 
 class SqlAgentState(TypedDict):
+    base_user_question: str
     user_question: str
     last_user_question: str | None
 

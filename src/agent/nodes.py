@@ -1,6 +1,5 @@
 import logging
 
-from langchain.messages import AIMessage
 from langchain_core.runnables import RunnableConfig
 
 from agent.prompts import (
@@ -23,47 +22,21 @@ from tools.database import (
     list_tables_with_cache,
     run_query_tool_with_interrupt,
 )
-from utils.logger_setup import (
-    LoggerSetup,
-    format_debug_payload,
-    format_llm_response_summary,
-    should_log_node_payloads,
-)
+from tools.metadata_cache import get_cached_metadata, set_cached_metadata
+from utils.logger_setup import LoggerSetup
+from utils.logger_setup import log_node_payload as _log_node_payload
+from utils.logger_setup import log_node_response as _log_node_response
+from utils.message_helpers import ai_message_to_text as _ai_message_to_text
 
 logger = LoggerSetup.get_logger(__name__, logging.DEBUG)
 
 
-def _log_node_payload(label: str, payload: object) -> None:
-    if not should_log_node_payloads():
-        return
-    logger.debug("%s: %s", label, format_debug_payload(payload))
-
-
-def _log_node_response(label: str, response: object) -> None:
-    if not should_log_node_payloads():
-        return
-    logger.debug("%s: %s", label, format_llm_response_summary(response))
-
-
-def _ai_message_to_text(message: AIMessage) -> str:
-    if isinstance(message.content, str):
-        return message.content
-
-    parts: list[str] = []
-    for block in message.content:
-        if isinstance(block, str):
-            parts.append(block)
-        elif isinstance(block, dict):
-            parts.append(str(block.get("text", "")))
-    return "".join(parts)
-
-
 def question_synthesis(state: SqlAgentState):
-    last_user_question = state.get("last_user_question")
     current_question = state["user_question"]
 
+    last_user_question = state.get("last_user_question")
     if not last_user_question:
-        _log_node_payload("Question Synthesis (Skipped)", current_question)
+        _log_node_payload("Question Synthesis (Skipped)", current_question, logger)
         return {"user_question": current_question}
 
     system_message = {
@@ -84,15 +57,16 @@ def question_synthesis(state: SqlAgentState):
             "last": last_user_question,
             "synthesized": result.synthesized_question,
         },
+        logger,
     )
 
     return {"user_question": result.synthesized_question}
 
 
 def list_tables(_state: SqlAgentState):
-    result = list_tables_with_cache()
+    result = list_tables_with_cache.invoke({})
 
-    _log_node_payload("List of tables in the database", result)
+    _log_node_payload("List of tables in the database", result, logger)
     if not result:
         raise ValueError("Failed to retrieve table names from the database.")
 
@@ -103,8 +77,27 @@ def retrieve_context(state: SqlAgentState):
     if not AppConfig().ENABLE_CONTEXT_LAYER:
         return
 
+    question = state["base_user_question"]
+
+    operation_args = {
+        "question": question,
+    }
+
+    cached = get_cached_metadata(
+        operation="retrieve_context",
+        operation_args=operation_args,
+    )
+    if cached is not None:
+        logger.debug("retrieve_context cache hit")
+        return cached
+
     service = get_context_service()
-    result = service.retrieve_context(state["user_question"])
+    result = service.retrieve_context(question)
+    payload = {
+        "schema_context": result.schema_text,
+        "instruction_context": result.instruction_text,
+        "query_memory_context": result.query_memory_text,
+    }
     _log_node_payload(
         "Retrieved context for the question",
         {
@@ -115,12 +108,15 @@ def retrieve_context(state: SqlAgentState):
             "instruction_hits": len(result.instruction_hits),
             "query_memory_hits": len(result.query_memory_hits),
         },
+        logger,
     )
-    return {
-        "schema_context": result.schema_text,
-        "instruction_context": result.instruction_text,
-        "query_memory_context": result.query_memory_text,
-    }
+    set_cached_metadata(
+        operation="retrieve_context",
+        operation_args=operation_args,
+        value=payload,
+    )
+
+    return payload
 
 
 def skip_pipeline(state: SqlAgentState):
@@ -135,7 +131,7 @@ def skip_pipeline(state: SqlAgentState):
     structured_model = get_model().with_structured_output(SkipDecision)
     result = structured_model.invoke([system_message])
 
-    _log_node_payload("Skip Decision", result)
+    _log_node_payload("Skip Decision", result, logger)
     return {
         "skip_decision": result,
     }
@@ -183,11 +179,11 @@ def call_get_schema(state: SqlAgentState):
         }
 
     response = llm_with_tools.invoke([system_message])
-    _log_node_response("Schema Tool Response", response)
+    _log_node_response("Schema Tool Response", response, logger)
     table_list = [
         t.strip() for t in response.tool_calls[0]["args"]["table_names"].split(",")
     ]
-    _log_node_payload("Candidate Tables", table_list)
+    _log_node_payload("Candidate Tables", table_list, logger)
     return {
         "candidate_tables": table_list,
         "retry_count": current_retry_count,
@@ -195,7 +191,8 @@ def call_get_schema(state: SqlAgentState):
 
 
 def get_schema_for_candidate_tables(
-    state: SqlAgentState, config: RunnableConfig | None = None
+    state: SqlAgentState,
+    config: RunnableConfig | None = None,
 ):
     candidate_tables = state.get("candidate_tables", [])
     if not candidate_tables:
@@ -209,9 +206,8 @@ def get_schema_for_candidate_tables(
     )
     schema_text = str(schema_output) if schema_output is not None else ""
 
-    logger.debug(
-        "Fetched schema for %d candidate table(s).",
-        len(candidate_tables),
+    _log_node_payload(
+        "Fetched schema for %d candidate table(s).", len(candidate_tables), logger
     )
 
     if not schema_text:
@@ -257,7 +253,7 @@ def generate_query(state: SqlAgentState):
         prompt_messages.append({"role": "user", "content": state["user_question"]})
 
     response = llm_with_tools.invoke(prompt_messages)
-    _log_node_response("Generate Query Response", response)
+    _log_node_response("Generate Query Response", response, logger)
 
     if not response.tool_calls:
         raise ValueError("Model failed to generate a tool call.")
@@ -265,7 +261,7 @@ def generate_query(state: SqlAgentState):
     generated_query = response.tool_calls[0]["args"]["query"]
 
     current_retry_count = state["retry_count"] + 1
-    _log_node_payload("Generated Query", generated_query)
+    _log_node_payload("Generated Query", generated_query, logger)
 
     return {
         "last_query": generated_query,
@@ -291,7 +287,7 @@ def run_query(state: SqlAgentState, config: RunnableConfig | None = None):
     )
     db_txt = str(db_output) if db_output is not None else ""
 
-    _log_node_payload("Database Output", db_txt)
+    _log_node_payload("Database Output", db_txt, logger)
     return {"db_output": db_txt}
 
 
@@ -312,7 +308,7 @@ def analyze_result(state: SqlAgentState):
 
     response = structured_llm.invoke([system_message])
 
-    _log_node_payload("Analysis Result", response.model_dump())
+    _log_node_payload("Analysis Result", response.model_dump(), logger)
 
     return {
         "db_output": db_output,
@@ -341,7 +337,7 @@ def should_retry(state: SqlAgentState):
 def explain_result(state: SqlAgentState):
     if not AppConfig().EXECUTE_SQL_QUERIES:
         explanation = f"SQL execution is disabled. Skipping query . Here is last generated query: {state['last_query']}"
-        _log_node_payload("No Execution", explanation)
+        _log_node_payload("No Execution", explanation, logger)
         return {
             "final_answer": explanation,
             "last_user_question": state["user_question"],
@@ -349,12 +345,13 @@ def explain_result(state: SqlAgentState):
 
     if state["skip_decision"] and state["skip_decision"].skip:
         explanation = f"The agent decided to skip executing the query because: {state['skip_decision'].reason}"
-        _log_node_payload("Skip Explanation", explanation)
+        _log_node_payload("Skip Explanation", explanation, logger)
         return {
             "final_answer": explanation,
             "last_user_question": state["user_question"],
         }
 
+    # Maybe to save on tokens, we drop the LLM call and rely on analysis_node to form a phrase and pass it for the conversational agent
     system_message = {
         "role": "system",
         "content": EXPLAIN_RESULT.format(
@@ -367,7 +364,7 @@ def explain_result(state: SqlAgentState):
     }
     response = get_model().invoke([system_message])
     final_answer = _ai_message_to_text(response)
-    _log_node_payload("Explanation", _ai_message_to_text(response))
+    _log_node_payload("Explanation", _ai_message_to_text(response), logger)
     return {
         "final_answer": final_answer,
         "last_user_question": state["user_question"],

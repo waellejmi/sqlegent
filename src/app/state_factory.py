@@ -1,7 +1,6 @@
 import uuid
 
 from langchain_core.callbacks.usage import UsageMetadataCallbackHandler
-from langchain_core.messages import HumanMessage
 from langchain_core.runnables import RunnableConfig
 
 from agent.state import SqlAgentState
@@ -20,6 +19,7 @@ def build_initial_state(question: str) -> SqlAgentState:
         instruction_context=None,
         query_memory_context=None,
         last_user_question=None,
+        base_user_question=question,
     )
 
 

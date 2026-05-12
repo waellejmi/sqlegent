@@ -36,3 +36,16 @@ def stream_chunk_to_text(message_chunk: AIMessageChunk) -> str:
                 parts.append(str(block.get("text", "")))
         return "".join(parts)
     return ""
+
+
+def ai_message_to_text(message: AIMessage) -> str:
+    if isinstance(message.content, str):
+        return message.content
+
+    parts: list[str] = []
+    for block in message.content:
+        if isinstance(block, str):
+            parts.append(block)
+        elif isinstance(block, dict):
+            parts.append(str(block.get("text", "")))
+    return "".join(parts)

@@ -11,6 +11,7 @@ _THIRD_PARTY_LOGGERS = (
     "httpcore",
     "openai",
     "langchain_groq",
+    "aiosqlite",
 )
 
 
@@ -219,3 +220,15 @@ def format_llm_response_summary(response: Any) -> str:
         summary["reasoning_preview"] = _truncate_text(str(reasoning), preview_limit)
 
     return format_debug_payload(summary)
+
+
+def log_node_payload(label: str, payload: object, logger) -> None:
+    if not should_log_node_payloads():
+        return
+    logger.debug("%s: %s", label, format_debug_payload(payload))
+
+
+def log_node_response(label: str, response: object, logger) -> None:
+    if not should_log_node_payloads():
+        return
+    logger.debug("%s: %s", label, format_llm_response_summary(response))

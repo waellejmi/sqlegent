@@ -67,7 +67,11 @@ def _build_database_components():
 db, get_schema_tool, run_query_tool = _build_database_components()
 
 
+@tool
 def list_tables_with_cache() -> list[str]:
+    """
+    List usable table names inside the the database,
+    """
     app_config = AppConfig()
     bypass_cache = app_config.METADATA_CACHE_BYPASS_DEFAULT
     invalidate_cache = app_config.METADATA_CACHE_INVALIDATE_DEFAULT
