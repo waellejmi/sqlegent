@@ -19,3 +19,5 @@ data/northwind.db
 data/sakila_master.db
 semantic/**/_baseline.generated.yaml
 
+
+.agents/*
