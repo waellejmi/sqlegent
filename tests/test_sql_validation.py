@@ -1,5 +1,3 @@
-from sqlglot import func
-
 from tools.database import validate_sql
 
 sql_query = """

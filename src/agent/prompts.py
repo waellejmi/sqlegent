@@ -49,7 +49,7 @@ USER INSTRUCTIONS: {instruction_context}
 EVALUATION RULES:
 1. SUCCESS: Data directly answers the question.
 2. ERROR: Database returned a syntax or execution error.
-3. IRRELEVANT: Data returned does not match the semantic intent of the question.
+3. IRRELEVANT: The query result is semantically incorrect due to wrong tables, wrong joins, incorrect filters, or incorrect aggregation logic. Do NOT mark as IRRELEVANT if the only issue is result truncation (e.g., LIMIT clause or partial output).
 4. EMPTY_RESULT: Query executed successfully but returned 0 rows.
 
 INSTRUCTIONS:

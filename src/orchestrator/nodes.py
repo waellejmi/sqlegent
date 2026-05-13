@@ -5,9 +5,14 @@ from llm.model import get_model
 from orchestrator.prompts import ORCHESTRATOR_SYSTEM_PROMPT
 from orchestrator.state import OrchestratorState
 from tools.database import get_schema_tool_with_cache, list_tables_with_cache
-from tools.nl2sql_pipeline import call_nl2sql_tool
+from tools.nl2sql_pipeline import call_nl2sql_tool, quick_fix_query_tool
 
-tools = [call_nl2sql_tool, get_schema_tool_with_cache, list_tables_with_cache]
+tools = [
+    call_nl2sql_tool,
+    get_schema_tool_with_cache,
+    list_tables_with_cache,
+    quick_fix_query_tool,
+]
 tool_node = ToolNode(tools)
 
 

@@ -6,6 +6,7 @@ from langchain_core.tools import tool
 
 from agent.graph import agent as nl2sql_agent
 from app.state_factory import build_initial_state
+from tools.database import run_query_tool_with_interrupt
 
 
 @tool
@@ -35,3 +36,18 @@ def call_nl2sql_tool(
     }
 
     return json.dumps(payload, ensure_ascii=False)
+
+
+@tool
+def quick_fix_query_tool(patched_sql_query: Annotated[str, "The patched sql query"]):
+    """
+    Executes a SQL query after applying minor, deterministic refinements.
+
+    Call this when a previous SQL execution result was valid but requires
+    small adjustments (e.g., changing sort order, removing result limits,
+    or fixing formatting) to meet the user's specific output requirements.
+
+    Do not use for complex logic changes or structural redesigns.
+    """
+
+    return run_query_tool_with_interrupt.invoke({"query": patched_sql_query})

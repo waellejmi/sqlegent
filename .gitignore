@@ -13,9 +13,9 @@ wheels/
 #App Related
 .app_cache/
 .app_config/
-tests/c.py
 
 # Big files
 data/northwind.db
+data/sakila_master.db
 semantic/**/_baseline.generated.yaml
 

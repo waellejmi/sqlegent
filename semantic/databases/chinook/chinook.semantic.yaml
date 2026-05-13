@@ -71,13 +71,6 @@ relationships:
     description: Invoice lines reference sold tracks.
 
 instructions:
-  - id: default_sql_guardrails
-    scope: sql
-    is_default: true
-    instruction: |
-      Use explicit JOIN keys from known relationships, avoid SELECT *, and select only required columns.
-      Prefer deterministic ordering when returning top N lists.
-
   - id: artist_revenue_top5
     scope: sql
     question: top 5 artists by revenue total revenue tracks sold units sold

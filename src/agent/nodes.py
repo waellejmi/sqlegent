@@ -23,6 +23,7 @@ from tools.database import (
     run_query_tool_with_interrupt,
 )
 from tools.metadata_cache import get_cached_metadata, set_cached_metadata
+from utils.helpers import _canonicalize_table_names, normalize_table_names_csv
 from utils.logger_setup import LoggerSetup
 from utils.logger_setup import log_node_payload as _log_node_payload
 from utils.logger_setup import log_node_response as _log_node_response
@@ -180,9 +181,10 @@ def call_get_schema(state: SqlAgentState):
 
     response = llm_with_tools.invoke([system_message])
     _log_node_response("Schema Tool Response", response, logger)
-    table_list = [
-        t.strip() for t in response.tool_calls[0]["args"]["table_names"].split(",")
-    ]
+    table_list = _canonicalize_table_names(
+        response.tool_calls[0]["args"]["table_names"],
+        state.get("available_tables", []),
+    )
     _log_node_payload("Candidate Tables", table_list, logger)
     return {
         "candidate_tables": table_list,
@@ -199,7 +201,7 @@ def get_schema_for_candidate_tables(
         logger.warning("No candidate tables were selected for schema retrieval.")
         return {"schema_for_candidate_tables": ""}
 
-    table_names = ",".join(candidate_tables)
+    table_names = normalize_table_names_csv(candidate_tables)
     schema_output = get_schema_tool_with_cache.invoke(
         {"table_names": table_names},
         config=config,
