@@ -425,6 +425,7 @@
   input:checked + .slider:before {
     transform: translateX(16px);
   }
+.error-message { color: #dc3545; font-size: 0.9em; margin-top: 0.5rem; display: none; }
 </style>
 
 <div class="app-container">
@@ -496,6 +497,7 @@
       <label>SQLite File Path:</label>
       <input type="text" id="sqliteInput" placeholder="/path/to/db.sqlite">
       <button onclick="submitConnection('sqlite_path', document.getElementById('sqliteInput').value)">Connect</button>
+      <div id="errSqlite" class="error-message">Connection failed. Check path.</div>
     </div>
 
     <!-- Docker Form -->
@@ -503,6 +505,7 @@
       <button class="back-btn" onclick="showMenu()">&larr; Back</button>
       <div id="dockerLoading" class="loading-msg">Scanning for containers...</div>
       <div id="dockerList"></div>
+      <div id="errDocker" class="error-message">Connection failed.</div>
     </div>
 
     <!-- Direct URI Form -->
@@ -511,6 +514,7 @@
       <label>SQLAlchemy URI:</label>
       <input type="text" id="uriInput" placeholder="postgresql://user:pass@localhost:5432/db">
       <button onclick="submitConnection('direct_uri', document.getElementById('uriInput').value)">Connect</button>
+      <div id="errUri" class="error-message">Connection failed. Check credentials/host.</div>
     </div>
   </div>
 </div>
@@ -738,6 +742,7 @@
     document.getElementById("formSqlite").style.display = "none";
     document.getElementById("formDocker").style.display = "none";
     document.getElementById("formUri").style.display = "none";
+    if(typeof resetErrors === 'function') resetErrors();
   }
   function showMenu() {
     hideAllForms();
@@ -799,8 +804,15 @@
     }
   }
 
+  function resetErrors() {
+    document.getElementById("errSqlite").style.display = "none";
+    document.getElementById("errUri").style.display = "none";
+    document.getElementById("errDocker").style.display = "none";
+  }
+
   async function submitConnection(mode, value) {
     if (!value) return;
+    resetErrors();
     try {
       const res = await fetch('/api/connections', {
         method: 'POST',
@@ -811,15 +823,17 @@
         closeConnectionModal();
         loadConnectionStatus();
       } else {
-        alert("Failed to change connection.");
+        const errId = mode === 'sqlite_path' ? 'errSqlite' : 'errUri';
+        document.getElementById(errId).style.display = "block";
       }
     } catch(err) {
-      console.error(err);
-      alert("Error changing connection.");
+      const errId = mode === 'sqlite_path' ? 'errSqlite' : 'errUri';
+      document.getElementById(errId).style.display = "block";
     }
   }
 
   async function activateDocker(container_id) {
+    resetErrors();
     try {
       const res = await fetch(`/api/connections/docker/${container_id}/activate`, {
         method: 'POST'
@@ -828,11 +842,10 @@
         closeConnectionModal();
         loadConnectionStatus();
       } else {
-        alert("Failed to activate Docker connection.");
+        document.getElementById("errDocker").style.display = "block";
       }
     } catch(err) {
-      console.error(err);
-      alert("Error activating Docker connection.");
+      document.getElementById("errDocker").style.display = "block";
     }
   }
 

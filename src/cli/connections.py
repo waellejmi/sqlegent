@@ -1,6 +1,8 @@
 from pathlib import Path
 
 from config.db_config import DBConfig
+from dbcore.connections.validation import validate_uri
+
 
 
 def normalize_sqlite_uri_from_input(raw_path: str, db_config: DBConfig) -> str:
@@ -163,6 +165,10 @@ def configure_database_target(db_config: DBConfig) -> str:
                 selected_uri = _pick_docker_connection_uri(db_config)
             else:
                 raise ValueError("Unsupported choice.")
+            
+            if not validate_uri(selected_uri):
+                raise ValueError("Database connection failed. Please check the path or credentials.")
+                
             db_config.set_database_uri(selected_uri)
             print(
                 f"Saved active database URI to {db_config.CONFIG_FILE}: {selected_uri}"

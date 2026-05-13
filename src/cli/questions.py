@@ -43,4 +43,4 @@ DEFAULT_QUESTIONS = {
                 Only include countries where at least 2 agents compete under these constraints.
             """,
 }
-DEFAULT_QUESTION_KEY = "northwind2"
+DEFAULT_QUESTION_KEY = "success"

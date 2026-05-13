@@ -1,164 +1,707 @@
 {% extends "base.html" %}
 {% block content %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"></script>
 <style>
-  .layout {
-    display: flex;
-    gap: 1rem;
-    height: calc(100vh - 100px);
-  }
-  .sidebar {
-    flex: 0 0 250px;
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-    border-right: 1px solid #ddd;
-    padding-right: 1rem;
-  }
-  .main-content {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-  .yaml-viewer {
-    flex: 1;
-    overflow-y: auto;
-    background: #f4f4f4;
-    padding: 1rem;
-    border-radius: 4px;
-    font-family: monospace;
-    white-space: pre-wrap;
-  }
-  .file-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    overflow-y: auto;
-  }
-  .file-list li {
-    padding: 0.5rem;
-    cursor: pointer;
-    border-bottom: 1px solid #eee;
-  }
-  .file-list li:hover {
-    background: #f0f0f0;
-  }
-  .file-list li.active {
-    background: #e0e0ff;
-    font-weight: bold;
-  }
+  /* Match Chat.html layout styling perfectly */
+  .page { max-width: none !important; margin: 0 !important; padding: 0 !important; height: calc(100vh - 61px); display: flex; flex-direction: column; color: #333; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"; }
+  body { overflow: hidden; }
+  .app-container { display: flex; height: 100%; width: 100%; margin: 0; gap: 0; background: #fff; }
+  
+  /* Sidebar */
+  .sidebar { width: 300px; min-width: 300px; background: #fdfdfd; border-right: 1px solid #ddd; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem; }
+  .sidebar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+  .sidebar h3 { margin: 0; font-size: 1.1em; color: #333; }
+  .btn-sm { padding: 3px 8px; font-size: 0.8em; background: #0066cc; color: white; border: none; border-radius: 3px; cursor: pointer; text-decoration: none; }
+  .btn-sm:hover { background: #0052a3; }
+  
+  .profile-item { padding: 0.75rem; background: #fff; border: 1px solid #eee; border-radius: 4px; cursor: pointer; font-size: 0.9em; transition: background 0.2s; display: flex; align-items: center; }
+  .profile-item:hover { background: #f0f0f0; }
+  .profile-item.active { border-left: 4px solid #0066cc; background: #e0f0ff; font-weight: bold; color: #0066cc; }
+  
+  /* Main Content */
+  .main-content { flex: 1; display: flex; flex-direction: column; min-width: 0; position: relative; background: #fff; }
+  
+  /* Topbar (Controls) */
+  .editor-topbar { padding: 0.75rem 1rem; background: #fff; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center; }
+  .topbar-left, .topbar-right { display: flex; gap: 1rem; align-items: center; }
+  .status-badge { font-size: 0.85rem; padding: 4px 8px; border-radius: 4px; background: #f8f9fa; color: #333; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; border: 1px solid #ddd; font-weight: bold; transition: opacity 0.2s; }
+  .status-badge:hover { opacity: 0.8; }
+  .btn-primary { padding: 6px 12px; background: #0066cc; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9em; }
+  .btn-primary:hover { background: #0052a3; }
+  .btn-secondary { padding: 6px 12px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9em; }
+  .btn-secondary:hover { background: #5a6268; }
+  
+  /* Tabs */
+  .tabs { display: flex; background: #f8f9fa; border-bottom: 1px solid #ddd; }
+  .tab { padding: 0.75rem 1.5rem; cursor: pointer; border-right: 1px solid #ddd; font-size: 0.9em; color: #555; }
+  .tab:hover { background: #eee; }
+  .tab.active { background: #fff; border-bottom: 2px solid #0066cc; color: #0066cc; font-weight: bold; }
+  
+  .tab-content-container { flex: 1; position: relative; overflow: hidden; display: flex; }
+  .tab-pane { flex: 1; display: none; overflow: auto; padding: 1rem; background: #fff; }
+  .tab-pane.active { display: flex; flex-direction: column; }
+  
+  /* Diagram View */
+  #diagram-tab { padding: 0; overflow: hidden; position: relative; }
+  .diagram-scroll-area { flex: 1; overflow: auto; padding: 2rem; background: #fdfdfd; position: relative; }
+  .diagram-canvas { position: relative; min-width: 3000px; min-height: 3000px; }
+  
+  .table-card { position: absolute; background: white; border: 1px solid #ccc; border-radius: 4px; width: 240px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); user-select: none; z-index: 10; transition: border-color 0.2s, box-shadow 0.2s; }
+  .table-card.selected { border-color: #0066cc; box-shadow: 0 0 0 2px rgba(0,102,204,0.3); }
+  .table-header { background: #f0f0f0; padding: 0.5rem; font-weight: bold; border-bottom: 1px solid #ccc; cursor: pointer; text-align: left; font-size: 0.95em; color: #333; }
+  .table-header:hover { background: #e0e0e0; }
+  .table-column { padding: 0.35rem 0.5rem; font-size: 0.85em; border-bottom: 1px solid #f8f9fa; cursor: pointer; display: flex; justify-content: space-between; color: #444; }
+  .table-column:hover { background: #e0f0ff; }
+  .table-column.pk { font-weight: bold; color: #000; }
+  
+  /* Properties Panel */
+  .properties-panel { width: 320px; background: #fff; border-left: 1px solid #ddd; padding: 1rem; overflow-y: auto; display: none; flex-direction: column; box-shadow: -2px 0 5px rgba(0,0,0,0.05); z-index: 20; position: relative; }
+  .properties-panel.active { display: flex; }
+  .close-prop-btn { position: absolute; top: 10px; right: 10px; background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #888; }
+  .close-prop-btn:hover { color: #333; }
+  .form-group { margin-bottom: 1rem; }
+  .form-group label { display: block; margin-bottom: 0.25rem; font-weight: bold; font-size: 0.85em; color: #444; }
+  .form-group input, .form-group textarea, .form-group select { width: 100%; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; font-family: inherit; font-size: 0.9em; box-sizing: border-box; }
+  
+  /* Instructions */
+  .instruction-card { border: 1px solid #ccc; padding: 1rem; margin-bottom: 1rem; border-radius: 4px; background: #fafafa; }
+  .instruction-card.common-file { cursor: pointer; font-weight: bold; color: #0066cc; }
+  .instruction-card.common-file:hover { background: #f0f0f0; }
+  
+  /* Modal */
+  .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 1000; }
+  .modal-content { background: #fff; padding: 1.5rem; border-radius: 8px; width: 450px; max-width: 90vw; box-shadow: 0 4px 12px rgba(0,0,0,0.15); position: relative; max-height: 80vh; overflow-y: auto; }
+  .modal-close { position: absolute; top: 10px; right: 10px; background: transparent; border: none; font-size: 1.5rem; cursor: pointer; color: #888; }
+  .conn-menu-btn { display: block; width: 100%; text-align: left; padding: 0.75rem 1rem; margin-bottom: 0.5rem; background: #f8f9fa; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; font-size: 1rem; color: #333; }
+  .conn-menu-btn:hover { background: #e9ecef; }
+  .conn-form { display: none; flex-direction: column; gap: 0.75rem; margin-top: 1rem; }
+  .conn-form label { font-weight: bold; font-size: 0.9em; color: #444; margin-bottom: -0.25rem; display: block; }
+  .conn-form input { padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; width: 100%; box-sizing: border-box; font-family: inherit; }
+  .docker-item { padding: 0.5rem; border: 1px solid #eee; margin-bottom: 0.5rem; border-radius: 4px; cursor: pointer; }
+  .docker-item:hover { background: #f0f8ff; border-color: #0066cc; }
+  .back-btn { background: transparent; border: none; color: #0066cc; cursor: pointer; padding: 0; margin-bottom: 1rem; font-size: 0.9em; text-align: left; }
+  .error-message { color: #dc3545; font-size: 0.9em; margin-top: 0.5rem; display: none; }
 </style>
 
-<h1>Semantic Layer</h1>
-<p>Context stats, reindex control, and YAML architecture viewer.</p>
-
-<div class="layout">
+<div class="app-container">
   <div class="sidebar">
-    <div>
-      <select id="profileSelect" style="width: 100%; padding: 0.5rem; margin-bottom: 0.5rem;">
-        <option value="">Select Profile...</option>
-      </select>
-      <button id="reindexBtn" type="button" style="width: 100%;">Run Reindex</button>
+    <div class="sidebar-header">
+      <h3>Profiles</h3>
+      <button class="btn-sm" onclick="createNewProfile()">+ New</button>
     </div>
-    
-    <h4>Files</h4>
-    <ul id="fileList" class="file-list"></ul>
+    <div id="profileList"></div>
   </div>
 
   <div class="main-content">
-    <h4>Context Stats</h4>
-    <pre id="contextStats" class="panel" style="max-height: 150px; margin-bottom: 1rem;">Loading...</pre>
+    <div class="editor-topbar">
+      <div class="topbar-left">
+        <h3 id="currentProfileName" style="margin: 0; color: #333;">Select a Profile</h3>
+        <div class="status-badge" onclick="openConnectionModal()" title="Click to change database connection">
+          <span id="dbDialectBadge" style="width: 10px; height: 10px; border-radius: 50%; background: #ccc; display: inline-block;"></span>
+          <span id="dbNameStr">Not Connected</span>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <span id="statusMsg" style="color: green; font-size: 0.9em; display: none; font-weight: bold;">✔ Saved</span>
+        <button class="btn-secondary" id="reindexBtn" onclick="runReindex()">Run Reindex (Create Template)</button>
+        <button class="btn-primary" id="saveBtn" onclick="saveProfileChanges()">Save Changes</button>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <div class="tab active" data-target="diagram-tab">Entity Diagram</div>
+      <div class="tab" data-target="instructions-tab">Profile Instructions</div>
+      <div class="tab" data-target="common-tab">Common Instructions</div>
+      <div class="tab" data-target="yaml-tab">YAML Source</div>
+    </div>
+
+    <div class="tab-content-container">
+      <div id="diagram-tab" class="tab-pane active" style="flex-direction: row;">
+        <div class="diagram-scroll-area" id="diagramScrollArea">
+          <div class="diagram-canvas" id="diagramCanvas">
+            <!-- Native SVG Overlay -->
+            <svg id="diagramSvg" style="position: absolute; top: 0; left: 0; min-width: 3000px; min-height: 3000px; pointer-events: none; z-index: 5; overflow: visible;">
+              <defs>
+                <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" fill="#adb5bd" />
+                </marker>
+                <marker id="arrow-hover" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" fill="#0066cc" />
+                </marker>
+              </defs>
+              <g id="svgPathsGroup"></g>
+            </svg>
+          </div>
+        </div>
+        
+        <div class="properties-panel" id="propertiesPanel">
+          <button class="close-prop-btn" onclick="closeProperties()">&times;</button>
+          <h3 id="propTitle" style="margin-top: 0; margin-bottom: 0.5rem; font-size: 1.1em; color: #0066cc;">Properties</h3>
+          <p style="color: #666; font-size: 0.85em; margin-bottom: 1rem;" id="propSubtitle">Edit semantic metadata here.</p>
+          
+          <div id="propForm">
+            <div id="propStandardFields">
+              <div class="form-group" id="propDescGroup">
+                <label>Description</label>
+                <textarea id="propDescription" rows="4"></textarea>
+              </div>
+              <div class="form-group" id="propAliasesGroup">
+                <label>Aliases (comma separated)</label>
+                <input type="text" id="propAliases">
+              </div>
+            </div>
+
+            <div id="propRelFields" style="display: none;">
+              <div class="form-group">
+                <label>Relationship Type</label>
+                <select id="propRelType">
+                  <option value="one_to_one">One to One</option>
+                  <option value="one_to_many">One to Many</option>
+                  <option value="many_to_one">Many to One</option>
+                  <option value="many_to_many">Many to Many</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Relationship Description</label>
+                <textarea id="propRelDescription" rows="4"></textarea>
+              </div>
+            </div>
+
+            <button class="btn-primary" style="width: 100%; margin-top: 1rem;" onclick="applyProperties()">Apply Changes</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="instructions-tab" class="tab-pane">
+        <div style="margin-bottom: 1rem;">
+          <button class="btn-primary" onclick="addInstruction()">+ Add Instruction</button>
+        </div>
+        <div id="instructionsList"></div>
+      </div>
+
+      <div id="common-tab" class="tab-pane">
+        <div style="display: flex; gap: 1rem; height: 100%;">
+          <div style="width: 250px; border-right: 1px solid #eee; padding-right: 1rem; overflow-y: auto;">
+            <h4 style="margin-top: 0; color: #333;">Common Files</h4>
+            <div id="commonFilesList"></div>
+          </div>
+          <div style="flex: 1; display: none; flex-direction: column;" id="commonEditorContainer">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+              <h4 id="commonEditorTitle" style="margin: 0; color: #0066cc;">Editing</h4>
+              <div>
+                <button class="btn-secondary" onclick="addCommonInstruction()">+ Add Rule</button>
+                <button class="btn-primary" onclick="saveCommonFile()">Save File</button>
+              </div>
+            </div>
+            <div id="commonInstructionsList" style="overflow-y: auto; flex: 1;"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="yaml-tab" class="tab-pane">
+        <pre id="yamlViewer" style="background: #f4f4f4; padding: 1rem; border-radius: 4px; overflow: auto; flex: 1; font-family: monospace; color: #333;"></pre>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Connection Modal -->
+<div id="connModal" class="modal-overlay" onclick="closeModal(event)">
+  <div class="modal-content" onclick="event.stopPropagation()">
+    <button class="modal-close" onclick="closeConnectionModal()">&times;</button>
+    <h2 style="margin-top: 0;">Connect to Database</h2>
+    <p style="font-size: 0.9em; color: #555; margin-bottom: 1rem;">Connect to a database to generate a baseline template via Reindex.</p>
     
-    <h4>YAML Viewer</h4>
-    <div id="yamlViewer" class="yaml-viewer">Select a file to view its contents.</div>
+    <div id="connMenu">
+      <button class="conn-menu-btn" onclick="showForm('sqlite')">SQLite file path</button>
+      <button class="conn-menu-btn" onclick="showForm('docker')">Docker container</button>
+      <button class="conn-menu-btn" onclick="showForm('uri')">Direct URI</button>
+    </div>
+
+    <div id="formSqlite" class="conn-form">
+      <button class="back-btn" onclick="showMenu()">&larr; Back</button>
+      <label>SQLite Path:</label>
+      <input type="text" id="sqliteInput" placeholder="/path/to/db.sqlite">
+      <button class="btn-primary" id="btnConnectSqlite" onclick="submitConnection('sqlite_path', document.getElementById('sqliteInput').value, this)">Connect</button>
+      <div id="errSqlite" class="error-message">Connection failed. Check path.</div>
+    </div>
+
+    <div id="formDocker" class="conn-form">
+      <button class="back-btn" onclick="showMenu()">&larr; Back</button>
+      <div id="dockerLoading" style="color: #666; font-style: italic;">Scanning...</div>
+      <div id="dockerList" style="max-height: 200px; overflow-y: auto;"></div>
+      <div id="errDocker" class="error-message">Connection failed.</div>
+    </div>
+
+    <div id="formUri" class="conn-form">
+      <button class="back-btn" onclick="showMenu()">&larr; Back</button>
+      <label>URI:</label>
+      <input type="text" id="uriInput" placeholder="postgresql://user:pass@host/db">
+      <button class="btn-primary" id="btnConnectUri" onclick="submitConnection('direct_uri', document.getElementById('uriInput').value, this)">Connect</button>
+      <div id="errUri" class="error-message">Connection failed. Check credentials/host.</div>
+    </div>
   </div>
 </div>
 
 <script>
-  const statsEl = document.getElementById("contextStats");
-  const reindexBtn = document.getElementById("reindexBtn");
-  const profileSelect = document.getElementById("profileSelect");
-  const fileList = document.getElementById("fileList");
-  const yamlViewer = document.getElementById("yamlViewer");
+  let currentProfile = '';
+  let baselineData = { models: [], relationships: [] };
+  let semanticData = { models: [], relationships: [], instructions: [] };
+  let selection = { type: null, entityId: null, parentId: null, relIndex: null }; 
+  let currentCommonFile = '';
+  let commonFileData = { instructions: [] };
 
-  async function loadStats() {
-    try {
-      const stats = await fetch("/api/context/stats").then((r) => r.json());
-      statsEl.textContent = JSON.stringify(stats, null, 2);
-    } catch (err) {
-      statsEl.textContent = String(err);
-    }
+  const profileList = document.getElementById('profileList');
+  const diagramCanvas = document.getElementById('diagramCanvas');
+  const svgGroup = document.getElementById('svgPathsGroup');
+  const propertiesPanel = document.getElementById('propertiesPanel');
+
+  window.onload = () => {
+    loadProfiles();
+    loadConnectionStatus();
+    loadCommonFiles();
+  };
+
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-pane').forEach(c => c.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById(tab.dataset.target).classList.add('active');
+      if (tab.dataset.target === 'yaml-tab') renderYaml();
+    });
+  });
+
+  function closeProperties() {
+    propertiesPanel.classList.remove('active');
+    document.querySelectorAll('.table-card').forEach(c => c.classList.remove('selected'));
+    selection = { type: null, entityId: null, parentId: null, relIndex: null };
   }
 
   async function loadProfiles() {
     try {
-      const { profiles } = await fetch("/api/context/profiles").then((r) => r.json());
-      profileSelect.innerHTML = '<option value="">Select Profile...</option>';
-      profiles.forEach(p => {
-        const opt = document.createElement("option");
-        opt.value = p;
-        opt.textContent = p;
-        profileSelect.appendChild(opt);
+      const res = await fetch("/api/context/profiles");
+      const data = await res.json();
+      profileList.innerHTML = '';
+      data.profiles.forEach(p => {
+        const div = document.createElement('div');
+        div.className = `profile-item ${p === currentProfile ? 'active' : ''}`;
+        div.textContent = p;
+        div.onclick = () => selectProfile(p);
+        profileList.appendChild(div);
       });
-    } catch (err) {
-      console.error(err);
-    }
+    } catch (e) { console.error(e); }
   }
 
-  async function loadFiles(profile) {
-    fileList.innerHTML = "";
-    yamlViewer.textContent = "Select a file to view its contents.";
-    if (!profile) return;
+  async function createNewProfile() {
+    const name = prompt("Enter new profile name:");
+    if (!name) return;
+    try {
+      await fetch("/api/context/profiles", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ profile_name: name }) });
+      selectProfile(name);
+      loadProfiles();
+    } catch (e) { alert("Error creating profile"); }
+  }
+
+  async function selectProfile(name) {
+    currentProfile = name;
+    document.getElementById('currentProfileName').textContent = `Profile: ${name}`;
+    loadProfiles(); 
+    
+    // Reset canvas and keep SVG overlay alive
+    Array.from(diagramCanvas.children).forEach(child => {
+        if(child.tagName.toLowerCase() !== 'svg') child.remove();
+    });
+    svgGroup.innerHTML = '';
+    closeProperties();
     
     try {
-      const { files } = await fetch(`/api/context/files/${encodeURIComponent(profile)}`).then((r) => r.json());
-      files.forEach(f => {
-        const li = document.createElement("li");
-        li.textContent = f;
-        li.onclick = () => {
-          document.querySelectorAll("#fileList li").forEach(el => el.classList.remove("active"));
-          li.classList.add("active");
-          loadFileContent(profile, f);
-        };
-        fileList.appendChild(li);
-      });
-    } catch (err) {
-      console.error(err);
+      let bRes = await fetch(`/api/context/files/${name}/_baseline.generated.yaml`);
+      if (bRes.ok) { baselineData = jsyaml.load((await bRes.json()).content) || { models: [], relationships: [] }; } 
+      else { baselineData = { models: [], relationships: [] }; }
+
+      let filesRes = await fetch(`/api/context/files/${name}`);
+      let filesData = await filesRes.json();
+      let semanticFile = filesData.files.find(f => f.endsWith('.yaml') && !f.startsWith('_'));
+      
+      if (semanticFile) {
+        let sRes = await fetch(`/api/context/files/${name}/${semanticFile}`);
+        if (sRes.ok) semanticData = jsyaml.load((await sRes.json()).content) || { models: [], relationships: [], instructions: [] };
+        else semanticData = { models: [], relationships: [], instructions: [] }; 
+      } else { semanticData = { models: [], relationships: [], instructions: [] }; }
+      
+      if (!semanticData.models) semanticData.models = [];
+      if (!semanticData.relationships) semanticData.relationships = [];
+      if (!semanticData.instructions) semanticData.instructions = [];
+
+      renderDiagram();
+      renderInstructions();
+      renderYaml();
+    } catch (e) { console.error(e); }
+  }
+
+  function renderDiagram() {
+    svgGroup.innerHTML = '';
+    
+    if (!baselineData.models || baselineData.models.length === 0) {
+      const err = document.createElement('div');
+      err.style.padding = '2rem'; err.style.color = '#888';
+      err.textContent = 'No baseline models. Please connect to a database and Run Reindex.';
+      diagramCanvas.appendChild(err);
+      return;
+    }
+
+    let x = 50, y = 50, rowMaxH = 0;
+    
+    baselineData.models.forEach(model => {
+      const card = document.createElement('div');
+      card.className = 'table-card';
+      card.style.left = x + 'px';
+      card.style.top = y + 'px';
+      card.id = `table-${model.name}`;
+      
+      const header = document.createElement('div');
+      header.className = 'table-header';
+      header.textContent = model.name;
+      header.onclick = (e) => { e.stopPropagation(); selectEntity('table', model.name); };
+      card.appendChild(header);
+
+      if (model.columns) {
+        model.columns.forEach(col => {
+          const colDiv = document.createElement('div');
+          colDiv.className = `table-column ${col.primary_key ? 'pk' : ''}`;
+          colDiv.id = `col-${model.name}-${col.name}`;
+          colDiv.innerHTML = `<span>${col.name} ${col.primary_key?'🔑':''}</span><span style="color:#888;">${col.type.split('(')[0]}</span>`;
+          colDiv.onclick = (e) => { e.stopPropagation(); selectEntity('column', col.name, model.name); };
+          card.appendChild(colDiv);
+        });
+      }
+      
+      diagramCanvas.appendChild(card);
+      
+      x += 280;
+      rowMaxH = Math.max(rowMaxH, card.offsetHeight);
+      if (x > 1200) { x = 50; y += rowMaxH + 50; rowMaxH = 0; }
+    });
+
+    // Draw relationships using Native SVG logic mapping exactly to relative offsets!
+    setTimeout(() => {
+      if (baselineData.relationships) {
+        baselineData.relationships.forEach((rel, index) => {
+          const fromCol = document.getElementById(`col-${rel.from_model}-${rel.join.from_column}`);
+          const toCol = document.getElementById(`col-${rel.to_model}-${rel.join.to_column}`);
+          
+          if (fromCol && toCol) {
+            const fromCard = fromCol.parentElement;
+            const toCard = toCol.parentElement;
+
+            // Compute precise center-points vertically, and left/right horizontally relative to the canvas
+            const x1 = fromCard.offsetLeft + fromCard.offsetWidth; // Right edge of from_card
+            const y1 = fromCard.offsetTop + fromCol.offsetTop + (fromCol.offsetHeight / 2);
+            
+            const x2 = toCard.offsetLeft; // Left edge of to_card
+            const y2 = toCard.offsetTop + toCol.offsetTop + (toCol.offsetHeight / 2);
+            
+            // Generate Bezier Curve
+            const controlOffset = Math.abs(x2 - x1) * 0.5 + 20;
+            const pathData = `M ${x1} ${y1} C ${x1 + controlOffset} ${y1}, ${x2 - controlOffset} ${y2}, ${x2} ${y2}`;
+            
+            // Visual line
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            path.setAttribute('d', pathData);
+            path.setAttribute('fill', 'none');
+            path.setAttribute('stroke', '#adb5bd');
+            path.setAttribute('stroke-width', '2');
+            path.setAttribute('marker-end', 'url(#arrow)');
+            
+            // Thick invisible line for easy clicking/hovering
+            const hitPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            hitPath.setAttribute('d', pathData);
+            hitPath.setAttribute('fill', 'none');
+            hitPath.setAttribute('stroke', 'transparent');
+            hitPath.setAttribute('stroke-width', '15');
+            hitPath.style.pointerEvents = 'stroke';
+            hitPath.style.cursor = 'pointer';
+            
+            const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            g.appendChild(path);
+            g.appendChild(hitPath);
+            
+            g.addEventListener('mouseenter', () => { path.setAttribute('stroke', '#0066cc'); path.setAttribute('stroke-width', '3'); path.setAttribute('marker-end', 'url(#arrow-hover)'); });
+            g.addEventListener('mouseleave', () => { path.setAttribute('stroke', '#adb5bd'); path.setAttribute('stroke-width', '2'); path.setAttribute('marker-end', 'url(#arrow)'); });
+            
+            g.onclick = (e) => {
+              e.stopPropagation();
+              selectEntity('relation', null, null, index, rel);
+            };
+            
+            svgGroup.appendChild(g);
+          }
+        });
+      }
+    }, 100);
+  }
+
+  function selectEntity(type, entityId, parentId = null, relIndex = null, relData = null) {
+    selection = { type, entityId, parentId, relIndex };
+    document.querySelectorAll('.table-card').forEach(c => c.classList.remove('selected'));
+    
+    propertiesPanel.classList.add('active');
+    document.getElementById('propStandardFields').style.display = 'none';
+    document.getElementById('propRelFields').style.display = 'none';
+    
+    if (type === 'table') {
+      document.getElementById(`table-${entityId}`)?.classList.add('selected');
+      document.getElementById('propTitle').textContent = `Table: ${entityId}`;
+      document.getElementById('propSubtitle').textContent = "Edit table details.";
+      document.getElementById('propStandardFields').style.display = 'block';
+      document.getElementById('propAliasesGroup').style.display = 'block';
+      
+      const semModel = semanticData.models.find(m => m.name === entityId);
+      document.getElementById('propDescription').value = semModel?.description || '';
+      document.getElementById('propAliases').value = (semModel?.aliases || []).join(', ');
+      
+    } else if (type === 'column') {
+      document.getElementById(`table-${parentId}`)?.classList.add('selected');
+      document.getElementById('propTitle').textContent = `Column: ${entityId}`;
+      document.getElementById('propSubtitle').textContent = `Belongs to ${parentId}.`;
+      document.getElementById('propStandardFields').style.display = 'block';
+      document.getElementById('propAliasesGroup').style.display = 'none';
+      
+      const semModel = semanticData.models.find(m => m.name === parentId);
+      const semCol = semModel?.columns?.find(c => c.name === entityId);
+      document.getElementById('propDescription').value = semCol?.description || '';
+      
+    } else if (type === 'relation') {
+      document.getElementById('propTitle').textContent = `Relationship`;
+      document.getElementById('propSubtitle').textContent = `${relData.from_model} → ${relData.to_model}`;
+      document.getElementById('propRelFields').style.display = 'block';
+      
+      const semRel = semanticData.relationships?.find(r => r.from_model === relData.from_model && r.to_model === relData.to_model && r.join.from_column === relData.join.from_column) || relData;
+      document.getElementById('propRelType').value = semRel.type || 'many_to_one';
+      document.getElementById('propRelDescription').value = semRel.description || '';
     }
   }
 
-  async function loadFileContent(profile, file) {
-    yamlViewer.textContent = "Loading...";
+  function applyProperties() {
+    if (selection.type === 'table' || selection.type === 'column') {
+      let semModel = semanticData.models.find(m => m.name === (selection.type === 'table' ? selection.entityId : selection.parentId));
+      if (!semModel) { semModel = { name: (selection.type === 'table' ? selection.entityId : selection.parentId), columns: [] }; semanticData.models.push(semModel); }
+
+      if (selection.type === 'table') {
+        semModel.description = document.getElementById('propDescription').value;
+        const aliases = document.getElementById('propAliases').value.split(',').map(s => s.trim()).filter(s => s);
+        if (aliases.length > 0) semModel.aliases = aliases; else delete semModel.aliases;
+      } else {
+        if (!semModel.columns) semModel.columns = [];
+        let semCol = semModel.columns.find(c => c.name === selection.entityId);
+        if (!semCol) { semCol = { name: selection.entityId }; semModel.columns.push(semCol); }
+        semCol.description = document.getElementById('propDescription').value;
+      }
+    } else if (selection.type === 'relation') {
+      const baseRel = baselineData.relationships[selection.relIndex];
+      if (!semanticData.relationships) semanticData.relationships = [];
+      let semRel = semanticData.relationships.find(r => r.from_model === baseRel.from_model && r.to_model === baseRel.to_model && r.join.from_column === baseRel.join.from_column);
+      
+      if (!semRel) { semRel = JSON.parse(JSON.stringify(baseRel)); semanticData.relationships.push(semRel); }
+      semRel.type = document.getElementById('propRelType').value;
+      semRel.description = document.getElementById('propRelDescription').value;
+    }
+    
+    renderYaml();
+    const msg = document.getElementById('statusMsg');
+    msg.textContent = '✔ Property Applied';
+    msg.style.display = 'inline'; setTimeout(() => msg.style.display='none', 2000);
+  }
+
+  function renderInstructions() {
+    const list = document.getElementById('instructionsList');
+    list.innerHTML = '';
+    semanticData.instructions.forEach((inst, idx) => {
+      list.innerHTML += `
+        <div class="instruction-card">
+          <div class="form-group"><label>ID</label><input type="text" value="${inst.id||''}" onchange="updateInst(${idx}, 'id', this.value)"></div>
+          <div class="form-group"><label>Question</label><input type="text" value="${inst.question||''}" onchange="updateInst(${idx}, 'question', this.value)"></div>
+          <div class="form-group"><label>Instruction</label><textarea rows="3" onchange="updateInst(${idx}, 'instruction', this.value)">${inst.instruction||''}</textarea></div>
+          <button class="btn-sm" style="background:#dc3545;" onclick="delInst(${idx})">Delete</button>
+        </div>
+      `;
+    });
+  }
+
+  window.updateInst = (idx, field, val) => semanticData.instructions[idx][field] = val;
+  window.delInst = (idx) => { semanticData.instructions.splice(idx, 1); renderInstructions(); };
+  window.addInstruction = () => { semanticData.instructions.push({ id: `rule_${Date.now()}`, scope: 'sql', question: '', instruction: '' }); renderInstructions(); };
+
+  function getCleanSemantic() {
+    const clean = JSON.parse(JSON.stringify(semanticData));
+    clean.models = clean.models.filter(m => {
+      if (m.columns) { m.columns = m.columns.filter(c => c.description || c.aliases); if (m.columns.length === 0) delete m.columns; }
+      return m.description || m.aliases || m.columns;
+    });
+    
+    if (clean.relationships) {
+      clean.relationships = clean.relationships.filter(r => r.description);
+      if (clean.relationships.length === 0) delete clean.relationships;
+    }
+
+    if (baselineData.relationships && baselineData.relationships.length > 0) {
+      const mergedRels = JSON.parse(JSON.stringify(baselineData.relationships));
+      if (clean.relationships) {
+        clean.relationships.forEach(sr => {
+          let mr = mergedRels.find(r => r.from_model === sr.from_model && r.to_model === sr.to_model && r.join.from_column === sr.join.from_column);
+          if (mr) { mr.type = sr.type; mr.description = sr.description; }
+        });
+      }
+      clean.relationships = mergedRels;
+    }
+    return clean;
+  }
+
+  function renderYaml() { document.getElementById('yamlViewer').textContent = jsyaml.dump(getCleanSemantic(), { noRefs: true }); }
+
+  async function saveProfileChanges() {
+    if (!currentProfile) return alert("Select a profile.");
+    const content = jsyaml.dump(getCleanSemantic(), { noRefs: true });
     try {
-      const { content } = await fetch(`/api/context/files/${encodeURIComponent(profile)}/${encodeURIComponent(file)}`).then((r) => r.json());
-      yamlViewer.textContent = content;
-    } catch (err) {
-      yamlViewer.textContent = String(err);
+      const res = await fetch(`/api/context/files/${currentProfile}/${currentProfile}.semantic.yaml`, {
+        method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content })
+      });
+      if (res.ok) {
+        const msg = document.getElementById('statusMsg');
+        msg.textContent = '✔ Profile Saved';
+        msg.style.display = 'inline'; setTimeout(() => msg.style.display='none', 3000);
+      }
+    } catch(e) { alert(e); }
+  }
+
+  async function runReindex() {
+    if (!currentProfile) return alert("Select a profile.");
+    try {
+      document.getElementById('reindexBtn').textContent = 'Reindexing...';
+      const res = await fetch('/api/context/reindex', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ semantic_profile: currentProfile }) });
+      document.getElementById('reindexBtn').textContent = 'Run Reindex (Create Template)';
+      if (res.ok) { alert("Template baseline generated successfully"); selectProfile(currentProfile); }
+      else alert("Reindex failed: " + (await res.json()).detail || "Unknown error");
+    } catch(e) { document.getElementById('reindexBtn').textContent = 'Run Reindex (Create Template)'; alert(e); }
+  }
+
+  async function loadCommonFiles() {
+    try {
+      const res = await fetch('/api/context/files/common');
+      const list = document.getElementById('commonFilesList');
+      list.innerHTML = '';
+      (await res.json()).files.forEach(f => {
+        const div = document.createElement('div');
+        div.className = 'instruction-card common-file';
+        div.textContent = f;
+        div.onclick = () => selectCommonFile(f);
+        list.appendChild(div);
+      });
+    } catch (e) { console.error(e); }
+  }
+
+  async function selectCommonFile(fileName) {
+    currentCommonFile = fileName;
+    document.getElementById('commonEditorContainer').style.display = 'flex';
+    document.getElementById('commonEditorTitle').textContent = `Editing: ${fileName}`;
+    try {
+      const res = await fetch(`/api/context/files/common/${fileName}`);
+      commonFileData = jsyaml.load((await res.json()).content) || { instructions: [] };
+      if (!commonFileData.instructions) commonFileData.instructions = [];
+      renderCommonInstructions();
+    } catch(e) { console.error(e); }
+  }
+
+  function renderCommonInstructions() {
+    const list = document.getElementById('commonInstructionsList');
+    list.innerHTML = '';
+    commonFileData.instructions.forEach((inst, idx) => {
+      list.innerHTML += `
+        <div class="instruction-card">
+          <div class="form-group"><label>ID</label><input type="text" value="${inst.id||''}" onchange="updateCInst(${idx}, 'id', this.value)"></div>
+          <div class="form-group"><label>Scope</label><input type="text" value="${inst.scope||'sql'}" onchange="updateCInst(${idx}, 'scope', this.value)"></div>
+          <div class="form-group"><label>Instruction</label><textarea rows="3" onchange="updateCInst(${idx}, 'instruction', this.value)">${inst.instruction||''}</textarea></div>
+          <button class="btn-sm" style="background:#dc3545;" onclick="delCInst(${idx})">Delete</button>
+        </div>
+      `;
+    });
+  }
+
+  window.updateCInst = (idx, field, val) => commonFileData.instructions[idx][field] = val;
+  window.delCInst = (idx) => { commonFileData.instructions.splice(idx, 1); renderCommonInstructions(); };
+  window.addCommonInstruction = () => { commonFileData.instructions.push({ id: `common_${Date.now()}`, scope: 'sql', instruction: '' }); renderCommonInstructions(); };
+
+  async function saveCommonFile() {
+    try {
+      const res = await fetch(`/api/context/files/common/${currentCommonFile}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: jsyaml.dump(commonFileData, { noRefs: true }) }) });
+      if (res.ok) alert("Common file saved.");
+    } catch(e) { alert(e); }
+  }
+
+  const connModal = document.getElementById("connModal");
+  function openConnectionModal() { connModal.style.display = "flex"; showMenu(); }
+  function closeConnectionModal() { connModal.style.display = "none"; resetErrors(); }
+  function closeModal(e) { if (e.target === connModal) closeConnectionModal(); }
+  function resetErrors() { ['errSqlite', 'errUri', 'errDocker'].forEach(id => document.getElementById(id).style.display = "none"); }
+  function hideAllForms() { ["connMenu", "formSqlite", "formDocker", "formUri"].forEach(id => document.getElementById(id).style.display = "none"); resetErrors(); }
+  function showMenu() { hideAllForms(); document.getElementById("connMenu").style.display = "block"; }
+  
+  function showForm(type) {
+    hideAllForms();
+    if (type === 'sqlite') {
+      document.getElementById("formSqlite").style.display = "flex";
+      fetch('/api/connections').then(res => res.json()).then(data => {
+        if (data && data.default_sqlite_path) {
+          const inp = document.getElementById("sqliteInput");
+          if(!inp.value) inp.value = data.default_sqlite_path;
+        }
+      }).catch(()=>{});
+    } else if (type === 'uri') { document.getElementById("formUri").style.display = "flex"; } 
+    else if (type === 'docker') {
+      document.getElementById("formDocker").style.display = "flex"; document.getElementById("dockerLoading").style.display = "block";
+      fetch('/api/connections/docker').then(res => res.json()).then(data => {
+        document.getElementById("dockerLoading").style.display = "none";
+        const list = document.getElementById("dockerList");
+        if (data.docker_status !== "available") { list.innerHTML = `<p style="color:red">Docker unavailable</p>`; return; }
+        const connectable = data.containers.filter(c => c.connectable && c.running);
+        if (connectable.length === 0) { list.innerHTML = "<p>No containers.</p>"; return; }
+        list.innerHTML = connectable.map(c => `<div class="docker-item" onclick="activateDocker('${c.id}')"><strong>${c.name}</strong><br><small>${c.db_type} | ${c.database}</small></div>`).join('');
+      }).catch(()=>{});
     }
   }
 
-  profileSelect.addEventListener("change", (e) => {
-    loadFiles(e.target.value);
-  });
-
-  reindexBtn.addEventListener("click", async () => {
-    const semanticProfile = profileSelect.value || null;
-    const payload = { semantic_profile: semanticProfile };
+  async function submitConnection(mode, value, btnObj) {
+    resetErrors();
+    const origText = btnObj.textContent; btnObj.textContent = "Connecting..."; btnObj.disabled = true;
     try {
-      const res = await fetch("/api/context/reindex", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      const res = await fetch('/api/connections', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({mode, value}) });
+      if (res.ok) { closeConnectionModal(); loadConnectionStatus(); } 
+      else document.getElementById(mode === 'sqlite_path' ? 'errSqlite' : 'errUri').style.display = "block";
+    } catch(e) { document.getElementById(mode === 'sqlite_path' ? 'errSqlite' : 'errUri').style.display = "block"; } 
+    finally { btnObj.textContent = origText; btnObj.disabled = false; }
+  }
+
+  async function activateDocker(id) {
+    resetErrors();
+    try {
+      const res = await fetch(`/api/connections/docker/${id}/activate`, { method: 'POST' });
+      if (res.ok) { closeConnectionModal(); loadConnectionStatus(); } else document.getElementById("errDocker").style.display = "block";
+    } catch(e) { document.getElementById("errDocker").style.display = "block"; }
+  }
+
+  async function loadConnectionStatus() {
+    try {
+      const res = await fetch('/api/connections');
       const data = await res.json();
-      statsEl.textContent = JSON.stringify(data, null, 2);
-      await loadStats();
-    } catch (err) {
-      statsEl.textContent = String(err);
-    }
-  });
-
-  loadStats();
-  loadProfiles();
+      document.getElementById("dbNameStr").textContent = data.db_name || "Unknown";
+      const badge = document.getElementById("dbDialectBadge");
+      const dialect = data.dialect || "unknown";
+      if (dialect.includes("postgres")) badge.style.backgroundColor = "#336791";
+      else if (dialect.includes("sqlite")) badge.style.backgroundColor = "#003B57";
+      else if (dialect.includes("mysql")) badge.style.backgroundColor = "#00758F";
+      else badge.style.backgroundColor = "#555";
+    } catch(e) {}
+  }
 </script>
 {% endblock %}

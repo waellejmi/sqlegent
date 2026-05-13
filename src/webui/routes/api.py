@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from sqlalchemy import create_engine, text
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
@@ -60,6 +61,17 @@ def _serialize_detected_containers() -> tuple[str, list[dict[str, object]]]:
     return status.value, payload
 
 
+
+def validate_uri(uri: str) -> bool:
+    try:
+        engine = create_engine(uri)
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        return True
+    except Exception as e:
+        print(f"Connection check failed: {e}")
+        return False
+
 @router.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
@@ -114,6 +126,8 @@ def create_connection(payload: NewConnectionRequest) -> dict[str, str]:
     else:
         raise HTTPException(status_code=400, detail="Unsupported mode.")
 
+    if not validate_uri(selected_uri):
+        raise HTTPException(status_code=400, detail="Database connection failed. Please check the path or credentials.")
     db_config.set_database_uri(selected_uri)
     return {"active_uri": selected_uri}
 
@@ -121,8 +135,11 @@ def create_connection(payload: NewConnectionRequest) -> dict[str, str]:
 @router.post("/connections/activate")
 def activate_connection(payload: ActivateConnectionRequest) -> dict[str, str]:
     db_config = DBConfig()
-    db_config.set_database_uri(payload.uri.strip())
-    return {"active_uri": db_config.get_database_uri()}
+    uri = payload.uri.strip()
+    if not validate_uri(uri):
+        raise HTTPException(status_code=400, detail="Database connection failed.")
+    db_config.set_database_uri(uri)
+    return {"active_uri": uri}
 
 
 @router.get("/connections/docker")
@@ -147,6 +164,8 @@ def activate_docker_connection(container_id: str) -> dict[str, str]:
             continue
         connection = container_to_connection_config(item)
         uri = connection_config_to_uri(connection, DBConfig())
+        if not validate_uri(uri):
+            raise HTTPException(status_code=400, detail="Docker database connection failed.")
         DBConfig().set_database_uri(uri)
         return {"active_uri": uri}
 
@@ -211,6 +230,50 @@ def context_stats() -> dict[str, object]:
     return get_context_service().get_stats()
 
 
+
+class ProfileCreateRequest(BaseModel):
+    profile_name: str
+
+@router.post("/context/profiles")
+def create_profile(payload: ProfileCreateRequest) -> dict[str, str]:
+    config = AppConfig()
+    profile_dir = config.MDL_DIR / "databases" / payload.profile_name.strip()
+    if profile_dir.exists():
+        raise HTTPException(status_code=400, detail="Profile already exists")
+    
+    profile_dir.mkdir(parents=True)
+    return {"status": "ok", "profile": payload.profile_name.strip()}
+
+class FileSaveRequest(BaseModel):
+    content: str
+
+@router.put("/context/files/{profile}/{file_path:path}")
+def save_context_file(profile: str, file_path: str, payload: FileSaveRequest) -> dict[str, str]:
+    config = AppConfig()
+    if profile == ".":
+        profile_dir = config.MDL_DIR
+    elif profile == "common":
+        profile_dir = config.MDL_DIR / "common"
+    else:
+        profile_dir = config.MDL_DIR / "databases" / profile
+
+    target_file = profile_dir / file_path
+
+    try:
+        target_file = target_file.resolve()
+        if not str(target_file).startswith(str(profile_dir.resolve())):
+            raise HTTPException(status_code=400, detail="Invalid path")
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid path")
+
+    target_file.parent.mkdir(parents=True, exist_ok=True)
+    
+    try:
+        target_file.write_text(payload.content, encoding="utf-8")
+        return {"status": "ok"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.get("/context/profiles")
 def context_profiles() -> dict[str, list[str]]:
     config = AppConfig()
@@ -230,9 +293,16 @@ def context_files(profile: str) -> dict[str, list[str]]:
 
     if profile == ".":
         profile_dir = config.MDL_DIR
-        # Only direct files in root
         files = [
             f.name for f in profile_dir.iterdir() if f.is_file() and f.suffix == ".yaml"
+        ]
+        return {"files": files}
+    elif profile == "common":
+        profile_dir = config.MDL_DIR / "common"
+        if not profile_dir.exists():
+            return {"files": []}
+        files = [
+            f.name for f in profile_dir.iterdir() if f.is_file() and f.suffix in [".yaml", ".yml"]
         ]
         return {"files": files}
 
@@ -252,6 +322,8 @@ def context_file_content(profile: str, file_path: str) -> dict[str, str]:
 
     if profile == ".":
         profile_dir = config.MDL_DIR
+    elif profile == "common":
+        profile_dir = config.MDL_DIR / "common"
     else:
         profile_dir = config.MDL_DIR / "databases" / profile
 
