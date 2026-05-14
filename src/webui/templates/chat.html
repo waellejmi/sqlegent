@@ -133,9 +133,9 @@
     margin-bottom: 0;
   }
   .chat-messages-inner {
-    max-width: 800px;
+    max-width: 1100px;
     margin: 0 auto;
-    padding: 0 1rem;
+    padding: 0 0.75rem;
     display: flex;
     flex-direction: column;
   }
@@ -153,25 +153,29 @@
   }
   .msg-user {
     background: #e0f0ff;
-    margin-left: 20%;
+    margin-left: 12%;
     border-left: 4px solid #0066cc;
   }
   .msg-ai {
     background: #fff;
-    margin-right: 20%;
+    margin-right: 12%;
     border-left: 4px solid #00cc66;
     box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    overflow-x: auto;
   }
   /* Markdown Styles inside AI Message */
   .msg-ai table {
     border-collapse: collapse;
-    width: 100%;
+    width: max-content;
+    min-width: 100%;
     margin: 10px 0;
   }
   .msg-ai th, .msg-ai td {
     border: 1px solid #ccc;
     padding: 6px 8px;
     text-align: left;
+    white-space: nowrap;
+    vertical-align: top;
   }
   .msg-ai th {
     background-color: #f9f9f9;

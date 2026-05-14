@@ -32,7 +32,7 @@ def extract_database_identity() -> tuple[str | None, str | None]:
 
 def extract_tool_payload(messages: list[AnyMessage]) -> dict[str, Any] | None:
     from langchain_core.messages import HumanMessage
-    
+
     for message in reversed(messages):
         if isinstance(message, HumanMessage):
             # Stop searching if we hit the user's message for the current turn.
@@ -55,7 +55,7 @@ def extract_tool_payload(messages: list[AnyMessage]) -> dict[str, Any] | None:
         else:
             continue
 
-        if "answer" in payload:
+        if any(key in payload for key in ["question", "sql", "db_output", "answer"]):
             return payload
 
     return None

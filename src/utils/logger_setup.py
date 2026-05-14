@@ -10,6 +10,7 @@ _THIRD_PARTY_LOGGERS = (
     "httpx",
     "httpcore",
     "openai",
+    "langsmith",
     "langchain_groq",
     "aiosqlite",
 )

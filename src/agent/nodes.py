@@ -33,6 +33,8 @@ logger = LoggerSetup.get_logger(__name__, logging.DEBUG)
 
 
 def question_synthesis(state: SqlAgentState):
+    if not AppConfig().ENABLE_ORCHESTRATOR:
+        return
     current_question = state["user_question"]
 
     last_user_question = state.get("last_user_question")
@@ -260,7 +262,10 @@ def generate_query(state: SqlAgentState):
     if not response.tool_calls:
         raise ValueError("Model failed to generate a tool call.")
 
-    generated_query = response.tool_calls[0]["args"]["query"]
+    try:
+        generated_query = response.tool_calls[0]["args"]["query"]
+    except Exception:
+        raise ValueError("Failed TO PARSE QUERY from RESPONSE")
 
     current_retry_count = state["retry_count"] + 1
     _log_node_payload("Generated Query", generated_query, logger)
@@ -354,20 +359,29 @@ def explain_result(state: SqlAgentState):
         }
 
     # Maybe to save on tokens, we drop the LLM call and rely on analysis_node to form a phrase and pass it for the conversational agent
-    system_message = {
-        "role": "system",
-        "content": EXPLAIN_RESULT.format(
-            user_question=state["user_question"],
-            query=state["last_query"],
-            status=state["analysis_result"].status,
-            database_output=state["db_output"],
-            explanation=state["analysis_result"].explanation,
-        ),
-    }
-    response = get_model().invoke([system_message])
-    final_answer = _ai_message_to_text(response)
-    _log_node_payload("Explanation", _ai_message_to_text(response), logger)
-    return {
-        "final_answer": final_answer,
-        "last_user_question": state["user_question"],
-    }
+    if not AppConfig().ENABLE_ORCHESTRATOR:
+        system_message = {
+            "role": "system",
+            "content": EXPLAIN_RESULT.format(
+                user_question=state["user_question"],
+                query=state["last_query"],
+                status=state["analysis_result"].status,
+                database_output=state["db_output"],
+                explanation=state["analysis_result"].explanation,
+            ),
+        }
+        response = get_model().invoke([system_message])
+        final_answer = _ai_message_to_text(response)
+        _log_node_payload("Explanation", _ai_message_to_text(response), logger)
+        return {
+            "final_answer": final_answer,
+        }
+
+    else:
+        _log_node_payload(
+            "Passed formating to orchestrator", "ORCHESTRATOR_FORMAT_REQUIRED", logger
+        )
+        return {
+            "final_answer": "ORCHESTRATOR_FORMAT_REQUIRED",
+            "last_user_question": state["user_question"],
+        }

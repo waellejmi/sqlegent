@@ -26,8 +26,14 @@ def call_nl2sql_tool(
     analysis_result = result.get("analysis_result")
     payload = {
         "question": user_question,
-        "answer": result.get(
-            "final_answer", "Error: No final answer produced by subagent."
+        **(
+            {
+                "answer": result.get(
+                    "final_answer", "Error: No final answer produced by subagent."
+                )
+            }
+            if result.get("final_answer") != "ORCHESTRATOR_FORMAT_REQUIRED"
+            else {}
         ),
         "sql": result.get("last_query"),
         "db_output": result.get("db_output"),
