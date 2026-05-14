@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsPlumb/2.15.6/js/jsplumb.min.js"></script>
 <style>
   /* Match Chat.html layout styling perfectly */
   .page { max-width: none !important; margin: 0 !important; padding: 0 !important; height: calc(100vh - 61px); display: flex; flex-direction: column; color: #333; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"; }
@@ -119,18 +120,8 @@
       <div id="diagram-tab" class="tab-pane active" style="flex-direction: row;">
         <div class="diagram-scroll-area" id="diagramScrollArea">
           <div class="diagram-canvas" id="diagramCanvas">
-            <!-- Native SVG Overlay -->
-            <svg id="diagramSvg" style="position: absolute; top: 0; left: 0; min-width: 3000px; min-height: 3000px; pointer-events: none; z-index: 5; overflow: visible;">
-              <defs>
-                <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                  <path d="M 0 0 L 10 5 L 0 10 z" fill="#adb5bd" />
-                </marker>
-                <marker id="arrow-hover" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                  <path d="M 0 0 L 10 5 L 0 10 z" fill="#0066cc" />
-                </marker>
-              </defs>
-              <g id="svgPathsGroup"></g>
-            </svg>
+            <!-- We no longer need the native SVG overlay as we're using jsPlumb -->
+            <svg id="diagramSvg" style="display: none;"></svg>
           </div>
         </div>
         
@@ -154,12 +145,7 @@
             <div id="propRelFields" style="display: none;">
               <div class="form-group">
                 <label>Relationship Type</label>
-                <select id="propRelType">
-                  <option value="one_to_one">One to One</option>
-                  <option value="one_to_many">One to Many</option>
-                  <option value="many_to_one">Many to One</option>
-                  <option value="many_to_many">Many to Many</option>
-                </select>
+                <input type="text" id="propRelType" readonly style="background-color: #eee; cursor: not-allowed;">
               </div>
               <div class="form-group">
                 <label>Relationship Description</label>
@@ -308,11 +294,13 @@
     document.getElementById('currentProfileName').textContent = `Profile: ${name}`;
     loadProfiles(); 
     
-    // Reset canvas and keep SVG overlay alive
+    // Reset canvas and jsPlumb
     Array.from(diagramCanvas.children).forEach(child => {
-        if(child.tagName.toLowerCase() !== 'svg') child.remove();
+        if(child.tagName.toLowerCase() !== 'svg' && !child.classList.contains('jtk-endpoint') && !child.classList.contains('jtk-connector')) child.remove();
     });
-    svgGroup.innerHTML = '';
+    if (window.jspInstance) {
+      window.jspInstance.reset();
+    }
     closeProperties();
     
     try {
@@ -341,7 +329,19 @@
   }
 
   function renderDiagram() {
-    svgGroup.innerHTML = '';
+    if (window.jspInstance) {
+      window.jspInstance.reset();
+    }
+    
+    // Initialize jsPlumb instance on the canvas
+    window.jspInstance = jsPlumb.getInstance({
+      Container: diagramCanvas
+    });
+
+    window.jspInstance.bind("click", function (conn, originalEvent) {
+      originalEvent.stopPropagation();
+      selectEntity('relation', null, null, conn.getParameter("index"), conn.getParameter("rel"));
+    });
     
     if (!baselineData.models || baselineData.models.length === 0) {
       const err = document.createElement('div');
@@ -378,13 +378,16 @@
       }
       
       diagramCanvas.appendChild(card);
+      // Make the table movable! jsPlumb will automatically update the lines.
+      // containment: true prevents the user from dragging tables out of the canvas bounds.
+      window.jspInstance.draggable(card, { containment: true });
       
       x += 280;
       rowMaxH = Math.max(rowMaxH, card.offsetHeight);
       if (x > 1200) { x = 50; y += rowMaxH + 50; rowMaxH = 0; }
     });
 
-    // Draw relationships using Native SVG logic mapping exactly to relative offsets!
+    // Draw relationships using jsPlumb
     setTimeout(() => {
       if (baselineData.relationships) {
         baselineData.relationships.forEach((rel, index) => {
@@ -392,50 +395,22 @@
           const toCol = document.getElementById(`col-${rel.to_model}-${rel.join.to_column}`);
           
           if (fromCol && toCol) {
-            const fromCard = fromCol.parentElement;
-            const toCard = toCol.parentElement;
-
-            // Compute precise center-points vertically, and left/right horizontally relative to the canvas
-            const x1 = fromCard.offsetLeft + fromCard.offsetWidth; // Right edge of from_card
-            const y1 = fromCard.offsetTop + fromCol.offsetTop + (fromCol.offsetHeight / 2);
-            
-            const x2 = toCard.offsetLeft; // Left edge of to_card
-            const y2 = toCard.offsetTop + toCol.offsetTop + (toCol.offsetHeight / 2);
-            
-            // Generate Bezier Curve
-            const controlOffset = Math.abs(x2 - x1) * 0.5 + 20;
-            const pathData = `M ${x1} ${y1} C ${x1 + controlOffset} ${y1}, ${x2 - controlOffset} ${y2}, ${x2} ${y2}`;
-            
-            // Visual line
-            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            path.setAttribute('d', pathData);
-            path.setAttribute('fill', 'none');
-            path.setAttribute('stroke', '#adb5bd');
-            path.setAttribute('stroke-width', '2');
-            path.setAttribute('marker-end', 'url(#arrow)');
-            
-            // Thick invisible line for easy clicking/hovering
-            const hitPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            hitPath.setAttribute('d', pathData);
-            hitPath.setAttribute('fill', 'none');
-            hitPath.setAttribute('stroke', 'transparent');
-            hitPath.setAttribute('stroke-width', '15');
-            hitPath.style.pointerEvents = 'stroke';
-            hitPath.style.cursor = 'pointer';
-            
-            const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-            g.appendChild(path);
-            g.appendChild(hitPath);
-            
-            g.addEventListener('mouseenter', () => { path.setAttribute('stroke', '#0066cc'); path.setAttribute('stroke-width', '3'); path.setAttribute('marker-end', 'url(#arrow-hover)'); });
-            g.addEventListener('mouseleave', () => { path.setAttribute('stroke', '#adb5bd'); path.setAttribute('stroke-width', '2'); path.setAttribute('marker-end', 'url(#arrow)'); });
-            
-            g.onclick = (e) => {
-              e.stopPropagation();
-              selectEntity('relation', null, null, index, rel);
-            };
-            
-            svgGroup.appendChild(g);
+            window.jspInstance.connect({
+              source: fromCol,
+              target: toCol,
+              connector: ["Flowchart", { cornerRadius: 5, stub: 30, alwaysRespectStubs: true }],
+              paintStyle: { stroke: "#adb5bd", strokeWidth: 2 },
+              hoverPaintStyle: { stroke: "#0066cc", strokeWidth: 3 },
+              endpoint: "Blank",
+              anchors: ["Right", "Left"],
+              overlays: [
+                ["Arrow", { location: 1, width: 10, length: 10 }]
+              ],
+              parameters: {
+                index: index,
+                rel: rel
+              }
+            });
           }
         });
       }
