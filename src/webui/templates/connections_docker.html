@@ -1,11 +1,14 @@
 {% extends "base.html" %}
 {% block content %}
 <h1>Docker Auto Discovery</h1>
-<p>Server-sent events stream container status.</p>
 
-<div class="row">
-  <div>Status: <span id="dockerStatus">unknown</span></div>
-  <button id="refreshBtn" type="button">Manual Refresh</button>
+<div class="row" style="align-items: center; justify-content: flex-start; gap: 1rem;">
+  <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 1.1rem; font-weight: bold; color: #0066cc;">
+    Docker Status: <span id="dockerStatus" style="color: #333;">unknown</span>
+    <!-- CSS animated loop cycle icon instead of spammy heartbeat log -->
+    <svg id="syncIcon" style="width: 16px; height: 16px; display: none; color: #0066cc;" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+  </div>
+  <button id="refreshBtn" type="button" class="btn-primary" style="padding: 6px 12px; background: #0066cc; color: white; border: none; border-radius: 4px; cursor: pointer;">Manual Refresh</button>
 </div>
 
 <table class="table" id="containersTable">
@@ -25,6 +28,10 @@
 
 <pre id="dockerLog" class="panel"></pre>
 
+<style>
+  @keyframes spin { 100% { transform: rotate(360deg); } }
+  .spin-animation { animation: spin 1s linear infinite; display: inline-block !important; }
+</style>
 <script>
   const statusEl = document.getElementById("dockerStatus");
   const bodyEl = document.querySelector("#containersTable tbody");
@@ -47,25 +54,57 @@
         <td>${item.port || "-"}</td>
         <td>${item.database || "-"}</td>
         <td>${item.connectable ? "yes" : "no"}</td>
-        <td><button data-id="${item.id}">Activate</button></td>
+        <td><button data-id="${item.id}" class="btn-primary" style="padding: 4px 8px; background: #0066cc; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85em;">Activate</button></td>
       `;
       bodyEl.appendChild(tr);
     }
   }
 
-  async function activateContainer(containerId) {
-    const res = await fetch(`/api/connections/docker/${containerId}/activate`, {
-      method: "POST",
-    });
-    const data = await res.json();
-    log(`[activate] ${JSON.stringify(data)}`);
+  async function activateContainer(containerId, btnElement) {
+    const originalText = btnElement.textContent;
+    btnElement.textContent = "Activating...";
+    btnElement.disabled = true;
+    btnElement.style.opacity = "0.7";
+    
+    try {
+      const res = await fetch(`/api/connections/docker/${containerId}/activate`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      log(`[activate] ${JSON.stringify(data)}`);
+      
+      if (res.ok) {
+        btnElement.textContent = "Activated ✔";
+        btnElement.style.backgroundColor = "#28a745"; // Green success color
+        btnElement.style.opacity = "1";
+        
+        // Optionally reset after a few seconds so it can be clicked again later if needed
+        setTimeout(() => {
+          btnElement.textContent = originalText;
+          btnElement.style.backgroundColor = "#0066cc";
+          btnElement.disabled = false;
+        }, 3000);
+      } else {
+        throw new Error(data.detail || "Activation failed");
+      }
+    } catch (err) {
+      log(`[error] ${err}`);
+      btnElement.textContent = "Error";
+      btnElement.style.backgroundColor = "#dc3545"; // Red error color
+      setTimeout(() => {
+        btnElement.textContent = originalText;
+        btnElement.style.backgroundColor = "#0066cc";
+        btnElement.disabled = false;
+        btnElement.style.opacity = "1";
+      }, 3000);
+    }
   }
 
   bodyEl.addEventListener("click", (event) => {
     const btn = event.target;
     if (!(btn instanceof HTMLButtonElement)) return;
     const id = btn.getAttribute("data-id");
-    if (id) activateContainer(id).catch((err) => log(`[error] ${err}`));
+    if (id) activateContainer(id, btn);
   });
 
   refreshBtn.addEventListener("click", async () => {
@@ -88,7 +127,13 @@
     log(`[containers] ${data.containers?.length || 0}`);
   });
   source.addEventListener("heartbeat", () => {
-    log("[heartbeat]");
+    // Show spinner briefly on heartbeat instead of logging
+    const icon = document.getElementById("syncIcon");
+    icon.classList.add("spin-animation");
+    setTimeout(() => {
+      icon.classList.remove("spin-animation");
+      icon.style.display = "none";
+    }, 1000);
   });
   source.onerror = () => {
     log("[sse] disconnected/retrying");

@@ -68,7 +68,7 @@ db, get_schema_tool, run_query_tool = _build_database_components()
 
 
 @tool
-def list_tables_with_cache() -> list[str]:
+def list_tables_with_cache() -> str:
     """
     List usable table names inside the the database,
     """
@@ -84,7 +84,7 @@ def list_tables_with_cache() -> list[str]:
         bypass_cache=bypass_cache,
     )
     if cached is not None:
-        return list(cached)
+        return ", ".join(cached) if cached else ""
 
     table_names = db.get_usable_table_names()
     set_cached_metadata(
@@ -93,7 +93,7 @@ def list_tables_with_cache() -> list[str]:
         value=table_names,
         bypass_cache=bypass_cache,
     )
-    return table_names
+    return ", ".join(table_names) if table_names else ""
 
 
 @tool(

@@ -4,7 +4,7 @@
   --ink: #1f2a24;
   --muted: #5c6a60;
   --accent: #2d6a4f;
-  --accent-soft: #d8f3dc;
+  --accent-soft: #d0e6fa;
   --line: #cfd8d1;
 }
 
@@ -51,8 +51,10 @@ body {
   border-radius: 6px;
 }
 
+
 .nav a:hover {
-  background: var(--accent-soft);
+  background: #e0f0ff;
+  color: #0066cc;
 }
 
 .page {

@@ -7,6 +7,18 @@ router = APIRouter()
 
 
 @router.get("/")
+def home_page(request: Request):
+    return render_template(
+        request,
+        "chat.html",
+        {
+            "page": "chat",
+            "title": "Chat",
+        },
+    )
+
+
+@router.get("/dashboard")
 def dashboard(request: Request):
     return render_template(
         request,

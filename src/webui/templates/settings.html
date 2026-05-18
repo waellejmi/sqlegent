@@ -143,7 +143,7 @@
     transition: .4s;
     border-radius: 50%;
   }
-  input:checked + .slider { background-color: #00cc66; }
+  input:checked + .slider { background-color: #0066cc; }
   input:checked + .slider:before { transform: translateX(16px); }
 
   .actions-bar {
@@ -189,8 +189,7 @@
   </div>
 </div>
 
-<h3 style="margin-top: 3rem;">Raw Config Output</h3>
-<pre id="settingsOutput" class="panel" style="font-size: 0.85rem; max-height: 400px; overflow-y: auto;">Loading...</pre>
+<!-- Removed raw config output based on user request -->
 
 <script>
   const categories = {
@@ -211,12 +210,13 @@
   
   let currentData = {};
 
-  function determineCategory(key) {
-    for (const [cat, keys] of Object.entries(categories)) {
-      if (keys.includes(key)) return cat;
+    function determineCategory(key) {
+      if (key.includes("CACHE")) return "Cache & Paths";
+      for (const [cat, keys] of Object.entries(categories)) {
+        if (keys.includes(key)) return cat;
+      }
+      return "Other";
     }
-    return "Other";
-  }
 
   function activateTab(tabId) {
     document.querySelectorAll('.settings-nav li').forEach(li => li.classList.remove('active'));
@@ -250,7 +250,6 @@
     try {
       const res = await fetch("/api/config/app");
       currentData = await res.json();
-      output.textContent = JSON.stringify(currentData, null, 2);
       
       navMenu.innerHTML = "";
       dynamicSections.innerHTML = "";

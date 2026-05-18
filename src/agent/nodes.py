@@ -73,7 +73,9 @@ def list_tables(_state: SqlAgentState):
     if not result:
         raise ValueError("Failed to retrieve table names from the database.")
 
-    return {"available_tables": result}
+    # parse the comma-separated string back to a list for the state
+    tables = [t.strip() for t in result.split(",") if t.strip()]
+    return {"available_tables": tables}
 
 
 def retrieve_context(state: SqlAgentState):

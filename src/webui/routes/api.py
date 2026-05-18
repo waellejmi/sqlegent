@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from sqlalchemy import create_engine, text
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
@@ -12,6 +11,7 @@ from dbcore.connections.discovery.docker_detector import (
     container_to_connection_config,
     detect_database_containers,
 )
+from dbcore.connections.validation import validate_uri
 
 router = APIRouter()
 
@@ -60,17 +60,6 @@ def _serialize_detected_containers() -> tuple[str, list[dict[str, object]]]:
         )
     return status.value, payload
 
-
-
-def validate_uri(uri: str) -> bool:
-    try:
-        engine = create_engine(uri)
-        with engine.connect() as conn:
-            conn.execute(text("SELECT 1"))
-        return True
-    except Exception as e:
-        print(f"Connection check failed: {e}")
-        return False
 
 @router.get("/health")
 def health() -> dict[str, str]:
@@ -127,7 +116,10 @@ def create_connection(payload: NewConnectionRequest) -> dict[str, str]:
         raise HTTPException(status_code=400, detail="Unsupported mode.")
 
     if not validate_uri(selected_uri):
-        raise HTTPException(status_code=400, detail="Database connection failed. Please check the path or credentials.")
+        raise HTTPException(
+            status_code=400,
+            detail="Database connection failed. Please check the path or credentials.",
+        )
     db_config.set_database_uri(selected_uri)
     return {"active_uri": selected_uri}
 
@@ -165,7 +157,9 @@ def activate_docker_connection(container_id: str) -> dict[str, str]:
         connection = container_to_connection_config(item)
         uri = connection_config_to_uri(connection, DBConfig())
         if not validate_uri(uri):
-            raise HTTPException(status_code=400, detail="Docker database connection failed.")
+            raise HTTPException(
+                status_code=400, detail="Docker database connection failed."
+            )
         DBConfig().set_database_uri(uri)
         return {"active_uri": uri}
 
@@ -230,9 +224,9 @@ def context_stats() -> dict[str, object]:
     return get_context_service().get_stats()
 
 
-
 class ProfileCreateRequest(BaseModel):
     profile_name: str
+
 
 @router.post("/context/profiles")
 def create_profile(payload: ProfileCreateRequest) -> dict[str, str]:
@@ -240,15 +234,19 @@ def create_profile(payload: ProfileCreateRequest) -> dict[str, str]:
     profile_dir = config.MDL_DIR / "databases" / payload.profile_name.strip()
     if profile_dir.exists():
         raise HTTPException(status_code=400, detail="Profile already exists")
-    
+
     profile_dir.mkdir(parents=True)
     return {"status": "ok", "profile": payload.profile_name.strip()}
+
 
 class FileSaveRequest(BaseModel):
     content: str
 
+
 @router.put("/context/files/{profile}/{file_path:path}")
-def save_context_file(profile: str, file_path: str, payload: FileSaveRequest) -> dict[str, str]:
+def save_context_file(
+    profile: str, file_path: str, payload: FileSaveRequest
+) -> dict[str, str]:
     config = AppConfig()
     if profile == ".":
         profile_dir = config.MDL_DIR
@@ -267,12 +265,13 @@ def save_context_file(profile: str, file_path: str, payload: FileSaveRequest) ->
         raise HTTPException(status_code=400, detail="Invalid path")
 
     target_file.parent.mkdir(parents=True, exist_ok=True)
-    
+
     try:
         target_file.write_text(payload.content, encoding="utf-8")
         return {"status": "ok"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.get("/context/profiles")
 def context_profiles() -> dict[str, list[str]]:
@@ -302,7 +301,9 @@ def context_files(profile: str) -> dict[str, list[str]]:
         if not profile_dir.exists():
             return {"files": []}
         files = [
-            f.name for f in profile_dir.iterdir() if f.is_file() and f.suffix in [".yaml", ".yml"]
+            f.name
+            for f in profile_dir.iterdir()
+            if f.is_file() and f.suffix in [".yaml", ".yml"]
         ]
         return {"files": files}
 
@@ -377,8 +378,8 @@ class SaveMemoryRequest(BaseModel):
 @router.post("/memory/save")
 def save_memory(req: SaveMemoryRequest):
     from context_layer.service import (
-        get_context_service,
         extract_tables_from_sql,
+        get_context_service,
         safe_parse_row_count,
     )
 
@@ -437,27 +438,34 @@ def delete_chat_history(history_id: str) -> dict[str, str]:
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @router.get("/sessions")
 def get_chat_sessions() -> dict[str, object]:
     from webui.history_store import HistoryStore
+
     store = HistoryStore()
     return {"sessions": store.get_sessions()}
+
 
 class RenameSessionRequest(BaseModel):
     title: str
 
+
 @router.patch("/sessions/{session_id}")
 def rename_chat_session(session_id: str, req: RenameSessionRequest) -> dict[str, str]:
     from webui.history_store import HistoryStore
+
     try:
         HistoryStore().rename_session(session_id, req.title)
         return {"status": "ok"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @router.delete("/sessions/{session_id}")
 def delete_chat_session(session_id: str) -> dict[str, str]:
     from webui.history_store import HistoryStore
+
     try:
         HistoryStore().delete_session(session_id)
         return {"status": "ok"}
