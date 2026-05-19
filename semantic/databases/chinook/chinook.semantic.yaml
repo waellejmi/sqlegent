@@ -1,16 +1,20 @@
 models:
   - name: Artist
     description: Musical artist or band entity used for attribution in sales analytics.
-    aliases: [artists, musician, band]
+    aliases:
+      - artists
+      - musician
+      - band
     columns:
       - name: ArtistId
         description: Primary key of the artist.
       - name: Name
         description: Display name of the artist.
-
   - name: Album
     description: Album released by one artist.
-    aliases: [record, release]
+    aliases:
+      - record
+      - release
     columns:
       - name: AlbumId
         description: Primary key of the album.
@@ -18,10 +22,12 @@ models:
         description: Foreign key to Artist.ArtistId.
       - name: Title
         description: Album title.
-
   - name: Track
     description: Sellable track that belongs to an album.
-    aliases: [song, track, title]
+    aliases:
+      - song
+      - track
+      - title
     columns:
       - name: TrackId
         description: Primary key of the track.
@@ -29,10 +35,12 @@ models:
         description: Foreign key to Album.AlbumId.
       - name: UnitPrice
         description: List price of a track (not final line amount for analytics).
-
   - name: InvoiceLine
     description: Line-level sales facts; safest source for item quantity and line revenue.
-    aliases: [sales lines, order lines, line items]
+    aliases:
+      - sales lines
+      - order lines
+      - line items
     columns:
       - name: InvoiceLineId
         description: Primary key of invoice line.
@@ -44,65 +52,157 @@ models:
         description: Sold unit price at invoice line level.
       - name: Quantity
         description: Number of units sold for this track line.
-
-relationships:
-  - from_model: Album
-    to_model: Artist
-    type: many_to_one
-    join:
-      from_column: ArtistId
-      to_column: ArtistId
-    description: Each album belongs to one artist.
-
-  - from_model: Track
-    to_model: Album
-    type: many_to_one
-    join:
-      from_column: AlbumId
-      to_column: AlbumId
-    description: Each track belongs to one album.
-
-  - from_model: InvoiceLine
-    to_model: Track
-    type: many_to_one
-    join:
-      from_column: TrackId
-      to_column: TrackId
-    description: Invoice lines reference sold tracks.
-
+  - name: artist
+    description: Represents the artist of the track
+    aliases:
+      - singer
+      - rapper
 instructions:
   - id: artist_revenue_top5
     scope: sql
     question: top 5 artists by revenue total revenue tracks sold units sold
-    instruction: |
-      For artist revenue questions, use Artist -> Album -> Track -> InvoiceLine joins.
-      Compute total_revenue as SUM(InvoiceLine.UnitPrice * InvoiceLine.Quantity).
-      Compute tracks_sold as SUM(InvoiceLine.Quantity).
-      Group by Artist.ArtistId and Artist.Name.
-      Order by total_revenue DESC, tracks_sold DESC, Artist.Name ASC.
-      Apply LIMIT 5 unless the user asks for a different count.
-      Do not use Invoice.Total for artist-level attribution.
+    instruction: >
+      For artist revenue questions, use Artist -> Album -> Track -> InvoiceLine
+      joins.
 
+      Compute total_revenue as SUM(InvoiceLine.UnitPrice *
+      InvoiceLine.Quantity).
+
+      Compute tracks_sold as SUM(InvoiceLine.Quantity).
+
+      Group by Artist.ArtistId and Artist.Name.
+
+      Order by total_revenue DESC, tracks_sold DESC, Artist.Name ASC.
+
+      Apply LIMIT 5 unless the user asks for a different count.
+
+      Do not use Invoice.Total for artist-level attribution.
   - id: customer_spend_above_average
     scope: sql
     question: customers above average total spending
-    instruction: |
-      For customer spending, aggregate Invoice.Total by customer, then compare each customer total
-      against the average of per-customer totals (not average invoice amount).
+    instruction: >
+      For customer spending, aggregate Invoice.Total by customer, then compare
+      each customer total against the average of per-customer totals (not
+      average invoice amount).
   - id: top_bought_tracks
     scope: sql
     question: most bought tracks of all times
-    instruction: |
-      For most bought tracks,look at the list of all purchased items (invoice lines), since each one represents a song bought by a customer.
-      For each entry, identify the track and add up how many times it was purchased, combining all occurrences of the same song into a single total.
-      Once you’ve summed the purchases for every track, arrange them from highest to lowest.
-      The tracks at the top of this list are the most bought of all time.
-      Also List MediaType and Genre for each track.
+    instruction: >
+      For most bought tracks,look at the list of all purchased items (invoice
+      lines), since each one represents a song bought by a customer.
 
-  - id: country_segmentation_logic
+      For each entry, identify the track and add up how many times it was
+      purchased, combining all occurrences of the same song into a single total.
+
+      Once you’ve summed the purchases for every track, arrange them from
+      highest to lowest.
+
+      The tracks at the top of this list are the most bought of all time.
+
+      Also List MediaType and Genre for each track.
+  - id: country_agent_segmentation_rule
     scope: sql
-    question: country agent revenue customer segment
-    instruction: |
-      When calculating revenue or metrics segmented by 'country' for sales agents, 
-      always group by the Customer's country (c.country), NOT the Employee's country. 
-      Sales agents in Chinook support global customers.
+    question: country agent revenue segmentation customer filtering
+    instruction: >
+      When building any country-based aggregation involving sales agents:
+
+      1. Always attribute country to the Customer entity (Customer.Country).
+        Never use Employee or Agent country for grouping or filtering unless explicitly requested.
+
+      2. The join path for revenue must be:
+        Customer → Invoice → InvoiceLine → Track
+        and then linked back to Employee via Customer.SupportRepId.
+
+      3. Country grouping is determined at the Customer level before any
+      aggregation.
+
+      4. Any agent-level metrics (revenue, counts, rankings) must be computed
+      after customers are assigned to agents.
+
+      5. Do not assume agents operate within their own country. Agents can
+      support customers globally.
+
+      6. If both Customer.Country and Employee.Country exist in the schema,
+      always prefer Customer.Country unless the question explicitly states
+      otherwise.
+
+      7. Apply all customer-level filters before joining to Employee to avoid
+      inflating or duplicating metrics.
+relationships:
+  - from_model: album
+    to_model: artist
+    type: many_to_one
+    join:
+      from_column: artist_id
+      to_column: artist_id
+    description: ''
+  - from_model: customer
+    to_model: employee
+    type: many_to_one
+    join:
+      from_column: support_rep_id
+      to_column: employee_id
+    description: ''
+  - from_model: employee
+    to_model: employee
+    type: many_to_one
+    join:
+      from_column: reports_to
+      to_column: employee_id
+    description: ''
+  - from_model: invoice
+    to_model: customer
+    type: many_to_one
+    join:
+      from_column: customer_id
+      to_column: customer_id
+    description: ''
+  - from_model: invoice_line
+    to_model: invoice
+    type: many_to_one
+    join:
+      from_column: invoice_id
+      to_column: invoice_id
+    description: ''
+  - from_model: invoice_line
+    to_model: track
+    type: many_to_one
+    join:
+      from_column: track_id
+      to_column: track_id
+    description: ''
+  - from_model: playlist_track
+    to_model: playlist
+    type: many_to_one
+    join:
+      from_column: playlist_id
+      to_column: playlist_id
+    description: ''
+  - from_model: playlist_track
+    to_model: track
+    type: many_to_one
+    join:
+      from_column: track_id
+      to_column: track_id
+    description: ''
+  - from_model: track
+    to_model: album
+    type: many_to_one
+    join:
+      from_column: album_id
+      to_column: album_id
+    description: ''
+  - from_model: track
+    to_model: genre
+    type: many_to_one
+    join:
+      from_column: genre_id
+      to_column: genre_id
+    description: ''
+  - from_model: track
+    to_model: media_type
+    type: many_to_one
+    join:
+      from_column: media_type_id
+      to_column: media_type_id
+    description: ''

@@ -67,10 +67,17 @@ class HistoryStore:
                 """
                 CREATE TABLE IF NOT EXISTS webui_chat_sessions (
                     session_id TEXT PRIMARY KEY,
-                    title TEXT
+                    title TEXT,
+                    token_total INTEGER NOT NULL DEFAULT 0
                 )
                 """
             )
+            try:
+                conn.execute(
+                    "ALTER TABLE webui_chat_sessions ADD COLUMN token_total INTEGER NOT NULL DEFAULT 0"
+                )
+            except sqlite3.OperationalError:
+                pass
 
     def add_interaction(
         self,
@@ -133,7 +140,8 @@ class HistoryStore:
             rows = conn.execute(
                 """
                 SELECT h.session_id, MAX(h.created_at) as last_active, COUNT(h.id) as interaction_count, 
-                       COALESCE(s.title, (SELECT question FROM webui_chat_history w2 WHERE w2.session_id = h.session_id ORDER BY created_at ASC LIMIT 1)) as title
+                       COALESCE(s.title, (SELECT question FROM webui_chat_history w2 WHERE w2.session_id = h.session_id ORDER BY created_at ASC LIMIT 1)) as title,
+                       COALESCE(s.token_total, 0) as token_total
                 FROM webui_chat_history h
                 LEFT JOIN webui_chat_sessions s ON h.session_id = s.session_id
                 WHERE h.session_id IS NOT NULL
@@ -155,6 +163,33 @@ class HistoryStore:
                 """,
                 (session_id, title)
             )
+
+    def increment_session_tokens(self, session_id: str, delta_tokens: int) -> int:
+        if delta_tokens <= 0:
+            return self.get_session_token_total(session_id)
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO webui_chat_sessions (session_id, token_total)
+                VALUES (?, ?)
+                ON CONFLICT(session_id) DO UPDATE
+                SET token_total = webui_chat_sessions.token_total + excluded.token_total
+                """,
+                (session_id, delta_tokens),
+            )
+            row = conn.execute(
+                "SELECT token_total FROM webui_chat_sessions WHERE session_id = ?",
+                (session_id,),
+            ).fetchone()
+            return int(row[0]) if row else 0
+
+    def get_session_token_total(self, session_id: str) -> int:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT COALESCE(token_total, 0) FROM webui_chat_sessions WHERE session_id = ?",
+                (session_id,),
+            ).fetchone()
+            return int(row[0]) if row else 0
 
     def delete_session(self, session_id: str):
         with self._connect() as conn:

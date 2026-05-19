@@ -14,11 +14,22 @@
     overflow: hidden;
   }
   .app-container {
+    position: relative;
     display: flex;
     height: 100%;
     width: 100%;
     margin: 0;
     gap: 0;
+  }
+  .session-token-indicator {
+    position: absolute;
+    left: 308px;
+    top: 14px;
+    z-index: 5;
+    pointer-events: none;
+    color: #666;
+    font-size: 0.75rem;
+    white-space: nowrap;
   }
   .sidebar {
     width: 300px;
@@ -291,6 +302,26 @@
   .chat-controls button:hover {
     background: #0052a3;
   }
+  #stopBtn {
+    width: 30px;
+    height: 24px;
+    border: none;
+    border-radius: 6px;
+    background: #d9d9d9;
+    color: #555;
+    cursor: pointer;
+    font-size: 0.95rem;
+    line-height: 1;
+    padding: 0;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+  #stopBtn:hover {
+    background: #cfcfcf;
+  }
+  #stopBtn:disabled {
+    visibility: hidden;
+    pointer-events: none;
+  }
   .interrupt-controls {
     display: flex;
     flex-direction: column;
@@ -446,6 +477,7 @@
     </div>
     <div id="historyList"></div>
   </div>
+  <div class="session-token-indicator"><span id="tokenUsage">Session tokens: 0</span></div>
 
   <div class="chat-layout">
     <div id="chatMessages" class="chat-messages">
@@ -466,6 +498,7 @@
               <span id="dbDialectBadge" class="db-dialect-badge" style="background-color: #666;">...</span>
             </span>
           </div>
+          <button id="stopBtn" type="button" disabled title="Stop current request">⏹</button>
           <div style="display: flex; gap: 15px;">
             <div class="chat-status" style="cursor: default;">
               Model:
@@ -602,6 +635,8 @@
   const messagesWrapper = document.getElementById("chatMessages");
   const messagesDiv = document.getElementById("chatMessagesInner");
   const askBtn = document.getElementById("askBtn");
+  const stopBtn = document.getElementById("stopBtn");
+  const tokenUsageLabel = document.getElementById("tokenUsage");
   const questionInput = document.getElementById("question");
   const sidebar = document.getElementById("historySidebar");
   const historyList = document.getElementById("historyList");
@@ -618,6 +653,22 @@
   let currentReasoningContent = null;
   let currentAnswerContent = null;
   let lastQuestion = "";
+  let isRequestRunning = false;
+  let sessionTokenTotal = 0;
+
+  function updateChatActionState() {
+    askBtn.disabled = isRequestRunning;
+    stopBtn.disabled = !isRequestRunning;
+  }
+
+  function updateTokenUsageDisplay(usage) {
+    if (!tokenUsageLabel) return;
+    const parsed = Number(usage);
+    if (Number.isFinite(parsed) && parsed >= 0) {
+      sessionTokenTotal = parsed;
+    }
+    tokenUsageLabel.textContent = `Session tokens: ${sessionTokenTotal}`;
+  }
 
   // Modal Logic
   const connModal = document.getElementById("connModal");
@@ -920,6 +971,12 @@
       if (!res.ok) return;
       const data = await res.json();
       allSessions = data.sessions;
+      const currentSession = allSessions.find(item => item.session_id === sessionId);
+      if (currentSession && Number.isFinite(Number(currentSession.token_total))) {
+        updateTokenUsageDisplay(Number(currentSession.token_total));
+      } else {
+        updateTokenUsageDisplay(0);
+      }
       renderSessionList(allSessions);
     } catch(err) {
       console.error("Failed to load sessions", err);
@@ -1249,9 +1306,18 @@
     loadSessions(); loadCurrentSessionHistory();
     loadConnectionStatus(); // Load connection info
     loadProfileStatus(); // Load profile info
+    updateChatActionState();
   };
-  ws.onclose = () => createMessage("system", "Connection closed.");
-  ws.onerror = () => createMessage("system", "Connection error.");
+  ws.onclose = () => {
+    isRequestRunning = false;
+    updateChatActionState();
+    createMessage("system", "Connection closed.");
+  };
+  ws.onerror = () => {
+    isRequestRunning = false;
+    updateChatActionState();
+    createMessage("system", "Connection error.");
+  };
 
   ws.onmessage = (event) => {
     const msg = JSON.parse(event.data);
@@ -1384,6 +1450,9 @@
       if (msg.ask_result_confirmation) {
         addMemorySaveButton(aiMsg, lastQuestion, msg.sql, msg.db_output, msg.history_id, 0);
       }
+      if (Number.isFinite(Number(msg.session_token_total))) {
+        updateTokenUsageDisplay(Number(msg.session_token_total));
+      }
       
       currentAiMessage = null;
       currentReasoningContent = null;
@@ -1394,16 +1463,31 @@
     
     if (msg.type === "error") {
       currentAiMessage = null; currentReasoningContent = null; currentAnswerContent = null;
+      isRequestRunning = false;
+      updateChatActionState();
       createMessage("system", `Error: ${msg.message}`);
+      return;
+    }
+
+    if (msg.type === "cancelling") {
+      createMessage("system", "Cancelling current request...");
+      return;
+    }
+
+    if (msg.type === "cancelled") {
+      createMessage("system", msg.message || "Request cancelled.");
       return;
     }
     
     if (msg.type === "done") {
       currentAiMessage = null; currentReasoningContent = null; currentAnswerContent = null;
+      isRequestRunning = false;
+      updateChatActionState();
     }
   };
 
   askBtn.addEventListener("click", () => {
+    if (isRequestRunning) return;
     const question = questionInput.value.trim();
     if (!question) return;
     
@@ -1414,8 +1498,15 @@
     currentAiMessage = null;
     currentReasoningContent = null;
     currentAnswerContent = null;
+    isRequestRunning = true;
+    updateChatActionState();
     
     ws.send(JSON.stringify({ type: "ask", question }));
+  });
+
+  stopBtn.addEventListener("click", () => {
+    if (!isRequestRunning) return;
+    ws.send(JSON.stringify({ type: "cancel" }));
   });
 
   // Handle Enter key (Shift+Enter for newline)
@@ -1425,5 +1516,6 @@
       askBtn.click();
     }
   });
+  updateChatActionState();
 </script>
 {% endblock %}
