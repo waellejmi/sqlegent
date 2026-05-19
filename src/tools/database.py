@@ -1,4 +1,5 @@
 import logging
+from typing import Any
 
 from langchain.tools import tool
 from langchain_community.tools.sql_database.tool import (
@@ -61,10 +62,52 @@ def _build_database_components():
     get_schema = InfoSQLDatabaseTool(db=database)
     run_query = QuerySQLDatabaseTool(db=database)
 
-    return database, get_schema, run_query
+    return database_uri, database, get_schema, run_query
 
 
-db, get_schema_tool, run_query_tool = _build_database_components()
+_active_database_uri = ""
+_db: SQLDatabase | None = None
+_get_schema_tool: InfoSQLDatabaseTool | None = None
+_run_query_tool: QuerySQLDatabaseTool | None = None
+
+
+def _get_database_components():
+    global _active_database_uri, _db, _get_schema_tool, _run_query_tool
+    current_uri = DBConfig().get_database_uri()
+    if (
+        _db is None
+        or _get_schema_tool is None
+        or _run_query_tool is None
+        or _active_database_uri != current_uri
+    ):
+        _, _db, _get_schema_tool, _run_query_tool = _build_database_components()
+        _active_database_uri = current_uri
+        logger.info("Reloaded SQL tools for database URI: %s", current_uri)
+    return _db, _get_schema_tool, _run_query_tool
+
+
+class _DBProxy:
+    def __getattr__(self, item: str) -> Any:
+        current_db, _, _ = _get_database_components()
+        return getattr(current_db, item)
+
+
+class _GetSchemaToolProxy:
+    def __getattr__(self, item: str) -> Any:
+        _, current_get_schema_tool, _ = _get_database_components()
+        return getattr(current_get_schema_tool, item)
+
+
+class _RunQueryToolProxy:
+    def __getattr__(self, item: str) -> Any:
+        _, _, current_run_query_tool = _get_database_components()
+        return getattr(current_run_query_tool, item)
+
+
+db = _DBProxy()
+get_schema_tool = _GetSchemaToolProxy()
+run_query_tool = _RunQueryToolProxy()
+_, _schema_tool_metadata, _run_query_tool_metadata = _get_database_components()
 
 
 @tool
@@ -86,7 +129,8 @@ def list_tables_with_cache() -> str:
     if cached is not None:
         return ", ".join(cached) if cached else ""
 
-    table_names = db.get_usable_table_names()
+    current_db, _, _ = _get_database_components()
+    table_names = current_db.get_usable_table_names()
     set_cached_metadata(
         operation="list_tables",
         operation_args=None,
@@ -97,9 +141,9 @@ def list_tables_with_cache() -> str:
 
 
 @tool(
-    get_schema_tool.name,
-    description=get_schema_tool.description,
-    args_schema=get_schema_tool.args_schema,
+    _schema_tool_metadata.name,
+    description=_schema_tool_metadata.description,
+    args_schema=_schema_tool_metadata.args_schema,
 )
 def get_schema_tool_with_cache(table_names: str, config: RunnableConfig | None = None):
     bypass_cache = AppConfig().METADATA_CACHE_BYPASS_DEFAULT
@@ -114,8 +158,9 @@ def get_schema_tool_with_cache(table_names: str, config: RunnableConfig | None =
     if cached is not None:
         return cached
 
+    _, current_get_schema_tool, _ = _get_database_components()
     tool_input = {"table_names": normalized_table_names}
-    tool_response = get_schema_tool.invoke(tool_input, config)
+    tool_response = current_get_schema_tool.invoke(tool_input, config)
     set_cached_metadata(
         operation="get_schema",
         operation_args=operation_args,
@@ -126,13 +171,14 @@ def get_schema_tool_with_cache(table_names: str, config: RunnableConfig | None =
 
 
 @tool(
-    run_query_tool.name,
-    description=run_query_tool.description,
-    args_schema=run_query_tool.args_schema,
+    _run_query_tool_metadata.name,
+    description=_run_query_tool_metadata.description,
+    args_schema=_run_query_tool_metadata.args_schema,
 )
 def run_query_tool_with_interrupt(query: str, config: RunnableConfig | None = None):
     # static check
-    dialect = SQLGLOT_COMPLIANET_DIALECTS.get(db.dialect, db.dialect)
+    current_db, _, current_run_query_tool = _get_database_components()
+    dialect = SQLGLOT_COMPLIANET_DIALECTS.get(current_db.dialect, current_db.dialect)
     if not validate_sql(query, dialect=dialect):
         raise ValueError(
             "Failed the static check. Only SELECT and WITH statements are allowed. No multiple statements allowed."
@@ -143,7 +189,7 @@ def run_query_tool_with_interrupt(query: str, config: RunnableConfig | None = No
         final_query_input = tool_input
     else:
         request = {
-            "action": run_query_tool.name,
+            "action": current_run_query_tool.name,
             "args": tool_input,
             "description": "Please review the tool call",
         }
@@ -161,7 +207,7 @@ def run_query_tool_with_interrupt(query: str, config: RunnableConfig | None = No
         else:
             raise ValueError(f"Unsupported interrupt response type: {response['type']}")
     try:
-        tool_response = run_query_tool.invoke(final_query_input, config)
+        tool_response = current_run_query_tool.invoke(final_query_input, config)
         return tool_response
 
     except Exception as e:
