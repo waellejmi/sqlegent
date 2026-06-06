@@ -1,0 +1,103 @@
+models: []
+instructions:
+  - id: financial_revenue_recognition_rule
+    scope: sql
+    question: total revenue sales generated country geography
+    instruction: |-
+      When calculating realized revenue or sales performance:
+          1. Only include finalized transactions where the order has physically 
+             shipped. Always filter out unfulfilled or pending orders using 
+             the constraint: Orders.ShippedDate IS NOT NULL.
+          2. Attribute geography using the customer's billing country (Customers.Country).
+relationships:
+  - from_model: CustomerCustomerDemo
+    to_model: CustomerDemographics
+    type: many_to_one
+    join:
+      from_column: CustomerTypeID
+      to_column: CustomerTypeID
+    description: ''
+  - from_model: CustomerCustomerDemo
+    to_model: Customers
+    type: many_to_one
+    join:
+      from_column: CustomerID
+      to_column: CustomerID
+    description: ''
+  - from_model: EmployeeTerritories
+    to_model: Territories
+    type: many_to_one
+    join:
+      from_column: TerritoryID
+      to_column: TerritoryID
+    description: ''
+  - from_model: EmployeeTerritories
+    to_model: Employees
+    type: many_to_one
+    join:
+      from_column: EmployeeID
+      to_column: EmployeeID
+    description: ''
+  - from_model: Employees
+    to_model: Employees
+    type: many_to_one
+    join:
+      from_column: ReportsTo
+      to_column: EmployeeID
+    description: ''
+  - from_model: Order Details
+    to_model: Products
+    type: many_to_one
+    join:
+      from_column: ProductID
+      to_column: ProductID
+    description: ''
+  - from_model: Order Details
+    to_model: Orders
+    type: many_to_one
+    join:
+      from_column: OrderID
+      to_column: OrderID
+    description: ''
+  - from_model: Orders
+    to_model: Shippers
+    type: many_to_one
+    join:
+      from_column: ShipVia
+      to_column: ShipperID
+    description: ''
+  - from_model: Orders
+    to_model: Customers
+    type: many_to_one
+    join:
+      from_column: CustomerID
+      to_column: CustomerID
+    description: ''
+  - from_model: Orders
+    to_model: Employees
+    type: many_to_one
+    join:
+      from_column: EmployeeID
+      to_column: EmployeeID
+    description: ''
+  - from_model: Products
+    to_model: Suppliers
+    type: many_to_one
+    join:
+      from_column: SupplierID
+      to_column: SupplierID
+    description: ''
+  - from_model: Products
+    to_model: Categories
+    type: many_to_one
+    join:
+      from_column: CategoryID
+      to_column: CategoryID
+    description: ''
+  - from_model: Territories
+    to_model: Regions
+    type: many_to_one
+    join:
+      from_column: RegionID
+      to_column: RegionID
+    description: ''
