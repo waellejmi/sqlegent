@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from dbcore.connections.discovery.docker_detector import detect_database_containers
+from docker_connection.discovery import detect_database_containers
 
 
 def build_docker_snapshot() -> dict[str, Any]:

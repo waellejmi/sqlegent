@@ -9,6 +9,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
+__all__ = ["DockerCredentials", "DockerDetector"]
+
 
 @dataclass(frozen=True)
 class DockerCredentials:
@@ -41,7 +43,9 @@ class DockerDetector:
         user = get_first(self.env_vars.get("user", ()))
         password = get_first(self.env_vars.get("password", ()))
         database = get_first(self.env_vars.get("database", ())) or self.default_database
-        if not user and self.default_user is not None and (not self.default_user_requires_password or password):
+        if not user and self.default_user is not None and (
+            not self.default_user_requires_password or password
+        ):
             user = self.default_user
         if not database:
             database = self.default_database

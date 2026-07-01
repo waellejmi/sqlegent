@@ -1,6 +1,14 @@
+"""SQLAlchemy URI validation helpers."""
+
+from __future__ import annotations
+
+import os
+
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
-import os
+
+__all__ = ["validate_uri"]
+
 
 def validate_uri(uri: str) -> bool:
     try:
@@ -11,12 +19,12 @@ def validate_uri(uri: str) -> bool:
                 if not os.path.exists(db_path):
                     print(f"SQLite file does not exist: {db_path}")
                     return False
-        
-        # Test connection universally using SQLAlchemy
+
         engine = create_engine(uri)
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
         return True
-    except Exception as e:
-        print(f"Connection check failed: {e}")
+    except Exception as exc:
+        print(f"Connection check failed: {exc}")
         return False
+

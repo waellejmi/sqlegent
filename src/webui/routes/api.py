@@ -3,15 +3,15 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from cli.connections import connection_config_to_uri, normalize_sqlite_uri_from_input
+from cli.connections import normalize_sqlite_uri_from_input
 from config.app_config import AppConfig
 from config.db_config import DBConfig
-from dbcore.connections.discovery.docker_detector import (
+from docker_connection.discovery import (
     DockerStatus,
-    container_to_connection_config,
+    container_to_sqlalchemy_uri,
     detect_database_containers,
 )
-from dbcore.connections.validation import validate_uri
+from docker_connection.validation import validate_uri
 
 router = APIRouter()
 
@@ -154,8 +154,7 @@ def activate_docker_connection(container_id: str) -> dict[str, str]:
     for item in containers:
         if item.container_id != container_id:
             continue
-        connection = container_to_connection_config(item)
-        uri = connection_config_to_uri(connection, DBConfig())
+        uri = container_to_sqlalchemy_uri(item)
         if not validate_uri(uri):
             raise HTTPException(
                 status_code=400, detail="Docker database connection failed."

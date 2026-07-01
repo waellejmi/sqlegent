@@ -1,7 +1,8 @@
 from pathlib import Path
 
 from config.db_config import DBConfig
-from dbcore.connections.validation import validate_uri
+from docker_connection.discovery import container_to_sqlalchemy_uri
+from docker_connection.validation import validate_uri
 
 
 
@@ -10,75 +11,9 @@ def normalize_sqlite_uri_from_input(raw_path: str, db_config: DBConfig) -> str:
     return db_config.sqlite_path_to_uri(path)
 
 
-def connection_config_to_uri(connection, db_config: DBConfig) -> str:
-    db_type = str(connection.db_type).lower()
-    endpoint = connection.tcp_endpoint
-    file_endpoint = connection.file_endpoint
-
-    if db_type in {"sqlite", "duckdb"}:
-        if file_endpoint is None or not file_endpoint.path:
-            raise ValueError(f"{db_type} connection does not include a file path.")
-        return db_config.sqlite_path_to_uri(file_endpoint.path)
-
-    if endpoint is None:
-        raise ValueError(f"{db_type} connection does not include a TCP endpoint.")
-
-    host = endpoint.host or "localhost"
-    port = endpoint.port or ""
-    database = endpoint.database or ""
-    username = endpoint.username or ""
-    password = endpoint.password or ""
-
-    auth_segment = ""
-    if username:
-        auth_segment = username
-        if password:
-            if db_type == "oracle":
-                from urllib.parse import quote
-
-                password = quote(password)
-
-            auth_segment = f"{auth_segment}:{password}"
-        auth_segment = f"{auth_segment}@"
-
-    host_segment = f"{host}:{port}" if port else host
-
-    if db_type == "postgresql":
-        if not database:
-            database = "postgres"
-        return f"postgresql+psycopg2://{auth_segment}{host_segment}/{database}"
-
-    if db_type in {"mysql", "mariadb"}:
-        if not database:
-            database = "mysql"
-        return f"mysql+pymysql://{auth_segment}{host_segment}/{database}"
-
-    if db_type == "mssql":
-        if not database:
-            database = "mssql"
-        return f"mssql+pymssql://{auth_segment}{host_segment}/{database}"
-
-    if db_type == "oracle":
-        if not database:
-            database = "oracle"
-        return (
-            f"oracle+oracledb://{auth_segment}{host_segment}/?service_name={database}"
-        )
-
-    if db_type == "mssql":
-        if not database:
-            database = "mssql"
-        return f"mssql+pymssql://{auth_segment}{host_segment}/{database}"
-
-    raise ValueError(
-        f"Docker/connection URI conversion is not implemented for db_type='{db_type}'."
-    )
-
-
-def _pick_docker_connection_uri(db_config: DBConfig) -> str:
-    from dbcore.connections.discovery.docker_detector import (
+def _pick_docker_connection_uri() -> str:
+    from docker_connection.discovery import (
         DockerStatus,
-        container_to_connection_config,
         detect_database_containers,
     )
 
@@ -128,8 +63,7 @@ def _pick_docker_connection_uri(db_config: DBConfig) -> str:
         raise ValueError("Selection out of range.")
 
     selected = running[choice - 1]
-    connection = container_to_connection_config(selected)
-    return connection_config_to_uri(connection, db_config)
+    return container_to_sqlalchemy_uri(selected)
 
 
 def configure_database_target(db_config: DBConfig) -> str:
@@ -162,13 +96,15 @@ def configure_database_target(db_config: DBConfig) -> str:
                     raise ValueError("URI cannot be empty.")
                 selected_uri = raw_uri
             elif choice == "3":
-                selected_uri = _pick_docker_connection_uri(db_config)
+                selected_uri = _pick_docker_connection_uri()
             else:
                 raise ValueError("Unsupported choice.")
-            
+
             if not validate_uri(selected_uri):
-                raise ValueError("Database connection failed. Please check the path or credentials.")
-                
+                raise ValueError(
+                    "Database connection failed. Please check the path or credentials."
+                )
+
             db_config.set_database_uri(selected_uri)
             print(
                 f"Saved active database URI to {db_config.CONFIG_FILE}: {selected_uri}"
@@ -177,6 +113,4 @@ def configure_database_target(db_config: DBConfig) -> str:
         except Exception as exc:
             print(f"Configuration error: {exc}")
 
-
 _normalize_sqlite_uri_from_input = normalize_sqlite_uri_from_input
-_connection_config_to_uri = connection_config_to_uri
