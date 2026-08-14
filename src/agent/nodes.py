@@ -344,6 +344,15 @@ def should_retry(state: SqlAgentState):
 
 
 def explain_result(state: SqlAgentState):
+    # Short-circuit explain_result when eval harness requests it to be skipped to save LLM calls.
+    if AppConfig().EXPLAIN_RESULT_NODE_NOT_NEEDED:
+        _log_node_payload(
+            "Explain Result Skipped",
+            "EXPLAIN_RESULT_NODE_NOT_NEEDED is set. Skipping LLM explain_result.",
+            logger,
+        )
+        return {"final_answer": "EXPLAIN_RESULT_NODE_SKIPPED"}
+
     if not AppConfig().EXECUTE_SQL_QUERIES:
         explanation = f"SQL execution is disabled. Skipping query . Here is last generated query: {state['last_query']}"
         _log_node_payload("No Execution", explanation, logger)

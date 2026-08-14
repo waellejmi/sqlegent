@@ -19,5 +19,9 @@ data/northwind.db
 data/sakila_master.db
 semantic/**/_baseline.generated.yaml
 
-
+#Agents
 .agents/*
+/skills
+/skills-lock.json
+/evalutation/MINIDEV
+/evaluation/MINIDEV

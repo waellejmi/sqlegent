@@ -1,9 +1,16 @@
 import json
 import logging
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from dotenv import load_dotenv
+try:
+    from dotenv import load_dotenv
+except Exception:
+
+    def load_dotenv():
+        return None
+
 
 load_dotenv()
 
@@ -14,12 +21,14 @@ logger = logging.getLogger(__name__)
 class AppConfig:
     ROOT_DIR: Path = Path(__file__).resolve().parent.parent.parent
     RUNTIME_SETTINGS_PATH: Path = ROOT_DIR / ".app_config" / "settings.json"
+    # Optional eval-specific runtime settings (overrides applied after RUNTIME_SETTINGS_PATH)
+    EVAL_RUNTIME_SETTINGS_PATH: Path = ROOT_DIR / ".app_config" / "eval_settings.json"
 
     LLM_PROVIDER: str = "groq"
     LLM_MODEL_LIST: list[str] = field(
         default_factory=lambda: [
             "openai/gpt-oss-20b",
-            "qwen/qwen3-32b",
+            "qwen/qwen3.6-27b",
             "openai/gpt-oss-120b",
         ]
     )
@@ -37,6 +46,10 @@ class AppConfig:
     HUMAN_SQL_REVIEW: bool = False
     EXECUTE_SQL_QUERIES: bool = True
     MAX_SQL_RETRIES: int = 2
+
+    # When True, skip the explain_result node's LLM call and return an empty final_answer.
+    # Useful for evaluation runs that only need structured outputs and want to avoid extra LLM calls.
+    EXPLAIN_RESULT_NODE_NOT_NEEDED: bool = False
 
     SHOW_AGENT_GRAPH: bool = False
     SHOW_NODE_HISTORY: bool = True
@@ -102,27 +115,52 @@ class AppConfig:
         self._load_runtime_settings()
 
     def _load_runtime_settings(self):
-        if not self.RUNTIME_SETTINGS_PATH.exists():
-            return
+        # Load primary runtime settings
+        if self.RUNTIME_SETTINGS_PATH.exists():
+            try:
+                with open(self.RUNTIME_SETTINGS_PATH, "r") as f:
+                    data = json.load(f)
 
-        try:
-            with open(self.RUNTIME_SETTINGS_PATH, "r") as f:
-                data = json.load(f)
+                for key, value in data.items():
+                    if hasattr(self, key) and key not in [
+                        "ROOT_DIR",
+                        "RUNTIME_SETTINGS_PATH",
+                    ]:
+                        original_val = getattr(self, key)
+                        if isinstance(original_val, Path) and value is not None:
+                            setattr(self, key, Path(value))
+                        else:
+                            setattr(self, key, value)
+            except Exception as e:
+                logger.error(
+                    f"Failed to load runtime settings from {self.RUNTIME_SETTINGS_PATH}: {e}"
+                )
 
-            for key, value in data.items():
-                if hasattr(self, key) and key not in [
-                    "ROOT_DIR",
-                    "RUNTIME_SETTINGS_PATH",
-                ]:
-                    original_val = getattr(self, key)
-                    if isinstance(original_val, Path) and value is not None:
-                        setattr(self, key, Path(value))
-                    else:
-                        setattr(self, key, value)
-        except Exception as e:
-            logger.error(
-                f"Failed to load runtime settings from {self.RUNTIME_SETTINGS_PATH}: {e}"
-            )
+        # Load optional eval-specific overrides (environment overrides file path if provided)
+        eval_path = Path(
+            os.environ.get("EVAL_RUNTIME_SETTINGS")
+            or str(self.EVAL_RUNTIME_SETTINGS_PATH)
+        )
+        if eval_path.exists():
+            try:
+                with open(eval_path, "r") as f:
+                    data = json.load(f)
+
+                for key, value in data.items():
+                    # Allow eval overrides to modify any runtime setting except ROOT paths
+                    if hasattr(self, key) and key not in [
+                        "ROOT_DIR",
+                        "RUNTIME_SETTINGS_PATH",
+                    ]:
+                        original_val = getattr(self, key)
+                        if isinstance(original_val, Path) and value is not None:
+                            setattr(self, key, Path(value))
+                        else:
+                            setattr(self, key, value)
+            except Exception as e:
+                logger.error(
+                    f"Failed to load eval runtime settings from {eval_path}: {e}"
+                )
 
     def save_runtime_settings(self):
         try:
@@ -130,7 +168,11 @@ class AppConfig:
 
             data = {}
             for key, value in self.__dict__.items():
-                if key in ["ROOT_DIR", "RUNTIME_SETTINGS_PATH"]:
+                if key in [
+                    "ROOT_DIR",
+                    "RUNTIME_SETTINGS_PATH",
+                    "EVAL_RUNTIME_SETTINGS_PATH",
+                ]:
                     continue
                 if isinstance(value, Path):
                     data[key] = str(value)
@@ -144,3 +186,34 @@ class AppConfig:
                 f"Failed to save runtime settings to {self.RUNTIME_SETTINGS_PATH}: {e}"
             )
             raise
+
+    def save_eval_runtime_settings(self, patch: dict):
+        """
+        Merge a patch dict into the eval-specific runtime settings file (EVAL_RUNTIME_SETTINGS_PATH
+        or path specified by EVAL_RUNTIME_SETTINGS env var). Only keys that are attributes of AppConfig
+        will be written.
+        """
+        eval_path = Path(
+            os.environ.get("EVAL_RUNTIME_SETTINGS")
+            or str(self.EVAL_RUNTIME_SETTINGS_PATH)
+        )
+        existing: dict = {}
+        if eval_path.exists():
+            try:
+                with open(eval_path, "r", encoding="utf-8") as f:
+                    existing = json.load(f) or {}
+            except Exception:
+                existing = {}
+
+        merged = dict(existing)
+        for k, v in patch.items():
+            if hasattr(self, k):
+                # store paths as strings
+                if isinstance(getattr(self, k), Path) and v is not None:
+                    merged[k] = str(v)
+                else:
+                    merged[k] = v
+
+        eval_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(eval_path, "w", encoding="utf-8") as f:
+            json.dump(merged, f, indent=2)
