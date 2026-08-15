@@ -243,7 +243,7 @@ def main():
     parser.add_argument(
         "--agent-timeout",
         type=int,
-        default=120,
+        default=70,
         help="Per-agent timeout in seconds to prevent hangs (default 120)",
     )
     args = parser.parse_args()
@@ -305,6 +305,8 @@ def main():
             db_file = Path(db_root) / q.db_id / f"{q.db_id}.sqlite"
             try:
                 rows, cols = execute_sqlite_query(db_file, q.SQL)
+                # Keep raw reference rows (unsorted, un-normalized) for official EX and soft_f1
+                raw_ref_rows = [tuple(r) for r in rows]
                 ref_rows, _ = serialize_rows_for_judge(rows, columns=cols)
             except Exception as e:
                 logger.error("Gold SQL execution failed for q%s: %s", qid, e)
@@ -658,19 +660,38 @@ def main():
                     # If we don't have agent_rows_full, this is an evaluation error (or not run)
                     if agent_rows_full is None:
                         execution_correct = None
+                        execution_accuracy_official = None
                     else:
-                        # Use the consolidated comparator from harness
+                        # Use the consolidated comparator from harness (column-superset match)
                         try:
                             execution_correct = harness_mod.compare_rows(
-                                agent_rows_full, agent_cols or [], ref_rows, cols or []
+                                agent_rows_full,
+                                agent_cols or [],
+                                raw_ref_rows,
+                                cols or [],
                             )
                         except Exception as e:
                             rec["evaluation_error_type"] = f"comparator_error: {e}"
                             execution_correct = None
 
-                        # Compute soft F1 (additive metric). Only when agent_rows_full is present.
+                        # Compute official EX (exact full-row set equality) on raw, limit-stripped results
                         try:
-                            sf = harness_mod.soft_f1(agent_rows_full, ref_rows)
+                            execution_accuracy_official = (
+                                harness_mod.execution_accuracy_official(
+                                    agent_rows_full, raw_ref_rows
+                                )
+                            )
+                        except Exception as e:
+                            logger.warning(
+                                "execution_accuracy_official computation failed for q%s: %s",
+                                qid,
+                                e,
+                            )
+                            execution_accuracy_official = None
+
+                        # Compute soft F1 (official algorithm). Only when agent_rows_full is present.
+                        try:
+                            sf = harness_mod.soft_f1(agent_rows_full, raw_ref_rows)
                             soft_f1_result = sf
                         except Exception as e:
                             logger.warning(
@@ -804,7 +825,13 @@ def main():
                     rec["agent_db_total_rows"] = None
                     rec["agent_value_counts_preview"] = None
 
-                rec["execution_correct"] = execution_correct
+                rec["column_superset_match"] = execution_correct
+                # include official EX result if computed
+                rec["execution_accuracy_official"] = (
+                    execution_accuracy_official
+                    if "execution_accuracy_official" in locals()
+                    else None
+                )
 
                 # Build flat final record with ordered keys: meta -> gold -> agent -> evaluation
                 final_rec = {
@@ -813,19 +840,23 @@ def main():
                     "difficulty": rec.get("difficulty"),
                     "condition": rec.get("condition"),
                     "question": rec.get("question"),
-                    "gold_sql": q.SQL,
                     # Gold block (grouped by order, not nested)
+                    "gold_sql": q.SQL,
                     "gold_db_preview": rec.get("gold_db_preview"),
                     "gold_db_total_rows": rec.get("gold_db_total_rows"),
                     "gold_value_counts_preview": rec.get("gold_value_counts_preview"),
                     # Agent block
                     "agent_answer": rec.get("agent_answer"),
+                    "agent_llm_model": (agent_result.get("model_used")),
                     "agent_last_query": rec.get("agent_last_query"),
                     "agent_db_preview": rec.get("agent_db_preview"),
                     "agent_db_total_rows": rec.get("agent_db_total_rows"),
                     "agent_value_counts_preview": rec.get("agent_value_counts_preview"),
                     # Evaluation results
-                    "execution_correct": rec.get("execution_correct"),
+                    "execution_accuracy_official": rec.get(
+                        "execution_accuracy_official"
+                    ),
+                    "column_superset_match": rec.get("column_superset_match"),
                     "soft_f1_precision": (
                         soft_f1_result.get("precision") if soft_f1_result else None
                     ),

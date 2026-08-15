@@ -318,104 +318,73 @@ def compare_rows(
     return True
 
 
-def soft_f1(
-    agent_rows: List[Tuple[Any, ...]],
-    reference_rows: List[Tuple[Any, ...]],
-) -> Dict[str, float]:
+# NOTE: row order is intentionally NOT normalized before comparison — this matches official
+# BIRD Mini-Dev behavior exactly (see evaluation_utils.py: execute_sql applies no sort). This
+# means soft_f1 is order-sensitive: if agent SQL or gold SQL lacks an explicit ORDER BY, results
+# can vary based on database scan order alone. This is a known characteristic of the official
+# metric, not a bug — do not add sorting as a "fix."
+
+
+def calculate_row_match(predicted_row, ground_truth_row):
     """
-    BIRD Mini-Dev Soft F1: cell-level precision/recall/F1 between two tables, tolerant of
-    column order and missing values. Rows are aligned by best cell-overlap, not by position
-    and Null/missing cells are excluded from tp/fp/fn entirely.
+    Direct port of BIRD Mini-Dev's calculate_row_match. Per-row, normalized by the gold row's
+    column count. No null handling — None is a normal value checked via `in`.
     """
+    total_columns = len(ground_truth_row)
+    if total_columns == 0:
+        return 0.0, 0.0, 0.0
 
-    def normalize_row(row):
-        return [normalize_value_for_compare(c) for c in (row or [])]
-
-    gold = [normalize_row(r) for r in (reference_rows or [])]
-    pred = [normalize_row(r) for r in (agent_rows or [])]
-
-    if not gold and not pred:
-        return {"precision": 1.0, "recall": 1.0, "f1": 1.0}
-    if not gold or not pred:
-        return {"precision": 0.0, "recall": 0.0, "f1": 0.0}
-
-    def cell_multiset(row):
-        return Counter(c for c in row if c is not None)
-
-    # Fast path: exact full-row matches (as multisets of non-null cells), consumed first.
-    gold_remaining = list(gold)
-    pred_remaining = list(pred)
-    tp = fp = fn = 0
-
-    gold_signatures = [
-        tuple(sorted(map(repr, cell_multiset(r).elements()))) for r in gold_remaining
-    ]
-    pred_signatures = [
-        tuple(sorted(map(repr, cell_multiset(r).elements()))) for r in pred_remaining
-    ]
-
-    pred_index: Dict[Any, List[int]] = {}
-    for i, sig in enumerate(pred_signatures):
-        pred_index.setdefault(sig, []).append(i)
-
-    matched_gold = set()
-    matched_pred = set()
-    for gi, sig in enumerate(gold_signatures):
-        candidates = pred_index.get(sig, [])
-        for pi in candidates:
-            if pi not in matched_pred:
-                matched_pred.add(pi)
-                matched_gold.add(gi)
-                tp += sum(1 for c in gold_remaining[gi] if c is not None)
-                break
-
-    # Residual: align each unmatched gold row to the unmatched pred row with max cell overlap.
-    unmatched_gold_idx = [
-        i for i in range(len(gold_remaining)) if i not in matched_gold
-    ]
-    unmatched_pred_idx = [
-        i for i in range(len(pred_remaining)) if i not in matched_pred
-    ]
-
-    # Index unmatched pred rows by cell value for fast overlap lookup instead of O(n^2) pairwise.
-    value_to_pred_rows: Dict[Any, List[int]] = {}
-    for pi in unmatched_pred_idx:
-        for c in pred_remaining[pi]:
-            if c is not None:
-                value_to_pred_rows.setdefault(c, []).append(pi)
-
-    used_pred = set()
-    for gi in unmatched_gold_idx:
-        g_row = gold_remaining[gi]
-        best_pi, best_overlap = None, -1
-        candidate_pis = set()
-        for c in g_row:
-            if c is not None:
-                candidate_pis.update(value_to_pred_rows.get(c, []))
-        for pi in candidate_pis:
-            if pi in used_pred:
-                continue
-            overlap = len(cell_multiset(g_row) & cell_multiset(pred_remaining[pi]))
-            if overlap > best_overlap:
-                best_overlap, best_pi = overlap, pi
-
-        g_counter = cell_multiset(g_row)
-        if best_pi is not None:
-            used_pred.add(best_pi)
-            p_counter = cell_multiset(pred_remaining[best_pi])
-            row_tp = sum((g_counter & p_counter).values())
-            row_fp = sum((p_counter - g_counter).values())
-            row_fn = sum((g_counter - p_counter).values())
-            tp += row_tp
-            fp += row_fp
-            fn += row_fn
+    matches = 0
+    element_in_pred_only = 0
+    for pred_val in predicted_row:
+        if pred_val in ground_truth_row:
+            matches += 1
         else:
-            fn += sum(g_counter.values())
+            element_in_pred_only += 1
+    element_in_truth_only = sum(
+        1 for truth_val in ground_truth_row if truth_val not in predicted_row
+    )
 
-    # Any pred rows never matched or used in residual alignment are pure false positives.
-    for pi in unmatched_pred_idx:
-        if pi not in used_pred and pi not in matched_pred:
-            fp += sum(cell_multiset(pred_remaining[pi]).values())
+    return (
+        matches / total_columns,
+        element_in_pred_only / total_columns,
+        element_in_truth_only / total_columns,
+    )
+
+
+def soft_f1(agent_rows, reference_rows):
+    """
+    Direct port of BIRD Mini-Dev's calculate_f1_score. Rows are aligned by POSITION
+    (predicted[i] vs ground_truth[i]), matching official behavior exactly — this is
+    intentionally order-sensitive, do not sort inputs before calling this function.
+    """
+    predicted = [tuple(r) for r in (agent_rows or [])]
+    ground_truth = [tuple(r) for r in (reference_rows or [])]
+
+    if not predicted and not ground_truth:
+        return {"precision": 1.0, "recall": 1.0, "f1": 1.0}
+
+    match_scores, pred_only_scores, truth_only_scores = [], [], []
+
+    for i, gt_row in enumerate(ground_truth):
+        if i >= len(predicted):
+            match_scores.append(0)
+            pred_only_scores.append(0)
+            truth_only_scores.append(1)
+            continue
+        m, p, t = calculate_row_match(predicted[i], gt_row)
+        match_scores.append(m)
+        pred_only_scores.append(p)
+        truth_only_scores.append(t)
+
+    for _ in range(max(0, len(predicted) - len(ground_truth))):
+        match_scores.append(0)
+        pred_only_scores.append(1)
+        truth_only_scores.append(0)
+
+    tp = sum(match_scores)
+    fp = sum(pred_only_scores)
+    fn = sum(truth_only_scores)
 
     precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
     recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
@@ -430,6 +399,17 @@ def soft_f1(
         "recall": round(recall, 4),
         "f1": round(f1, 4),
     }
+
+
+def execution_accuracy_official(agent_rows, reference_rows) -> int:
+    """
+    Direct port of BIRD Mini-Dev's calculate_ex. Full-row exact set equality — an agent result
+    with any extra or missing column fails outright, regardless of whether the requested data
+    is otherwise correct. This is stricter than our existing column-superset comparator.
+    """
+    predicted_set = set(tuple(r) for r in (agent_rows or []))
+    ground_truth_set = set(tuple(r) for r in (reference_rows or []))
+    return 1 if predicted_set == ground_truth_set else 0
 
 
 def main():
@@ -490,7 +470,7 @@ def main():
         agent_rows = [tuple(r) for r in agent.get("agent_rows", [])]
         agent_cols = agent.get("agent_columns") or agent.get("columns") or []
         result = compare_rows(agent_rows, agent_cols, ref_rows, ref_cols)
-        print("execution_correct:", result)
+        print("column_superset_match:", result)
         return
 
     parser.print_help()
