@@ -3,9 +3,10 @@ Evaluation harness utilities: manifest generation, gold SQL execution, and execu
 
 Commands:
   python -m src.eval.harness manifest --dataset evaluation/MINIDEV/mini_dev_sqlite.json --out evaluation/results/manifest.json --sample-size 100 --seed 42
-  python -m src.eval.harness exec_gold --db-root evaluation/MINIDEV/dev_databases --db-id financial --sql "SELECT ..." 
+  python -m src.eval.harness exec_gold --db-root evaluation/MINIDEV/dev_databases --db-id financial --sql "SELECT ..."
   python -m src.eval.harness compare --reference-file ref_rows.json --agent-file agent_rows.json
 """
+
 from __future__ import annotations
 
 import argparse
@@ -51,7 +52,9 @@ def load_dataset(path: Path) -> List[Question]:
     return questions
 
 
-def stratified_sample(questions: List[Question], sample_size: int, seed: int) -> List[int]:
+def stratified_sample(
+    questions: List[Question], sample_size: int, seed: int
+) -> List[int]:
     total = len(questions)
     if sample_size >= total:
         return [q.question_id for q in questions]
@@ -111,7 +114,9 @@ def stratified_sample(questions: List[Question], sample_size: int, seed: int) ->
     # If rounding led to different total, adjust by random selection across remaining
     if len(selected_ids) < sample_size:
         remaining_needed = sample_size - len(selected_ids)
-        remaining_pool = [q.question_id for q in questions if q.question_id not in selected_ids]
+        remaining_pool = [
+            q.question_id for q in questions if q.question_id not in selected_ids
+        ]
         rnd.shuffle(remaining_pool)
         selected_ids.extend(remaining_pool[:remaining_needed])
     elif len(selected_ids) > sample_size:
@@ -123,7 +128,9 @@ def stratified_sample(questions: List[Question], sample_size: int, seed: int) ->
 
 def current_git_commit() -> str:
     try:
-        out = subprocess.check_output(["git", "rev-parse", "HEAD"], stderr=subprocess.DEVNULL)
+        out = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], stderr=subprocess.DEVNULL
+        )
         return out.decode().strip()
     except Exception:
         return ""
@@ -168,7 +175,10 @@ def write_manifest(
 
 # Gold SQL execution and serialization
 
-def execute_sqlite_query(db_file: Path, sql: str) -> Tuple[List[Tuple[Any, ...]], List[str]]:
+
+def execute_sqlite_query(
+    db_file: Path, sql: str
+) -> Tuple[List[Tuple[Any, ...]], List[str]]:
     """
     Execute SQL against SQLite and return (rows, column_names).
     """
@@ -220,7 +230,10 @@ def normalize_value_for_compare(v: Any):
         # match YYYY-MM-DD or YYYY-MM-DD HH:MM:SS(.micro)? with optional timezone
         import re
 
-        m = re.match(r"^(\d{4}-\d{2}-\d{2})(?:[ T](\d{2}:\d{2}:\d{2})(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?$", s)
+        m = re.match(
+            r"^(\d{4}-\d{2}-\d{2})(?:[ T](\d{2}:\d{2}:\d{2})(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?$",
+            s,
+        )
         if m:
             return m.group(1)
 
@@ -230,7 +243,9 @@ def normalize_value_for_compare(v: Any):
     return v
 
 
-def serialize_rows_for_judge(rows: List[Tuple[Any, ...]], columns: List[str] | None = None) -> Tuple[List[Tuple[Any, ...]], str]:
+def serialize_rows_for_judge(
+    rows: List[Tuple[Any, ...]], columns: List[str] | None = None
+) -> Tuple[List[Tuple[Any, ...]], str]:
     """
     Normalize rows and produce a deterministic, human-readable text for the judge.
     Includes an optional header row with column names. NULLs rendered as `<NULL>`; empty strings as "".
@@ -268,14 +283,153 @@ def serialize_rows_for_judge(rows: List[Tuple[Any, ...]], columns: List[str] | N
     return sorted_rows, text
 
 
-def compare_rows(agent_rows: List[Tuple[Any, ...]], reference_rows: List[Tuple[Any, ...]]) -> bool:
-    # Normalize floats to 4 decimals and compare as multisets
-    def norm_row(r: Tuple[Any, ...]) -> Tuple:
-        return tuple(normalize_value_for_compare(c) for c in r)
+def compare_rows(
+    agent_rows: List[Tuple[Any, ...]],
+    agent_cols: List[str],
+    reference_rows: List[Tuple[Any, ...]],
+    reference_cols: List[str],
+) -> bool:
+    """
+    Column-wise superset match: for every reference (gold) column, find some agent column
+    whose full value-multiset (after normalize_value_for_compare) matches it exactly. Extra
+    agent columns are ignored. Row order is irrelevant. Row COUNT must match.
+    """
+    # Quick length check on rows
+    if len(agent_rows or []) != len(reference_rows or []):
+        return False
 
-    a = Counter(norm_row(tuple(row)) for row in agent_rows or [])
-    b = Counter(norm_row(tuple(row)) for row in reference_rows or [])
-    return a == b
+    def col_vals(rows, idx):
+        return [normalize_value_for_compare(r[idx]) for r in (rows or [])]
+
+    matched_agent_cols = set()
+    for gi in range(len(reference_cols or [])):
+        g_counter = Counter(col_vals(reference_rows, gi))
+        found = False
+        for aj in range(len(agent_cols or [])):
+            if aj in matched_agent_cols:
+                continue
+            a_counter = Counter(col_vals(agent_rows, aj))
+            if a_counter == g_counter:
+                matched_agent_cols.add(aj)
+                found = True
+                break
+        if not found:
+            return False
+    return True
+
+
+def soft_f1(
+    agent_rows: List[Tuple[Any, ...]],
+    reference_rows: List[Tuple[Any, ...]],
+) -> Dict[str, float]:
+    """
+    BIRD Mini-Dev Soft F1: cell-level precision/recall/F1 between two tables, tolerant of
+    column order and missing values. Rows are aligned by best cell-overlap, not by position
+    and Null/missing cells are excluded from tp/fp/fn entirely.
+    """
+
+    def normalize_row(row):
+        return [normalize_value_for_compare(c) for c in (row or [])]
+
+    gold = [normalize_row(r) for r in (reference_rows or [])]
+    pred = [normalize_row(r) for r in (agent_rows or [])]
+
+    if not gold and not pred:
+        return {"precision": 1.0, "recall": 1.0, "f1": 1.0}
+    if not gold or not pred:
+        return {"precision": 0.0, "recall": 0.0, "f1": 0.0}
+
+    def cell_multiset(row):
+        return Counter(c for c in row if c is not None)
+
+    # Fast path: exact full-row matches (as multisets of non-null cells), consumed first.
+    gold_remaining = list(gold)
+    pred_remaining = list(pred)
+    tp = fp = fn = 0
+
+    gold_signatures = [
+        tuple(sorted(map(repr, cell_multiset(r).elements()))) for r in gold_remaining
+    ]
+    pred_signatures = [
+        tuple(sorted(map(repr, cell_multiset(r).elements()))) for r in pred_remaining
+    ]
+
+    pred_index: Dict[Any, List[int]] = {}
+    for i, sig in enumerate(pred_signatures):
+        pred_index.setdefault(sig, []).append(i)
+
+    matched_gold = set()
+    matched_pred = set()
+    for gi, sig in enumerate(gold_signatures):
+        candidates = pred_index.get(sig, [])
+        for pi in candidates:
+            if pi not in matched_pred:
+                matched_pred.add(pi)
+                matched_gold.add(gi)
+                tp += sum(1 for c in gold_remaining[gi] if c is not None)
+                break
+
+    # Residual: align each unmatched gold row to the unmatched pred row with max cell overlap.
+    unmatched_gold_idx = [
+        i for i in range(len(gold_remaining)) if i not in matched_gold
+    ]
+    unmatched_pred_idx = [
+        i for i in range(len(pred_remaining)) if i not in matched_pred
+    ]
+
+    # Index unmatched pred rows by cell value for fast overlap lookup instead of O(n^2) pairwise.
+    value_to_pred_rows: Dict[Any, List[int]] = {}
+    for pi in unmatched_pred_idx:
+        for c in pred_remaining[pi]:
+            if c is not None:
+                value_to_pred_rows.setdefault(c, []).append(pi)
+
+    used_pred = set()
+    for gi in unmatched_gold_idx:
+        g_row = gold_remaining[gi]
+        best_pi, best_overlap = None, -1
+        candidate_pis = set()
+        for c in g_row:
+            if c is not None:
+                candidate_pis.update(value_to_pred_rows.get(c, []))
+        for pi in candidate_pis:
+            if pi in used_pred:
+                continue
+            overlap = len(cell_multiset(g_row) & cell_multiset(pred_remaining[pi]))
+            if overlap > best_overlap:
+                best_overlap, best_pi = overlap, pi
+
+        g_counter = cell_multiset(g_row)
+        if best_pi is not None:
+            used_pred.add(best_pi)
+            p_counter = cell_multiset(pred_remaining[best_pi])
+            row_tp = sum((g_counter & p_counter).values())
+            row_fp = sum((p_counter - g_counter).values())
+            row_fn = sum((g_counter - p_counter).values())
+            tp += row_tp
+            fp += row_fp
+            fn += row_fn
+        else:
+            fn += sum(g_counter.values())
+
+    # Any pred rows never matched or used in residual alignment are pure false positives.
+    for pi in unmatched_pred_idx:
+        if pi not in used_pred and pi not in matched_pred:
+            fp += sum(cell_multiset(pred_remaining[pi]).values())
+
+    precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+    recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+    f1 = (
+        2 * precision * recall / (precision + recall)
+        if (precision + recall) > 0
+        else 0.0
+    )
+
+    return {
+        "precision": round(precision, 4),
+        "recall": round(recall, 4),
+        "f1": round(f1, 4),
+    }
 
 
 def main():
@@ -318,7 +472,11 @@ def main():
         db_file = Path(args.db_root) / args.db_id / f"{args.db_id}.sqlite"
         rows, cols = execute_sqlite_query(db_file, args.sql)
         sorted_rows, text = serialize_rows_for_judge(rows, columns=cols)
-        out = {"reference_rows": sorted_rows, "reference_text": text}
+        out = {
+            "reference_rows": sorted_rows,
+            "reference_text": text,
+            "reference_columns": cols,
+        }
         print(json.dumps(out, indent=2, default=str))
         return
 
@@ -328,8 +486,10 @@ def main():
         with open(args.agent_file, "r", encoding="utf-8") as f:
             agent = json.load(f)
         ref_rows = [tuple(r) for r in ref.get("reference_rows", [])]
+        ref_cols = ref.get("reference_columns") or ref.get("columns") or []
         agent_rows = [tuple(r) for r in agent.get("agent_rows", [])]
-        result = compare_rows(agent_rows, ref_rows)
+        agent_cols = agent.get("agent_columns") or agent.get("columns") or []
+        result = compare_rows(agent_rows, agent_cols, ref_rows, ref_cols)
         print("execution_correct:", result)
         return
 

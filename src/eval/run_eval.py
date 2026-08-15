@@ -20,6 +20,7 @@ from src.eval.harness import (
     compare_rows,
     execute_sqlite_query,
     load_dataset,
+    normalize_value_for_compare,
     serialize_rows_for_judge,
 )
 from utils.logger_setup import LoggerSetup
@@ -128,7 +129,10 @@ async def invoke_agent(question: str, timeout: int = 120) -> Dict[str, Any]:
                     timeout=timeout,
                 )
             except asyncio.TimeoutError:
-                last_error = {"error": f"agent_timeout_after_{timeout}s", "model": model}
+                last_error = {
+                    "error": f"agent_timeout_after_{timeout}s",
+                    "model": model,
+                }
                 # try next model
                 continue
             except Exception as e:
@@ -566,8 +570,10 @@ def main():
                 execution_correct = None
                 agent_rows_full = None
                 agent_cols = None
+                soft_f1_result = None
                 try:
                     from config.app_config import AppConfig
+                    from src.eval import harness as harness_mod
 
                     try:
                         from sqlglot import parse_one
@@ -575,7 +581,6 @@ def main():
                     except Exception:
                         parse_one = None
                         Select = None
-                    from src.eval.harness import normalize_value_for_compare
 
                     cfg = AppConfig()
 
@@ -650,55 +655,33 @@ def main():
                                     )
                                     agent_rows_full = None
 
-                        # If re-execution failed, mark as evaluation error (do not mark as wrong)
-                        if agent_rows_full is None:
-                            execution_correct = None
-                        else:
-                            # Superset-match comparator
-                            # Require same row count
-                            if len(agent_rows_full) != len(ref_rows):
-                                execution_correct = False
-                            else:
-                                # Column-wise matching: for each gold column, find an agent column with identical multiset
-                                from collections import Counter
-
-                                def col_vals(rows, idx):
-                                    return [
-                                        normalize_value_for_compare(r[idx])
-                                        for r in rows
-                                    ]
-
-                                matched_agent_cols = set()
-                                success = True
-                                gold_col_count = len(cols or [])
-                                agent_col_count = (
-                                    len(agent_cols)
-                                    if agent_cols is not None
-                                    else gold_col_count
-                                )
-
-                                for gi in range(gold_col_count):
-                                    gvals = col_vals(ref_rows, gi)
-                                    g_counter = Counter(gvals)
-                                    found = False
-                                    for aj in range(agent_col_count):
-                                        if aj in matched_agent_cols:
-                                            continue
-                                        avals = col_vals(agent_rows_full, aj)
-                                        if Counter(avals) == g_counter:
-                                            matched_agent_cols.add(aj)
-                                            found = True
-                                            break
-                                    if not found:
-                                        success = False
-                                        break
-                                execution_correct = success
-                    else:
+                    # If we don't have agent_rows_full, this is an evaluation error (or not run)
+                    if agent_rows_full is None:
                         execution_correct = None
+                    else:
+                        # Use the consolidated comparator from harness
+                        try:
+                            execution_correct = harness_mod.compare_rows(
+                                agent_rows_full, agent_cols or [], ref_rows, cols or []
+                            )
+                        except Exception as e:
+                            rec["evaluation_error_type"] = f"comparator_error: {e}"
+                            execution_correct = None
+
+                        # Compute soft F1 (additive metric). Only when agent_rows_full is present.
+                        try:
+                            sf = harness_mod.soft_f1(agent_rows_full, ref_rows)
+                            soft_f1_result = sf
+                        except Exception as e:
+                            logger.warning(
+                                "soft_f1 computation failed for q%s: %s", qid, e
+                            )
+                            # Do not override evaluation_error_type for soft-f1 failures
 
                 except Exception as e:
                     rec["evaluation_error_type"] = f"comparator_error: {e}"
                     execution_correct = None
+                    soft_f1_result = None
 
                 # Store previews instead of full outputs to avoid huge raw_results
                 def _pick_preview_rows(rows_list, n):
@@ -830,6 +813,7 @@ def main():
                     "difficulty": rec.get("difficulty"),
                     "condition": rec.get("condition"),
                     "question": rec.get("question"),
+                    "gold_sql": q.SQL,
                     # Gold block (grouped by order, not nested)
                     "gold_db_preview": rec.get("gold_db_preview"),
                     "gold_db_total_rows": rec.get("gold_db_total_rows"),
@@ -842,6 +826,15 @@ def main():
                     "agent_value_counts_preview": rec.get("agent_value_counts_preview"),
                     # Evaluation results
                     "execution_correct": rec.get("execution_correct"),
+                    "soft_f1_precision": (
+                        soft_f1_result.get("precision") if soft_f1_result else None
+                    ),
+                    "soft_f1_recall": (
+                        soft_f1_result.get("recall") if soft_f1_result else None
+                    ),
+                    "soft_f1_score": (
+                        soft_f1_result.get("f1") if soft_f1_result else None
+                    ),
                     "skip_pipeline_fired": rec.get("skip_pipeline_fired"),
                     "retries": rec.get("retries"),
                     "latency_ms": rec.get("latency_ms"),
