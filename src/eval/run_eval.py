@@ -52,7 +52,6 @@ sys.path.insert(0, str(ROOT / "src"))
 
 RESULTS_DIR = ROOT / "evaluation" / "results"
 RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-RAW_RESULTS_PATH = RESULTS_DIR / "raw_results.jsonl"
 
 
 def save_runtime_settings_patch(patch: Dict[str, Any]):
@@ -222,9 +221,14 @@ async def invoke_agent(question: str, timeout: int = 120) -> Dict[str, Any]:
     return last_error
 
 
-def write_raw_result(rec: Dict[str, Any]):
-    with open(RAW_RESULTS_PATH, "a", encoding="utf-8") as f:
+def write_raw_result(rec: Dict[str, Any], out_path: Path):
+    with open(out_path, "a", encoding="utf-8") as f:
         f.write(json.dumps(rec, default=str) + "\n")
+
+
+def _slug_model(model_name: str) -> str:
+    m = (model_name or "unknown").strip()
+    return m.replace("/", "_").replace(":", "_").replace(" ", "_").replace("\\", "_")
 
 
 def main():
@@ -269,18 +273,59 @@ def main():
     # Load dataset
     questions = load_dataset(dataset_path)
 
-    # Manifest
+    # Manifest / run identity
+    run_manifest_data = None
+    run_sample_size = args.sample_size
+    run_seed = args.seed
+
     if args.manifest:
         with open(args.manifest, "r", encoding="utf-8") as f:
             manifest = json.load(f)
             selected_ids = manifest.get("selected_question_ids", [])
             run_order = manifest.get("run_order", "sequential_a_then_b")
+            run_manifest_data = manifest
+            run_sample_size = int(manifest.get("sample_size", run_sample_size))
+            run_seed = int(manifest.get("seed", run_seed))
     else:
         # simple stratified sampling via harness
         from src.eval.harness import stratified_sample, write_manifest
 
         selected_ids = stratified_sample(questions, args.sample_size, args.seed)
-        manifest_path = RESULTS_DIR / "manifest.json"
+        run_manifest_data = {
+            "dataset_path": str(dataset_path),
+            "database_root": str(db_root),
+            "sample_size": args.sample_size,
+            "seed": args.seed,
+            "selected_question_ids": selected_ids,
+            "run_order": "sequential_a_then_b",
+        }
+        run_order = "sequential_a_then_b"
+
+    from datetime import datetime
+
+    from config.app_config import AppConfig
+
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
+    cfg_for_naming = AppConfig()
+    requested_model = cfg_for_naming.LLM_ACTIVE_MODEL
+    run_base = (
+        f"{run_sample_size}Q_{run_seed}S_{_slug_model(requested_model)}_{timestamp}"
+    )
+    runs_dir = RESULTS_DIR / "runs"
+    manifests_dir = RESULTS_DIR / "manifests"
+    runs_dir.mkdir(parents=True, exist_ok=True)
+    manifests_dir.mkdir(parents=True, exist_ok=True)
+    raw_results_path = runs_dir / f"{run_base}.jsonl"
+    manifest_path = manifests_dir / f"{run_base}_manifest.json"
+
+    if raw_results_path.exists():
+        raw_results_path.unlink()
+
+    if args.manifest:
+        # Preserve provided manifest per-run with stable run filename.
+        with open(manifest_path, "w", encoding="utf-8") as mf:
+            json.dump(run_manifest_data or {}, mf, indent=2)
+    else:
         write_manifest(
             str(dataset_path),
             str(db_root),
@@ -289,7 +334,9 @@ def main():
             args.sample_size,
             args.seed,
         )
-        run_order = "sequential_a_then_b"
+
+    logger.info("Run results file: %s", raw_results_path)
+    logger.info("Run manifest file: %s", manifest_path)
 
     # Build lookup
     qmap = {q.question_id: q for q in questions}
@@ -840,6 +887,10 @@ def main():
                     "difficulty": rec.get("difficulty"),
                     "condition": rec.get("condition"),
                     "question": rec.get("question"),
+                    "run_sample_size": run_sample_size,
+                    "run_seed": run_seed,
+                    "run_model_requested": requested_model,
+                    "run_file": raw_results_path.name,
                     # Gold block (grouped by order, not nested)
                     "gold_sql": q.SQL,
                     "gold_db_preview": rec.get("gold_db_preview"),
@@ -847,7 +898,11 @@ def main():
                     "gold_value_counts_preview": rec.get("gold_value_counts_preview"),
                     # Agent block
                     "agent_answer": rec.get("agent_answer"),
-                    "agent_llm_model": (agent_result.get("model_used")),
+                    "agent_llm_model": (
+                        agent_result.get("model_used") or agent_result.get("model")
+                        if isinstance(agent_result, dict)
+                        else None
+                    ),
                     "agent_last_query": rec.get("agent_last_query"),
                     "agent_db_preview": rec.get("agent_db_preview"),
                     "agent_db_total_rows": rec.get("agent_db_total_rows"),
@@ -873,7 +928,7 @@ def main():
                     "evaluation_error_type": rec.get("evaluation_error_type"),
                 }
 
-                write_raw_result(final_rec)
+                write_raw_result(final_rec, raw_results_path)
                 logger.info("Wrote result for q%s condition=%s", qid, condition)
 
     asyncio.run(_run())

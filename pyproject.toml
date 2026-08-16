@@ -55,12 +55,7 @@ mssql-native = ["pyodbc>=5.1.0"]
 mysql-native = ["mysqlclient>=2.2.8"]
 mariadb-native = ["mariadb>=1.1.0"]
 
-cockroachdb = ["psycopg2-binary>=2.9.0"]
-ssh = [ "sshtunnel>=0.4.0",
-    "paramiko>=2.0.0,<4.0.0",
-]
-
 
 [dependency-groups]
-dev = []
+dev = ["pytest>=9.1.1"]
 

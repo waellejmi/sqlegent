@@ -23,5 +23,6 @@ semantic/**/_baseline.generated.yaml
 .agents/*
 /skills
 /skills-lock.json
-/evalutation/MINIDEV
-/evaluation/MINIDEV
+
+#Eval Results
+/evaluation/**

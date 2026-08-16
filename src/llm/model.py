@@ -21,8 +21,9 @@ def get_model(provider="groq"):
         )
 
     elif provider == "llamacpp":
+        app_config.LLM_ACTIVE_MODEL = "gemma-4-12b-it-Q5_K_M"
         return ChatOpenAI(
-            model=env_config.LOCAL_LLM_ID,
+            model="gemma-4-12b-it-Q5_K_M",
             base_url="http://localhost:8080/v1",
             api_key="bla-bla",
             temperature=0.1,
