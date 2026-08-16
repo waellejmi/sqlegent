@@ -1,234 +1,238 @@
-"""
-Run full evaluation harness per CLAUDE.md: uses manifest of selected questions, executes gold SQL, stages evidence as semantic YAML for 'with_evidence', reindexes, runs the agent fresh per question and condition, performs deterministic comparison against gold SQL, and writes raw_results.jsonl.
-"""
-
 from __future__ import annotations
 
 import argparse
 import asyncio
 import json
-import os
+import logging
 import shutil
 import subprocess
 import sys
 import time
-from dataclasses import dataclass
+from collections import Counter
+from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
+from src.eval.eval_helpers import (
+    get_analysis_status,
+    pick_preview_rows,
+    slug_model,
+    strip_sql_limit,
+    write_raw_result,
+)
 from src.eval.harness import (
     compare_rows,
     execute_sqlite_query,
+    execution_accuracy_official,
     load_dataset,
     normalize_value_for_compare,
     serialize_rows_for_judge,
+    soft_f1,
+    stratified_sample,
+    write_manifest,
 )
 from utils.logger_setup import LoggerSetup
 
 logger = LoggerSetup.get_logger(__name__)
 
-
-@dataclass
-class RunResult:
-    question_id: int
-    db_id: str
-    difficulty: str
-    condition: str
-    question: str
-    agent_answer: Optional[str]
-    reference_result: str
-    execution_correct: Optional[bool]
-    skip_pipeline_fired: Optional[bool]
-    retries: Optional[int]
-    latency_ms: Optional[int]
-    error: Optional[str]
-    evaluation_error_type: Optional[str]
-
-
 ROOT = Path(__file__).resolve().parent.parent.parent
-# Ensure repo root and src/ are on sys.path for local imports
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
 
+
 RESULTS_DIR = ROOT / "evaluation" / "results"
 RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+PREVIEW_N = 3
 
 
 def save_runtime_settings_patch(patch: Dict[str, Any]):
-    # Write eval-specific runtime overrides so main settings.json is not modified
+    try:
+        from config.app_config import AppConfig
+
+        AppConfig().save_eval_runtime_settings(patch)
+        return
+    except Exception:
+        pass
+
+    eval_path = ROOT / ".app_config" / "eval_settings.json"
+    data = {}
+
+    if eval_path.exists():
+        try:
+            data = json.loads(eval_path.read_text(encoding="utf-8"))
+        except Exception:
+            data = {}
+
+    if not isinstance(data, dict):
+        data = {}
+
+    data.update(patch)
+    eval_path.parent.mkdir(parents=True, exist_ok=True)
+    eval_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+
+def reset_database_tools():
+    try:
+        import tools.database as database_tools
+    except Exception:
+        return
+
+    if hasattr(database_tools, "_active_database_uri"):
+        database_tools._active_database_uri = ""
+
+    for attr in ("_db", "_get_schema_tool", "_run_query_tool"):
+        if hasattr(database_tools, attr):
+            setattr(database_tools, attr, None)
+
+
+def set_sqlite_database(db_file: Path, warn_on_failure: bool = False) -> Optional[str]:
+    try:
+        from config.db_config import DBConfig
+
+        db_config = DBConfig()
+        previous_uri = None
+
+        try:
+            previous_uri = db_config.get_database_uri()
+        except Exception:
+            previous_uri = None
+
+        db_config.set_database_uri(db_config.sqlite_path_to_uri(db_file))
+        reset_database_tools()
+        return previous_uri
+    except Exception as exc:
+        if warn_on_failure:
+            logger.warning("Could not set DBConfig to sqlite uri: %s", exc)
+        return None
+
+
+def restore_database(previous_uri: Optional[str]):
+    if not previous_uri:
+        return
+
+    try:
+        from config.db_config import DBConfig
+
+        DBConfig().set_database_uri(previous_uri)
+        reset_database_tools()
+    except Exception:
+        pass
+
+
+def reset_context_service():
+    try:
+        import context_layer.service as context_service
+
+        if hasattr(context_service, "_context_service"):
+            context_service._context_service = None
+    except Exception:
+        pass
+
+
+def remove_path(path: Path):
+    try:
+        path.unlink(missing_ok=True)
+    except Exception:
+        pass
+
+
+def cleanup_with_evidence(question_id: int, db_id: str):
     try:
         from config.app_config import AppConfig
 
         cfg = AppConfig()
-        cfg.save_eval_runtime_settings(patch)
+        remove_path(cfg.MDL_DIR / f"eval_q{question_id}_{db_id}.yaml")
+        remove_path(Path(cfg.CONTEXT_STORE_PATH))
     except Exception:
-        # Fallback: write to .app_config/eval_settings.json directly
-        eval_path = ROOT / ".app_config" / "eval_settings.json"
-        data = {}
-        if eval_path.exists():
-            try:
-                with open(eval_path, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-            except Exception:
-                data = {}
-        data.update(patch)
-        eval_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(eval_path, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2)
+        pass
+
+    shutil.rmtree(RESULTS_DIR / "staged_mdl", ignore_errors=True)
 
 
 async def invoke_agent(question: str, timeout: int = 120) -> Dict[str, Any]:
-    """
-    Minimal agent invocation with evaluation-only model fallback:
-    Try models from AppConfig.LLM_MODEL_LIST in order if a run times out or fails due to model-level errors.
-    Restores original LLM_ACTIVE_MODEL after attempts.
-    """
     from app.agent_runtime import run_agent_with_interrupt
     from app.state_factory import build_initial_state, make_runnable_config
     from config.app_config import AppConfig
 
-    cfg = AppConfig()
-    model_list = list(cfg.LLM_MODEL_LIST or [])
-    # Ensure active model is in the rotation first
-    if cfg.LLM_ACTIVE_MODEL and cfg.LLM_ACTIVE_MODEL not in model_list:
-        model_list.insert(0, cfg.LLM_ACTIVE_MODEL)
-
-    original_active = cfg.LLM_ACTIVE_MODEL
-
-    # Ensure fresh LangGraph checkpointer by removing checkpoints DB
-    cp_path = AppConfig().ROOT_DIR / ".app_cache" / "checkpoints.sqlite"
-    try:
-        if cp_path.exists():
-            cp_path.unlink()
-    except Exception:
-        pass
+    checkpoint_path = AppConfig().ROOT_DIR / ".app_cache" / "checkpoints.sqlite"
+    remove_path(checkpoint_path)
 
     initial_state = build_initial_state(question)
+    config = make_runnable_config()
 
-    async def _dummy_interrupt_handler(_info: Any) -> dict:
+    async def interrupt_handler(_info: Any) -> dict:
         return {}
 
-    last_error = None
-    for model in model_list:
-        try:
-            # Set active model for this attempt (in-memory)
-            cfg.LLM_ACTIVE_MODEL = model
-            config = make_runnable_config()
+    start = time.time()
+    final_state = None
+    error = None
 
-            t0 = time.time()
-            try:
-                agent, final_state = await asyncio.wait_for(
-                    run_agent_with_interrupt(
-                        input_state=initial_state,
-                        config=config,
-                        interrupt_handler=_dummy_interrupt_handler,
-                        on_message=None,
-                        on_transition=None,
-                    ),
-                    timeout=timeout,
-                )
-            except asyncio.TimeoutError:
-                last_error = {
-                    "error": f"agent_timeout_after_{timeout}s",
-                    "model": model,
-                }
-                # try next model
-                continue
-            except Exception as e:
-                last_error = {"error": str(e), "model": model}
-                # try next model
-                continue
-
-            latency_ms = int((time.time() - t0) * 1000)
-
-            # final_state.values is expected to be a dict-like mapping per agent/state.py
-            values = getattr(final_state, "values", {}) or {}
-
-            # Extract core fields straightforwardly
-            last_query = values.get("last_query")
-            db_output = values.get("db_output")
-            analysis_result = values.get("analysis_result")
-            skip_decision = values.get("skip_decision")
-            retry_count = values.get("retry_count") or 0
-
-            # Try to extract a human-readable final answer if present
-            final_answer = values.get("final_answer")
-            agent_answer = None
-            if isinstance(final_answer, str) and final_answer.strip():
-                agent_answer = final_answer.strip()
-
-            # Derive skip_pipeline_fired boolean from skip_decision if available
-            skip_pipeline_fired = None
-            try:
-                if skip_decision is None:
-                    skip_pipeline_fired = None
-                elif isinstance(skip_decision, dict):
-                    skip_pipeline_fired = bool(skip_decision.get("skip", False))
-                else:
-                    skip_pipeline_fired = bool(getattr(skip_decision, "skip", False))
-            except Exception:
-                skip_pipeline_fired = None
-
-            # Attempt to normalize analysis_result to a dict with 'status' and 'explanation'
-            ar = None
-            try:
-                if analysis_result is None:
-                    ar = None
-                elif isinstance(analysis_result, dict):
-                    ar = analysis_result
-                else:
-                    # pydantic model or object
-                    ar = {
-                        "status": getattr(analysis_result, "status", None),
-                        "explanation": getattr(analysis_result, "explanation", None),
-                    }
-            except Exception:
-                ar = None
-
-            result = {
-                "last_query": last_query,
-                "db_output": db_output,
-                "analysis_result": ar,
-                "skip_decision": skip_decision,
-                "skip_pipeline_fired": skip_pipeline_fired,
-                "agent_answer": agent_answer,
-                "retries": retry_count,
-                "latency_ms": latency_ms,
-                "error": None,
-                "model_used": model,
-            }
-
-            # Restore original active model before returning
-            try:
-                cfg.LLM_ACTIVE_MODEL = original_active
-            except Exception:
-                pass
-
-            return result
-
-        except Exception as e:
-            last_error = {"error": str(e), "model": model}
-            continue
-
-    # All models failed; restore original active model
     try:
-        cfg.LLM_ACTIVE_MODEL = original_active
-    except Exception:
-        pass
+        _, final_state = await asyncio.wait_for(
+            run_agent_with_interrupt(
+                input_state=initial_state,
+                config=config,
+                interrupt_handler=interrupt_handler,
+                on_message=None,
+                on_transition=None,
+            ),
+            timeout=timeout,
+        )
+    except Exception as exc:
+        error = str(exc)
 
-    if last_error is None:
-        return {"error": "agent_invocation_failed"}
-    return last_error
+    latency_ms = int((time.time() - start) * 1000)
 
+    if error is not None or final_state is None:
+        return {
+            "last_query": None,
+            "db_output": None,
+            "analysis_result": None,
+            "skip_decision": None,
+            "skip_pipeline_fired": None,
+            "agent_answer": None,
+            "retries": 0,
+            "latency_ms": latency_ms,
+            "error": error or "agent produced no final state",
+        }
 
-def write_raw_result(rec: Dict[str, Any], out_path: Path):
-    with open(out_path, "a", encoding="utf-8") as f:
-        f.write(json.dumps(rec, default=str) + "\n")
+    values = getattr(final_state, "values", {}) or {}
 
+    last_query = values.get("last_query")
+    db_output = values.get("db_output")
+    skip_decision = values.get("skip_decision")
+    retry_count = values.get("retry_count") or 0
+    final_answer = values.get("final_answer")
 
-def _slug_model(model_name: str) -> str:
-    m = (model_name or "unknown").strip()
-    return m.replace("/", "_").replace(":", "_").replace(" ", "_").replace("\\", "_")
+    agent_answer = None
+    if isinstance(final_answer, str) and final_answer.strip():
+        agent_answer = final_answer.strip()
+
+    skip_pipeline_fired = None
+    if skip_decision is not None:
+        if isinstance(skip_decision, dict):
+            skip_pipeline_fired = bool(skip_decision.get("skip", False))
+        else:
+            skip_pipeline_fired = bool(getattr(skip_decision, "skip", False))
+
+    analysis_result = values.get("analysis_result")
+    if analysis_result is not None and not isinstance(analysis_result, dict):
+        analysis_result = {
+            "status": getattr(analysis_result, "status", None),
+            "explanation": getattr(analysis_result, "explanation", None),
+        }
+
+    return {
+        "last_query": last_query,
+        "db_output": db_output,
+        "analysis_result": analysis_result,
+        "skip_decision": skip_decision,
+        "skip_pipeline_fired": skip_pipeline_fired,
+        "agent_answer": agent_answer,
+        "retries": retry_count,
+        "latency_ms": latency_ms,
+        "error": None,
+    }
 
 
 def main():
@@ -252,44 +256,29 @@ def main():
     )
     args = parser.parse_args()
 
-    # Reduce noisy logging from HF/httpx during eval runs
-    import logging as _logging
-
-    for _n in (
+    for logger_name in (
         "httpx",
         "transformers",
         "huggingface_hub",
         "urllib3",
         "hf_hub",
-    ):  # hf_hub alias
-        try:
-            _logging.getLogger(_n).setLevel(_logging.WARNING)
-        except Exception:
-            pass
+    ):
+        logging.getLogger(logger_name).setLevel(logging.WARNING)
 
     dataset_path = Path(args.dataset)
     db_root = Path(args.database_root)
-
-    # Load dataset
     questions = load_dataset(dataset_path)
 
-    # Manifest / run identity
-    run_manifest_data = None
     run_sample_size = args.sample_size
     run_seed = args.seed
 
     if args.manifest:
-        with open(args.manifest, "r", encoding="utf-8") as f:
-            manifest = json.load(f)
-            selected_ids = manifest.get("selected_question_ids", [])
-            run_order = manifest.get("run_order", "sequential_a_then_b")
-            run_manifest_data = manifest
-            run_sample_size = int(manifest.get("sample_size", run_sample_size))
-            run_seed = int(manifest.get("seed", run_seed))
+        manifest = json.loads(Path(args.manifest).read_text(encoding="utf-8"))
+        selected_ids = manifest.get("selected_question_ids", [])
+        run_manifest_data = manifest
+        run_sample_size = int(manifest.get("sample_size", run_sample_size))
+        run_seed = int(manifest.get("seed", run_seed))
     else:
-        # simple stratified sampling via harness
-        from src.eval.harness import stratified_sample, write_manifest
-
         selected_ids = stratified_sample(questions, args.sample_size, args.seed)
         run_manifest_data = {
             "dataset_path": str(dataset_path),
@@ -299,32 +288,29 @@ def main():
             "selected_question_ids": selected_ids,
             "run_order": "sequential_a_then_b",
         }
-        run_order = "sequential_a_then_b"
-
-    from datetime import datetime
 
     from config.app_config import AppConfig
 
     timestamp = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
-    cfg_for_naming = AppConfig()
-    requested_model = cfg_for_naming.LLM_ACTIVE_MODEL
+    requested_model = AppConfig().LLM_ACTIVE_MODEL
+
     run_base = (
-        f"{run_sample_size}Q_{run_seed}S_{_slug_model(requested_model)}_{timestamp}"
+        f"{run_sample_size}Q_{run_seed}S_{slug_model(requested_model)}_{timestamp}"
     )
     runs_dir = RESULTS_DIR / "runs"
     manifests_dir = RESULTS_DIR / "manifests"
     runs_dir.mkdir(parents=True, exist_ok=True)
     manifests_dir.mkdir(parents=True, exist_ok=True)
+
     raw_results_path = runs_dir / f"{run_base}.jsonl"
     manifest_path = manifests_dir / f"{run_base}_manifest.json"
-
-    if raw_results_path.exists():
-        raw_results_path.unlink()
+    raw_results_path.unlink(missing_ok=True)
 
     if args.manifest:
-        # Preserve provided manifest per-run with stable run filename.
-        with open(manifest_path, "w", encoding="utf-8") as mf:
-            json.dump(run_manifest_data or {}, mf, indent=2)
+        manifest_path.write_text(
+            json.dumps(run_manifest_data or {}, indent=2),
+            encoding="utf-8",
+        )
     else:
         write_manifest(
             str(dataset_path),
@@ -338,7 +324,6 @@ def main():
     logger.info("Run results file: %s", raw_results_path)
     logger.info("Run manifest file: %s", manifest_path)
 
-    # Build lookup
     qmap = {q.question_id: q for q in questions}
 
     async def _run():
@@ -348,20 +333,19 @@ def main():
                 logger.warning("Missing question %s", qid)
                 continue
 
-            # Execute gold SQL
-            db_file = Path(db_root) / q.db_id / f"{q.db_id}.sqlite"
+            db_file = db_root / q.db_id / f"{q.db_id}.sqlite"
+
             try:
                 rows, cols = execute_sqlite_query(db_file, q.SQL)
-                # Keep raw reference rows (unsorted, un-normalized) for official EX and soft_f1
                 raw_ref_rows = [tuple(r) for r in rows]
                 ref_rows, _ = serialize_rows_for_judge(rows, columns=cols)
-            except Exception as e:
-                logger.error("Gold SQL execution failed for q%s: %s", qid, e)
+            except Exception as exc:
+                logger.error("Gold SQL execution failed for q%s: %s", qid, exc)
                 continue
 
-            for condition in ["without_evidence", "with_evidence"]:
+            for condition in ("without_evidence", "with_evidence"):
                 logger.info("Running q%s condition=%s", qid, condition)
-                # Prepare runtime settings per condition
+
                 if condition == "without_evidence":
                     patch = {
                         "ENABLE_CONTEXT_LAYER": False,
@@ -373,7 +357,6 @@ def main():
                         ),
                     }
                     save_runtime_settings_patch(patch)
-                    # ensure no staged YAML
                 else:
                     patch = {
                         "ENABLE_CONTEXT_LAYER": True,
@@ -385,13 +368,13 @@ def main():
                         ),
                     }
                     save_runtime_settings_patch(patch)
-                    # Build YAML from evidence and stage
+
                     tmp_out = RESULTS_DIR / "staged_mdl"
                     tmp_out.mkdir(parents=True, exist_ok=True)
+
                     script = ROOT / "tools" / "evidence_to_mdl.py"
-                    ev_text = ""
-                    if q.evidence:
-                        ev_text = json.dumps(q.evidence)
+                    evidence_text = json.dumps(q.evidence) if q.evidence else ""
+
                     cmd = [
                         str(script),
                         "--question-id",
@@ -401,517 +384,253 @@ def main():
                         "--question",
                         q.question,
                         "--evidence-text",
-                        ev_text,
+                        evidence_text,
                         "--out-dir",
                         str(tmp_out),
                     ]
+
                     try:
                         subprocess.check_output(cmd)
-                    except Exception as e:
+                    except Exception as exc:
                         logger.error(
-                            "Failed to create evidence YAML for q%s: %s", qid, e
+                            "Failed to create evidence YAML for q%s: %s", qid, exc
                         )
                         continue
+
                     staged = list(tmp_out.glob(f"eval_q{qid}_*.yaml"))
                     if not staged:
                         logger.warning("No staged YAML produced for q%s", qid)
                     else:
-                        # Copy to MDL_DIR
-                        from config.app_config import AppConfig
-                        from config.db_config import DBConfig
-
                         cfg = AppConfig()
                         dest = cfg.MDL_DIR / staged[0].name
                         dest.parent.mkdir(parents=True, exist_ok=True)
                         shutil.copy(staged[0], dest)
 
-                        # Temporarily set DBConfig to point to the question's sqlite file so
-                        # reindex introspects the correct database instead of the default
-                        # configured DB (which may be MySQL). Save/restore previous URI.
-                        try:
-                            db_config = DBConfig()
-                            previous_uri = None
-                            try:
-                                previous_uri = db_config.get_database_uri()
-                            except Exception:
-                                previous_uri = None
-                            sqlite_uri = db_config.sqlite_path_to_uri(db_file)
-                            db_config.set_database_uri(sqlite_uri)
-                        except Exception as e:
-                            logger.warning(
-                                "Could not set DBConfig to sqlite uri: %s", e
-                            )
-
-                        # Reindex. Ensure context_layer singleton is reset so it picks up the
-                        # updated CONTEXT_STORE_PATH from AppConfig.
-                        try:
-                            # Reset module-level singleton
-                            import importlib
-
-                            import context_layer.service as _clsrv
-
-                            if hasattr(_clsrv, "_context_service"):
-                                _clsrv._context_service = None
-                        except Exception:
-                            pass
+                        previous_evidence_uri = set_sqlite_database(
+                            db_file, warn_on_failure=True
+                        )
+                        reset_context_service()
 
                         try:
                             from app.context_ops import run_context_reindex
 
                             run_context_reindex(None)
-                        except Exception as e:
+                        except Exception as exc:
                             logger.warning(
                                 "Context reindex failed, continuing without reindex: %s",
-                                e,
+                                exc,
                             )
 
-                        # Restore previous DB URI if we changed it
-                        try:
-                            if previous_uri:
-                                db_config.set_database_uri(previous_uri)
-                        except Exception:
-                            pass
+                        restore_database(previous_evidence_uri)
 
-                # Ensure DBConfig points to the question's sqlite file for agent runtime
-                previous_db_uri = None
+                previous_agent_uri = set_sqlite_database(db_file)
+                start = time.time()
+
                 try:
-                    from config.db_config import DBConfig
-
-                    db_config = DBConfig()
-                    try:
-                        previous_db_uri = db_config.get_database_uri()
-                    except Exception:
-                        previous_db_uri = None
-                    sqlite_uri = db_config.sqlite_path_to_uri(db_file)
-                    db_config.set_database_uri(sqlite_uri)
-
-                    # Reset tools.database module-level caches so it reloads the sqlite DB
-                    try:
-                        import importlib
-
-                        import tools.database as _td
-
-                        if hasattr(_td, "_active_database_uri"):
-                            _td._active_database_uri = ""
-                        if hasattr(_td, "_db"):
-                            _td._db = None
-                        if hasattr(_td, "_get_schema_tool"):
-                            _td._get_schema_tool = None
-                        if hasattr(_td, "_run_query_tool"):
-                            _td._run_query_tool = None
-                    except Exception:
-                        pass
-                except Exception:
-                    previous_db_uri = None
-
-                # Run agent
-                try:
-                    start = time.time()
                     agent_result = await invoke_agent(
                         q.question, timeout=args.agent_timeout
                     )
                     duration = int((time.time() - start) * 1000)
-                except Exception as e:
-                    agent_result = {"error": str(e)}
-                    duration = None
+                except Exception as exc:
+                    duration = int((time.time() - start) * 1000)
+                    agent_result = {"error": str(exc), "latency_ms": duration}
+                finally:
+                    restore_database(previous_agent_uri)
 
-                # Restore previous DB URI if we changed it
-                try:
-                    if previous_db_uri:
-                        db_config.set_database_uri(previous_db_uri)
-                        try:
-                            import importlib
-
-                            import tools.database as _td
-
-                            if hasattr(_td, "_active_database_uri"):
-                                _td._active_database_uri = ""
-                            if hasattr(_td, "_db"):
-                                _td._db = None
-                            if hasattr(_td, "_get_schema_tool"):
-                                _td._get_schema_tool = None
-                            if hasattr(_td, "_run_query_tool"):
-                                _td._run_query_tool = None
-                        except Exception:
-                            pass
-                except Exception:
-                    pass
-
-                # If we staged a YAML, unstage and delete context store
                 if condition == "with_evidence":
-                    try:
-                        from config.app_config import AppConfig
+                    cleanup_with_evidence(qid, q.db_id)
 
-                        cfg = AppConfig()
-                        staged_file = cfg.MDL_DIR / f"eval_q{qid}_{q.db_id}.yaml"
-                        if staged_file.exists():
-                            staged_file.unlink()
-                    except Exception:
-                        pass
-                    # delete context store file
-                    try:
-                        cfg = AppConfig()
-                        p = Path(cfg.CONTEXT_STORE_PATH)
-                        if p.exists():
-                            p.unlink()
-                    except Exception:
-                        pass
-
-                    # remove temporary staged MDL directory
-                    try:
-                        tmp_out_dir = RESULTS_DIR / "staged_mdl"
-                        if tmp_out_dir.exists():
-                            shutil.rmtree(tmp_out_dir)
-                    except Exception:
-                        pass
-
-                PREVIEW_N = 3
-
-                # Derive analysis_result status to record as agent_answer
-                ar_field = None
-                try:
-                    ar_field = (
-                        agent_result.get("analysis_result")
-                        if isinstance(agent_result, dict)
-                        else None
-                    )
-                    if ar_field is None:
-                        ar_status = None
-                    elif isinstance(ar_field, dict):
-                        ar_status = ar_field.get("status")
-                    else:
-                        ar_status = getattr(ar_field, "status", None)
-                except Exception:
-                    ar_status = None
-
-                # Build result record with explicit agent/gold preview fields
-                rec = {
-                    "question_id": qid,
-                    "db_id": q.db_id,
-                    "difficulty": q.difficulty,
-                    "condition": condition,
-                    "question": q.question,
-                    # Agent-provided outputs: record analysis_result.status here per request
-                    "agent_answer": ar_status,
-                    "agent_last_query": agent_result.get("last_query")
+                analysis_status = get_analysis_status(
+                    agent_result.get("analysis_result")
                     if isinstance(agent_result, dict)
-                    else None,
-                    # Gold (reference) preview and metadata
-                    "gold_db_preview": [list(r) for r in (ref_rows or [])[:PREVIEW_N]],
-                    "gold_db_total_rows": len(ref_rows or []),
-                    "execution_correct": None,
-                    "skip_pipeline_fired": agent_result.get("skip_pipeline_fired")
-                    if isinstance(agent_result, dict)
-                    else None,
-                    "retries": agent_result.get("retries")
-                    if isinstance(agent_result, dict)
-                    else None,
-                    "latency_ms": agent_result.get("latency_ms")
-                    if isinstance(agent_result, dict)
-                    else duration,
-                    "error": agent_result.get("error")
-                    if isinstance(agent_result, dict)
-                    else None,
-                    "evaluation_error_type": None,
-                }
+                    else None
+                )
 
-                # Deterministic execution-accuracy comparator (superset-match)
-                execution_correct = None
                 agent_rows_full = None
                 agent_cols = None
+                execution_correct = None
+                official_execution_correct = None
                 soft_f1_result = None
+                evaluation_error_type = None
+
                 try:
-                    from config.app_config import AppConfig
-                    from src.eval import harness as harness_mod
-
-                    try:
-                        from sqlglot import parse_one
-                        from sqlglot.expressions import Select
-                    except Exception:
-                        parse_one = None
-                        Select = None
-
-                    cfg = AppConfig()
-
-                    ar = (
-                        agent_result.get("analysis_result")
-                        if isinstance(agent_result, dict)
-                        else None
-                    )
-                    ar_status = None
-                    if isinstance(ar, dict):
-                        ar_status = ar.get("status")
-                    else:
-                        try:
-                            ar_status = getattr(ar, "status", None)
-                        except Exception:
-                            ar_status = None
-
-                    # Only compare when analysis_result.status == 'success'
-                    if ar_status == "success":
+                    if analysis_status == "success":
                         last_query = (
                             agent_result.get("last_query")
                             if isinstance(agent_result, dict)
                             else None
                         )
-                        if last_query and cfg.EXECUTE_SQL_QUERIES:
-                            # Strip LIMIT using sqlglot if available
-                            unlimited_sql = last_query
-                            if parse_one is not None and Select is not None:
-                                try:
-                                    expr = parse_one(last_query)
-                                    for node in expr.walk():
-                                        if isinstance(node, Select) and "limit" in (
-                                            getattr(node, "args", {}) or {}
-                                        ):
-                                            node.args.pop("limit", None)
-                                    unlimited_sql = expr.sql(dialect="sqlite")
-                                except Exception as e:
-                                    rec["evaluation_error_type"] = (
-                                        f"sql_reexecution_failure: sqlglot_parse_error: {e}"
-                                    )
-                                    unlimited_sql = last_query
 
-                            # Execute the unlimited SQL separately against the sqlite DB
+                        if last_query and AppConfig().EXECUTE_SQL_QUERIES:
+                            unlimited_sql, limit_error = strip_sql_limit(last_query)
+                            if limit_error:
+                                evaluation_error_type = limit_error
+
                             try:
                                 a_rows, a_cols = execute_sqlite_query(
                                     db_file, unlimited_sql
                                 )
                                 agent_rows_full = [tuple(r) for r in a_rows]
                                 agent_cols = a_cols or []
-                            except Exception as e:
-                                rec["evaluation_error_type"] = (
-                                    f"sql_reexecution_failure: {e}"
+                            except Exception as exc:
+                                evaluation_error_type = (
+                                    f"sql_reexecution_failure: {exc}"
+                                )
+                                agent_rows_full = None
+                        elif agent_result.get("db_output"):
+                            try:
+                                db_output = agent_result.get("db_output")
+                                parsed = (
+                                    json.loads(db_output)
+                                    if isinstance(db_output, str)
+                                    else db_output
+                                )
+
+                                if isinstance(parsed, list):
+                                    agent_rows_full = [tuple(r) for r in parsed]
+                                    agent_cols = None
+                            except Exception as exc:
+                                evaluation_error_type = (
+                                    f"agent_db_output_parse_error: {exc}"
                                 )
                                 agent_rows_full = None
 
-                        else:
-                            # Fallback to db_output field from final_state (not preferred)
-                            if agent_result.get("db_output"):
-                                try:
-                                    db_out = agent_result.get("db_output")
-                                    parsed = (
-                                        json.loads(db_out)
-                                        if isinstance(db_out, str)
-                                        else db_out
-                                    )
-                                    if isinstance(parsed, list):
-                                        agent_rows_full = [tuple(r) for r in parsed]
-                                        agent_cols = None
-                                except Exception as e:
-                                    rec["evaluation_error_type"] = (
-                                        f"agent_db_output_parse_error: {e}"
-                                    )
-                                    agent_rows_full = None
-
-                    # If we don't have agent_rows_full, this is an evaluation error (or not run)
-                    if agent_rows_full is None:
-                        execution_correct = None
-                        execution_accuracy_official = None
-                    else:
-                        # Use the consolidated comparator from harness (column-superset match)
+                    if agent_rows_full is not None:
                         try:
-                            execution_correct = harness_mod.compare_rows(
+                            execution_correct = compare_rows(
                                 agent_rows_full,
                                 agent_cols or [],
                                 raw_ref_rows,
                                 cols or [],
                             )
-                        except Exception as e:
-                            rec["evaluation_error_type"] = f"comparator_error: {e}"
+                        except Exception as exc:
+                            evaluation_error_type = f"comparator_error: {exc}"
                             execution_correct = None
 
-                        # Compute official EX (exact full-row set equality) on raw, limit-stripped results
                         try:
-                            execution_accuracy_official = (
-                                harness_mod.execution_accuracy_official(
-                                    agent_rows_full, raw_ref_rows
-                                )
+                            official_execution_correct = execution_accuracy_official(
+                                agent_rows_full,
+                                raw_ref_rows,
                             )
-                        except Exception as e:
+                        except Exception as exc:
                             logger.warning(
                                 "execution_accuracy_official computation failed for q%s: %s",
                                 qid,
-                                e,
+                                exc,
                             )
-                            execution_accuracy_official = None
+                            official_execution_correct = None
 
-                        # Compute soft F1 (official algorithm). Only when agent_rows_full is present.
                         try:
-                            sf = harness_mod.soft_f1(agent_rows_full, raw_ref_rows)
-                            soft_f1_result = sf
-                        except Exception as e:
+                            soft_f1_result = soft_f1(agent_rows_full, raw_ref_rows)
+                        except Exception as exc:
                             logger.warning(
-                                "soft_f1 computation failed for q%s: %s", qid, e
+                                "soft_f1 computation failed for q%s: %s", qid, exc
                             )
-                            # Do not override evaluation_error_type for soft-f1 failures
-
-                except Exception as e:
-                    rec["evaluation_error_type"] = f"comparator_error: {e}"
+                            soft_f1_result = None
+                except Exception as exc:
+                    evaluation_error_type = f"comparator_error: {exc}"
+                    agent_rows_full = None
+                    agent_cols = None
                     execution_correct = None
+                    official_execution_correct = None
                     soft_f1_result = None
 
-                # Store previews instead of full outputs to avoid huge raw_results
-                def _pick_preview_rows(rows_list, n):
-                    """Deterministic, representative sampling from sorted rows.
-                    Prefer non-null rows; when many exist, pick evenly spaced quantile samples
-                    to show diverse values instead of the top lexicographic ones.
-                    """
-                    if not rows_list:
-                        return []
-                    non_null = [
-                        r
-                        for r in rows_list
-                        if any((c is not None and c != "") for c in r)
-                    ]
-                    source = non_null if non_null else rows_list
-                    L = len(source)
-                    if L <= n:
-                        return source
-                    # pick indices at quantiles: include first, last, and evenly spaced in between
-                    indices = []
-                    for i in range(n):
-                        idx = (i * (L - 1)) // (n - 1) if n > 1 else L // 2
-                        indices.append(idx)
-                    # deduplicate while preserving order
-                    seen = set()
-                    out = []
-                    for idx in indices:
-                        if idx not in seen:
-                            seen.add(idx)
-                            out.append(source[idx])
-                    return out
+                gold_total_rows = len(ref_rows or [])
+                gold_value_counts_preview = None
 
-                rec["gold_db_total_rows"] = len(ref_rows or [])
-                # If gold selected a single column, provide a value-count preview (more informative)
                 if (cols and len(cols) == 1) or (
                     not cols and ref_rows and len(ref_rows[0]) == 1
                 ):
-                    from collections import Counter
+                    gold_counts = Counter(
+                        normalize_value_for_compare(row[0]) for row in ref_rows or []
+                    )
+                    gold_value_counts_preview = [
+                        {"value": value, "count": count}
+                        for value, count in gold_counts.most_common(PREVIEW_N)
+                    ]
 
-                    # normalize values for counting
-                    gvals = [
-                        normalize_value_for_compare(r[0]) for r in (ref_rows or [])
-                    ]
-                    gcount = Counter(gvals)
-                    top = gcount.most_common(PREVIEW_N)
-                    rec["gold_value_counts_preview"] = [
-                        {"value": k, "count": v} for k, v in top
-                    ]
-                    # also keep a small sample of non-null values (quantile based)
-                    rec["gold_db_preview"] = [
-                        list(r) for r in _pick_preview_rows(ref_rows or [], PREVIEW_N)
-                    ]
-                else:
-                    rec["gold_db_preview"] = [
-                        list(r) for r in _pick_preview_rows(ref_rows or [], PREVIEW_N)
-                    ]
+                gold_db_preview = [
+                    list(row) for row in pick_preview_rows(ref_rows or [], PREVIEW_N)
+                ]
+
+                agent_db_preview = None
+                agent_db_total_rows = None
+                agent_value_counts_preview = None
 
                 if agent_rows_full is not None:
-                    # Sort agent rows deterministically using same serializer to mirror comparator sorting
                     try:
                         sorted_agent_rows, _ = serialize_rows_for_judge(
-                            agent_rows_full, columns=agent_cols
+                            agent_rows_full,
+                            columns=agent_cols,
                         )
                     except Exception:
                         sorted_agent_rows = agent_rows_full
-                    rec["agent_db_total_rows"] = len(agent_rows_full)
 
-                    # If gold has single column, try to show counts for agent column that best matches
-                    if (cols and len(cols) == 1) and agent_cols:
-                        from collections import Counter
+                    agent_db_total_rows = len(agent_rows_full)
 
-                        # pick agent column with highest overlap by Counter similarity
+                    if cols and len(cols) == 1 and agent_cols:
+                        gold_counts = Counter(
+                            normalize_value_for_compare(row[0])
+                            for row in ref_rows or []
+                        )
+
                         best_col = None
                         best_score = -1
-                        gcount = Counter(
-                            [
-                                normalize_value_for_compare(r[0])
-                                for r in (ref_rows or [])
-                            ]
-                        )
-                        for aj in range(len(agent_cols)):
-                            acount = Counter(
-                                [
-                                    normalize_value_for_compare(r[aj])
-                                    for r in agent_rows_full
-                                ]
+
+                        for col_index in range(len(agent_cols)):
+                            agent_counts = Counter(
+                                normalize_value_for_compare(row[col_index])
+                                for row in agent_rows_full
                             )
-                            # score as number of equal counts across values
                             score = sum(
-                                min(acount[k], gcount.get(k, 0)) for k in acount.keys()
+                                min(agent_counts[value], gold_counts.get(value, 0))
+                                for value in agent_counts
                             )
+
                             if score > best_score:
                                 best_score = score
-                                best_col = aj
+                                best_col = col_index
+
                         if best_col is not None:
-                            acount = Counter(
-                                [
-                                    normalize_value_for_compare(r[best_col])
-                                    for r in agent_rows_full
-                                ]
+                            agent_counts = Counter(
+                                normalize_value_for_compare(row[best_col])
+                                for row in agent_rows_full
                             )
-                            top = acount.most_common(PREVIEW_N)
-                            rec["agent_value_counts_preview"] = [
-                                {"value": k, "count": v} for k, v in top
+                            agent_value_counts_preview = [
+                                {"value": value, "count": count}
+                                for value, count in agent_counts.most_common(PREVIEW_N)
                             ]
-                        else:
-                            rec["agent_value_counts_preview"] = None
-                        rec["agent_db_preview"] = [
-                            list(r)
-                            for r in _pick_preview_rows(sorted_agent_rows, PREVIEW_N)
-                        ]
-                    else:
-                        rec["agent_db_preview"] = [
-                            list(r)
-                            for r in _pick_preview_rows(sorted_agent_rows, PREVIEW_N)
-                        ]
-                        rec["agent_value_counts_preview"] = None
-                else:
-                    rec["agent_db_preview"] = None
-                    rec["agent_db_total_rows"] = None
-                    rec["agent_value_counts_preview"] = None
 
-                rec["column_superset_match"] = execution_correct
-                # include official EX result if computed
-                rec["execution_accuracy_official"] = (
-                    execution_accuracy_official
-                    if "execution_accuracy_official" in locals()
-                    else None
-                )
+                    agent_db_preview = [
+                        list(row)
+                        for row in pick_preview_rows(sorted_agent_rows, PREVIEW_N)
+                    ]
 
-                # Build flat final record with ordered keys: meta -> gold -> agent -> evaluation
                 final_rec = {
-                    "question_id": rec.get("question_id"),
-                    "db_id": rec.get("db_id"),
-                    "difficulty": rec.get("difficulty"),
-                    "condition": rec.get("condition"),
-                    "question": rec.get("question"),
+                    "question_id": qid,
+                    "db_id": q.db_id,
+                    "difficulty": q.difficulty,
+                    "condition": condition,
+                    "question": q.question,
                     "run_sample_size": run_sample_size,
                     "run_seed": run_seed,
                     "run_model_requested": requested_model,
                     "run_file": raw_results_path.name,
-                    # Gold block (grouped by order, not nested)
                     "gold_sql": q.SQL,
-                    "gold_db_preview": rec.get("gold_db_preview"),
-                    "gold_db_total_rows": rec.get("gold_db_total_rows"),
-                    "gold_value_counts_preview": rec.get("gold_value_counts_preview"),
-                    # Agent block
-                    "agent_answer": rec.get("agent_answer"),
-                    "agent_llm_model": (
-                        agent_result.get("model_used") or agent_result.get("model")
+                    "gold_db_preview": gold_db_preview,
+                    "gold_db_total_rows": gold_total_rows,
+                    "gold_value_counts_preview": gold_value_counts_preview,
+                    "agent_answer": analysis_status,
+                    "agent_last_query": (
+                        agent_result.get("last_query")
                         if isinstance(agent_result, dict)
                         else None
                     ),
-                    "agent_last_query": rec.get("agent_last_query"),
-                    "agent_db_preview": rec.get("agent_db_preview"),
-                    "agent_db_total_rows": rec.get("agent_db_total_rows"),
-                    "agent_value_counts_preview": rec.get("agent_value_counts_preview"),
-                    # Evaluation results
-                    "execution_accuracy_official": rec.get(
-                        "execution_accuracy_official"
-                    ),
-                    "column_superset_match": rec.get("column_superset_match"),
+                    "agent_db_preview": agent_db_preview,
+                    "agent_db_total_rows": agent_db_total_rows,
+                    "agent_value_counts_preview": agent_value_counts_preview,
+                    "execution_accuracy_official": official_execution_correct,
+                    "column_superset_match": execution_correct,
                     "soft_f1_precision": (
                         soft_f1_result.get("precision") if soft_f1_result else None
                     ),
@@ -921,11 +640,27 @@ def main():
                     "soft_f1_score": (
                         soft_f1_result.get("f1") if soft_f1_result else None
                     ),
-                    "skip_pipeline_fired": rec.get("skip_pipeline_fired"),
-                    "retries": rec.get("retries"),
-                    "latency_ms": rec.get("latency_ms"),
-                    "error": rec.get("error"),
-                    "evaluation_error_type": rec.get("evaluation_error_type"),
+                    "skip_pipeline_fired": (
+                        agent_result.get("skip_pipeline_fired")
+                        if isinstance(agent_result, dict)
+                        else None
+                    ),
+                    "retries": (
+                        agent_result.get("retries")
+                        if isinstance(agent_result, dict)
+                        else None
+                    ),
+                    "latency_ms": (
+                        agent_result.get("latency_ms")
+                        if isinstance(agent_result, dict)
+                        else duration
+                    ),
+                    "error": (
+                        agent_result.get("error")
+                        if isinstance(agent_result, dict)
+                        else None
+                    ),
+                    "evaluation_error_type": evaluation_error_type,
                 }
 
                 write_raw_result(final_rec, raw_results_path)
