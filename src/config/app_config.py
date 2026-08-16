@@ -30,6 +30,7 @@ class AppConfig:
             "openai/gpt-oss-20b",
             "qwen/qwen3.6-27b",
             "openai/gpt-oss-120b",
+            "gemini-3-flash",
         ]
     )
     LLM_ACTIVE_MODEL: str = "openai/gpt-oss-20b"

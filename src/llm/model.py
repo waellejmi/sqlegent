@@ -1,3 +1,4 @@
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_groq import ChatGroq
 from langchain_openai import ChatOpenAI
 
@@ -31,3 +32,12 @@ def get_model(provider="groq"):
             timeout=None,
             max_retries=2,
         )
+    elif provider == "google":
+        return ChatGoogleGenerativeAI(
+            model=app_config.LLM_ACTIVE_MODEL,
+            temperature=0,
+            max_tokens=None,
+            timeout=None,
+            max_retries=2,
+        )
+        # api_key=env_config.GOOGLE_API_KEY,

@@ -50,7 +50,9 @@ def question_synthesis(state: SqlAgentState):
         ),
     }
 
-    structured_model = get_model().with_structured_output(SynthesisResult)
+    structured_model = get_model().with_structured_output(
+        SynthesisResult, method="json_schema"
+    )
     result = structured_model.invoke([system_message])
 
     _log_node_payload(
@@ -133,7 +135,9 @@ def skip_pipeline(state: SqlAgentState):
             schema_context=state.get("schema_context", "Not available"),
         ),
     }
-    structured_model = get_model().with_structured_output(SkipDecision)
+    structured_model = get_model().with_structured_output(
+        SkipDecision, method="json_schema"
+    )
     result = structured_model.invoke([system_message])
 
     _log_node_payload("Skip Decision", result, logger)
@@ -313,7 +317,9 @@ def analyze_result(state: SqlAgentState):
             instruction_context=state.get("instruction_context", "Not available"),
         ),
     }
-    structured_llm = get_model().with_structured_output(AnalysisResult)
+    structured_llm = get_model().with_structured_output(
+        AnalysisResult, method="json_schema"
+    )
 
     response = structured_llm.invoke([system_message])
 
