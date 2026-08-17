@@ -2,7 +2,24 @@ from __future__ import annotations
 
 from typing import Any
 
-from langchain_core.messages import AIMessage, AIMessageChunk
+from langchain_core.messages import (
+    AIMessage,
+    AIMessageChunk,
+    HumanMessage,
+    SystemMessage,
+)
+
+from config.app_config import AppConfig
+
+
+def _prompt_messages(system_content: str, user_content: str | None = None):
+    app_config = AppConfig()
+    if app_config.LLM_PROVIDER == "google":
+        return [
+            SystemMessage(content=system_content),
+            HumanMessage(content=user_content or "Proceed with the task."),
+        ]
+    return [SystemMessage(content=system_content)]
 
 
 def extract_message_text(message: AIMessage) -> str:

@@ -27,7 +27,12 @@ from utils.helpers import _canonicalize_table_names, normalize_table_names_csv
 from utils.logger_setup import LoggerSetup
 from utils.logger_setup import log_node_payload as _log_node_payload
 from utils.logger_setup import log_node_response as _log_node_response
-from utils.message_helpers import ai_message_to_text as _ai_message_to_text
+from utils.message_helpers import (
+    _prompt_messages,
+)
+from utils.message_helpers import (
+    ai_message_to_text as _ai_message_to_text,
+)
 
 logger = LoggerSetup.get_logger(__name__, logging.DEBUG)
 
@@ -42,18 +47,17 @@ def question_synthesis(state: SqlAgentState):
         _log_node_payload("Question Synthesis (Skipped)", current_question, logger)
         return {"user_question": current_question}
 
-    system_message = {
-        "role": "system",
-        "content": QUESTION_SYNTHESIS_PROMPT.format(
+    system_content = (
+        QUESTION_SYNTHESIS_PROMPT.format(
             user_question=current_question,
             last_user_question=last_user_question,
         ),
-    }
+    )
 
     structured_model = get_model().with_structured_output(
         SynthesisResult, method="json_schema"
     )
-    result = structured_model.invoke([system_message])
+    result = structured_model.invoke(_prompt_messages(system_content))
 
     _log_node_payload(
         "Question Synthesis",
@@ -127,18 +131,15 @@ def retrieve_context(state: SqlAgentState):
 
 
 def skip_pipeline(state: SqlAgentState):
-    system_message = {
-        "role": "system",
-        "content": SHOULD_SKIP.format(
-            available_tables=", ".join(state["available_tables"]),
-            user_question=state["user_question"],
-            schema_context=state.get("schema_context", "Not available"),
-        ),
-    }
+    system_content = SHOULD_SKIP.format(
+        available_tables=", ".join(state["available_tables"]),
+        user_question=state["user_question"],
+        schema_context=state.get("schema_context", "Not available"),
+    )
     structured_model = get_model().with_structured_output(
         SkipDecision, method="json_schema"
     )
-    result = structured_model.invoke([system_message])
+    result = structured_model.invoke(_prompt_messages(system_content))
 
     _log_node_payload("Skip Decision", result, logger)
     return {
@@ -162,32 +163,27 @@ def call_get_schema(state: SqlAgentState):
         state["analysis_result"] is not None
         and state["analysis_result"].status == "irrelevant"
     ):
-        system_message = {
-            "role": "system",
-            "content": HANDLE_IRRELEVANT_RESULT.format(
-                user_question=state["user_question"],
-                available_tables=", ".join(state["available_tables"]),
-                schema_context=state.get("schema_context", "Not available"),
-                instruction_context=state.get("instruction_context", "Not available"),
-                candidate_tables=", ".join(state.get("candidate_tables", [])),
-                query=state["last_query"],
-                database_output=state["db_output"],
-                explanation=state["analysis_result"].explanation,
-            ),
-        }
+        system_content = HANDLE_IRRELEVANT_RESULT.format(
+            user_question=state["user_question"],
+            available_tables=", ".join(state["available_tables"]),
+            schema_context=state.get("schema_context", "Not available"),
+            instruction_context=state.get("instruction_context", "Not available"),
+            candidate_tables=", ".join(state.get("candidate_tables", [])),
+            query=state["last_query"],
+            database_output=state["db_output"],
+            explanation=state["analysis_result"].explanation,
+        )
+
         current_retry_count += 1
     else:
-        system_message = {
-            "role": "system",
-            "content": GET_SCHEMA_PROMPT.format(
-                available_tables=", ".join(state["available_tables"]),
-                user_question=state["user_question"],
-                schema_context=state.get("schema_context", "Not available"),
-                instruction_context=state.get("instruction_context", "Not available"),
-            ),
-        }
+        system_content = GET_SCHEMA_PROMPT.format(
+            available_tables=", ".join(state["available_tables"]),
+            user_question=state["user_question"],
+            schema_context=state.get("schema_context", "Not available"),
+            instruction_context=state.get("instruction_context", "Not available"),
+        )
 
-    response = llm_with_tools.invoke([system_message])
+    response = llm_with_tools.invoke(_prompt_messages(system_content))
     _log_node_response("Schema Tool Response", response, logger)
     table_list = _canonicalize_table_names(
         response.tool_calls[0]["args"]["table_names"],
@@ -307,21 +303,21 @@ def run_query(state: SqlAgentState, config: RunnableConfig | None = None):
 def analyze_result(state: SqlAgentState):
     db_output = state.get("db_output", "Empty, 0 rows returned")
 
-    system_message = {
-        "role": "system",
-        "content": ANALYZE_RESULT.format(
+    system_content = (
+        ANALYZE_RESULT.format(
             user_input=state["user_question"],
             query_executed=state["last_query"],
             database_output=db_output,
             retry_count=state["retry_count"],
             instruction_context=state.get("instruction_context", "Not available"),
         ),
-    }
+    )
+
     structured_llm = get_model().with_structured_output(
         AnalysisResult, method="json_schema"
     )
 
-    response = structured_llm.invoke([system_message])
+    response = structured_llm.invoke(_prompt_messages(system_content))
 
     _log_node_payload("Analysis Result", response.model_dump(), logger)
 
@@ -377,17 +373,16 @@ def explain_result(state: SqlAgentState):
 
     # Maybe to save on tokens, we drop the LLM call and rely on analysis_node to form a phrase and pass it for the conversational agent
     if not AppConfig().ENABLE_ORCHESTRATOR:
-        system_message = {
-            "role": "system",
-            "content": EXPLAIN_RESULT.format(
+        system_content = (
+            EXPLAIN_RESULT.format(
                 user_question=state["user_question"],
                 query=state["last_query"],
                 status=state["analysis_result"].status,
                 database_output=state["db_output"],
                 explanation=state["analysis_result"].explanation,
             ),
-        }
-        response = get_model().invoke([system_message])
+        )
+        response = get_model().invoke(_prompt_messages(system_content))
         final_answer = _ai_message_to_text(response)
         _log_node_payload("Explanation", _ai_message_to_text(response), logger)
         return {

@@ -6,7 +6,7 @@ from config.app_config import AppConfig
 from config.env_config import EnvConfig
 
 
-def get_model(provider="groq"):
+def get_model(provider="google"):
     env_config = EnvConfig()
     app_config = AppConfig()
 
