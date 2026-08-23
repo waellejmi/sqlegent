@@ -65,8 +65,11 @@ jobs:
 
       - name: Promote candidate to baseline
         run: |
+          mkdir -p evaluation/summaries/history
+
           cp evaluation/summaries/baseline_summary.json \
               evaluation/summaries/history/baseline-run-${{ github.run_id }}.json
+          
           cp evaluation/summaries/current_summary.json evaluation/summaries/baseline_summary.json
 
       - name: Commit new baseline
