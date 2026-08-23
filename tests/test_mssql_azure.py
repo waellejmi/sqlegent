@@ -5,12 +5,9 @@ from config.env_config import EnvConfig
 config = EnvConfig()
 
 
-engine = create_engine(config.AZURE_DB_CONNTECTION)
-with engine.connect() as conn:
-    result = conn.execute(
-        text(
-            "SELECT table_name FROM INFORMATION_SCHEMA.TABLES WHERE table_type = 'BASE TABLE' ORDER BY table_name"
-        )
-    )
-    for row in result:
-        print(row[0])
+def test_database_connection():
+    engine = create_engine(config.AZURE_DB_CONNTECTION)
+
+    with engine.connect() as conn:
+        result = conn.execute(text("SELECT 1"))
+        assert result.scalar() == 1

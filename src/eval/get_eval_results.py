@@ -1,6 +1,8 @@
 import argparse
 import json
 from collections import defaultdict
+from datetime import datetime, timezone
+from pathlib import Path
 
 
 def load_records(path):
@@ -15,6 +17,19 @@ def load_records(path):
             except json.JSONDecodeError as e:
                 raise ValueError(f"Malformed JSON on line {line_num} of {path}: {e}")
     return records
+
+
+def save_summary(scores_by_condition, jsonl_path, out_path):
+    summary = {
+        "source_file": str(jsonl_path),
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "conditions": scores_by_condition,
+    }
+    out_path = Path(out_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump(summary, f, indent=2)
+    return out_path
 
 
 AGENT_DECLINE_VALUES = {
@@ -122,6 +137,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("jsonl_path", help="Path to the results JSONL file")
     parser.add_argument(
+        "--save-summary",
+        help="Path to write a compact aggregate summary JSON, for CI regression gating",
+    )
+    parser.add_argument(
         "--by-condition",
         action="store_true",
         help="Also break down scores by 'condition' field",
@@ -161,6 +180,14 @@ def main():
             "  These are harness bugs, not scored incorrect answers — fix the harness to "
             "tag them with an evaluation_error_type so this warning stops firing."
         )
+
+    if args.save_summary:
+        groups = defaultdict(list)
+        for r in records:
+            groups[r.get("condition", "unknown")].append(r)
+        by_condition = {k: compute_scores(v) for k, v in groups.items()}
+        out = save_summary(by_condition, args.jsonl_path, args.save_summary)
+        print(f"\nSummary written to {out}")
 
     if args.by_condition:
         groups = defaultdict(list)

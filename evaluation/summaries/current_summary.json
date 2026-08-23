@@ -1,0 +1,26 @@
+{
+  "source_file": "evaluation/results/runs/22Q_43S_openai_gpt-oss-20b_2026-08-17_04:20:28.jsonl",
+  "generated_at": "2026-08-22T13:22:36.450292+00:00",
+  "conditions": {
+    "without_evidence": {
+      "total": 22,
+      "tagged_errors": 0,
+      "untagged_errors": 5,
+      "agent_declined": 3,
+      "evaluated": 17,
+      "ex_official_accuracy": 0.23529411764705882,
+      "soft_ex_accuracy": 0.29411764705882354,
+      "soft_f1_mean": 0.30188235294117644
+    },
+    "with_evidence": {
+      "total": 22,
+      "tagged_errors": 0,
+      "untagged_errors": 6,
+      "agent_declined": 4,
+      "evaluated": 16,
+      "ex_official_accuracy": 0.25,
+      "soft_ex_accuracy": 0.25,
+      "soft_f1_mean": 0.2840625
+    }
+  }
+}

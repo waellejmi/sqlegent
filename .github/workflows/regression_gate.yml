@@ -1,0 +1,79 @@
+name: NL2SQL Eval Regression Gate
+
+on:
+  push:
+    branches:
+      - eval-ci
+
+  workflow_dispatch:
+    inputs:
+      promote_baseline:
+        description: "Promote this run's summary to be the new baseline if it passes"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest  
+    outputs:
+      gate_result: ${{ steps.compare.outcome }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Check current summary exists
+        run: |
+          test -f evaluation/summaries/current_summary.json || {
+            echo "::error::current_summary.json is missing."
+            echo "Run the evaluation and generate evaluation/summaries/current_summary.json before pushing to eval-ci."
+            exit 1
+          }
+
+      - name: Compare against baseline
+        id: compare
+        run: |
+          python src/eval/compare_summaries.py \
+            --baseline evaluation/summaries/baseline_summary.json \
+            --current evaluation/summaries/current_summary.json \
+            --max-drop 3.0
+        # compare_results.py exit codes: 0 = pass, 1 = real regression
+
+  promote:
+    needs: evaluate
+    if: >
+      github.event_name == 'workflow_dispatch' &&
+      inputs.promote_baseline == true &&
+      needs.evaluate.outputs.gate_result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Promote candidate to baseline
+        run: |
+          cp evaluation/summaries/baseline_summary.json \
+              evaluation/summaries/history/baseline-run-${{ github.run_id }}.json
+          cp evaluation/summaries/current_summary.json evaluation/summaries/baseline_summary.json
+
+      - name: Commit new baseline
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add evaluation/summaries/baseline_summary.json evaluation/summaries/history/
+          git diff --cached --quiet && echo "No changes to baseline, skipping commit" && exit 0
+          git commit -m "Promote eval baseline (run ${{ github.run_id }})"
+          git push origin ${{ github.ref_name }}

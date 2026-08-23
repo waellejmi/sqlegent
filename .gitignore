@@ -26,3 +26,5 @@ semantic/**/_baseline.generated.yaml
 
 #Eval Results
 /evaluation/**
+!/evaluation/summaries/
+!/evaluation/summaries/**
