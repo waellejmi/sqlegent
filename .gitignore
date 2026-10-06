@@ -18,6 +18,9 @@ wheels/
 data/northwind.db
 data/sakila_master.db
 semantic/**/_baseline.generated.yaml
+/docs
+/data
+/results
 
 #Agents
 .agents/*
@@ -28,3 +31,5 @@ semantic/**/_baseline.generated.yaml
 /evaluation/**
 !/evaluation/summaries/
 !/evaluation/summaries/**
+
+
