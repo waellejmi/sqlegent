@@ -1,15 +1,16 @@
 from __future__ import annotations
 
 import inspect
-from typing import Any, Awaitable, Callable
+from collections.abc import Awaitable, Callable
+from typing import Any
 
 from langchain_core.messages import AIMessageChunk
 from langgraph.types import Command
 
 
 async def build_agent():
-    from config.app_config import AppConfig
     from app.checkpointer import get_async_checkpointer
+    from config.app_config import AppConfig
 
     checkpointer = await get_async_checkpointer()
 

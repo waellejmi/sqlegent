@@ -212,6 +212,6 @@ def run_query_tool_with_interrupt(query: str, config: RunnableConfig | None = No
 
     except Exception as e:
         return (
-            f"Error executing SQL: {str(e)}\n"
+            f"Error executing SQL: {e!s}\n"
             "Please analyze this error, correct the query, and try again."
         )

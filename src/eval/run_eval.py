@@ -45,7 +45,7 @@ RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 PREVIEW_N = 3
 
 
-def save_runtime_settings_patch(patch: Dict[str, Any]):
+def save_runtime_settings_patch(patch: dict[str, Any]):
     try:
         from config.app_config import AppConfig
 
@@ -85,7 +85,7 @@ def reset_database_tools():
             setattr(database_tools, attr, None)
 
 
-def set_sqlite_database(db_file: Path, warn_on_failure: bool = False) -> Optional[str]:
+def set_sqlite_database(db_file: Path, warn_on_failure: bool = False) -> str | None:
     try:
         from config.db_config import DBConfig
 
@@ -106,7 +106,7 @@ def set_sqlite_database(db_file: Path, warn_on_failure: bool = False) -> Optiona
         return None
 
 
-def restore_database(previous_uri: Optional[str]):
+def restore_database(previous_uri: str | None):
     if not previous_uri:
         return
 
@@ -149,7 +149,7 @@ def cleanup_with_evidence(question_id: int, db_id: str):
     shutil.rmtree(RESULTS_DIR / "staged_mdl", ignore_errors=True)
 
 
-async def invoke_agent(question: str, timeout: int = 120) -> Dict[str, Any]:
+async def invoke_agent(question: str, timeout: int = 120) -> dict[str, Any]:
     from app.agent_runtime import run_agent_with_interrupt
     from app.state_factory import build_initial_state, make_runnable_config
     from config.app_config import AppConfig

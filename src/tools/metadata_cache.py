@@ -52,24 +52,23 @@ class MetadataCacheStore:
             )
 
     def get(self, cache_key: str) -> Any | None:
-        with self._lock:
-            with self._connect() as conn:
-                row = conn.execute(
-                    "SELECT value_json, expires_at FROM metadata_cache WHERE cache_key = ?",
-                    (cache_key,),
-                ).fetchone()
-                if row is None:
-                    return None
+        with self._lock, self._connect() as conn:
+            row = conn.execute(
+                "SELECT value_json, expires_at FROM metadata_cache WHERE cache_key = ?",
+                (cache_key,),
+            ).fetchone()
+            if row is None:
+                return None
 
-                value_json, expires_at = row
-                now = int(time.time())
-                if expires_at is not None and expires_at <= now:
-                    conn.execute(
-                        "DELETE FROM metadata_cache WHERE cache_key = ?", (cache_key,)
-                    )
-                    return None
+            value_json, expires_at = row
+            now = int(time.time())
+            if expires_at is not None and expires_at <= now:
+                conn.execute(
+                    "DELETE FROM metadata_cache WHERE cache_key = ?", (cache_key,)
+                )
+                return None
 
-                return json.loads(value_json)
+            return json.loads(value_json)
 
     def set(
         self,
@@ -86,10 +85,9 @@ class MetadataCacheStore:
             now + ttl_seconds if ttl_seconds is not None and ttl_seconds > 0 else None
         )
 
-        with self._lock:
-            with self._connect() as conn:
-                conn.execute(
-                    """
+        with self._lock, self._connect() as conn:
+            conn.execute(
+                """
                     INSERT INTO metadata_cache (
                         cache_key,
                         db_fingerprint,
@@ -104,28 +102,27 @@ class MetadataCacheStore:
                         created_at=excluded.created_at,
                         expires_at=excluded.expires_at
                     """,
-                    (
-                        cache_key,
-                        db_fingerprint,
-                        operation,
-                        args_hash,
-                        json.dumps(value),
-                        now,
-                        expires_at,
-                    ),
-                )
+                (
+                    cache_key,
+                    db_fingerprint,
+                    operation,
+                    args_hash,
+                    json.dumps(value),
+                    now,
+                    expires_at,
+                ),
+            )
 
     def invalidate(self, db_fingerprint: str | None = None) -> int:
-        with self._lock:
-            with self._connect() as conn:
-                if db_fingerprint is None:
-                    cursor = conn.execute("DELETE FROM metadata_cache")
-                else:
-                    cursor = conn.execute(
-                        "DELETE FROM metadata_cache WHERE db_fingerprint = ?",
-                        (db_fingerprint,),
-                    )
-                return cursor.rowcount
+        with self._lock, self._connect() as conn:
+            if db_fingerprint is None:
+                cursor = conn.execute("DELETE FROM metadata_cache")
+            else:
+                cursor = conn.execute(
+                    "DELETE FROM metadata_cache WHERE db_fingerprint = ?",
+                    (db_fingerprint,),
+                )
+            return cursor.rowcount
 
 
 def build_cache_key(

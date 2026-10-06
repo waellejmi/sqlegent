@@ -26,9 +26,8 @@ from context_layer.service import (
     get_context_service,
     safe_parse_row_count,
 )
-from utils.message_helpers import extract_last_ai_message
-from utils.message_helpers import stream_chunk_to_text
 from utils.logger_setup import LoggerSetup
+from utils.message_helpers import extract_last_ai_message, stream_chunk_to_text
 
 LoggerSetup.configure_logging()
 
@@ -192,7 +191,7 @@ async def _run_cli_agent(question: str, is_chat: bool) -> None:
                 question = input("User: ").strip()
                 if question:
                     break
-            
+
             if question == ":q":
                 print("Exiting chat...")
                 break

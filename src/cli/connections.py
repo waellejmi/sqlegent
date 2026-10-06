@@ -5,7 +5,6 @@ from docker_connection.discovery import container_to_sqlalchemy_uri
 from docker_connection.validation import validate_uri
 
 
-
 def normalize_sqlite_uri_from_input(raw_path: str, db_config: DBConfig) -> str:
     path = Path(raw_path).expanduser().resolve()
     return db_config.sqlite_path_to_uri(path)

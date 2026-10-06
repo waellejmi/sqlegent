@@ -9,7 +9,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from app.agent_runtime import run_agent_with_interrupt
 from app.chat_persistence import extract_tool_payload, save_chat_history
 from app.state_factory import build_initial_state, make_runnable_config
-from utils.message_helpers import stream_chunk_to_text, extract_last_ai_message
+from utils.message_helpers import extract_last_ai_message, stream_chunk_to_text
 from webui.history_store import HistoryStore
 
 router = APIRouter()

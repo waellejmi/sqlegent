@@ -31,12 +31,12 @@ class Question:
     difficulty: str
 
 
-def load_dataset(path: Path) -> List[Question]:
+def load_dataset(path: Path) -> list[Question]:
     if not path.exists():
         raise FileNotFoundError(f"Dataset file not found: {path}")
     with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)
-    questions: List[Question] = []
+    questions: list[Question] = []
     for item in data:
         questions.append(
             Question(
@@ -52,20 +52,20 @@ def load_dataset(path: Path) -> List[Question]:
 
 
 def stratified_sample(
-    questions: List[Question], sample_size: int, seed: int
-) -> List[int]:
+    questions: list[Question], sample_size: int, seed: int
+) -> list[int]:
     total = len(questions)
     if sample_size >= total:
         return [q.question_id for q in questions]
 
-    groups: Dict[Tuple[str, str], List[Question]] = {}
+    groups: dict[tuple[str, str], list[Question]] = {}
     for q in questions:
         key = (q.db_id, q.difficulty)
         groups.setdefault(key, []).append(q)
 
     # proportional allocation with largest remainder method
-    alloc: Dict[Tuple[str, str], int] = {}
-    remainders: List[Tuple[Tuple[str, str], float]] = []
+    alloc: dict[tuple[str, str], int] = {}
+    remainders: list[tuple[tuple[str, str], float]] = []
     for k, grp in groups.items():
         exact = len(grp) * sample_size / total
         base = int(math.floor(exact))
@@ -90,7 +90,7 @@ def stratified_sample(
             alloc[k] = len(groups[k])
     if surplus > 0:
         # redistribute surplus to groups with spare capacity
-        candidates = [k for k in groups.keys() if alloc[k] < len(groups[k])]
+        candidates = [k for k in groups if alloc[k] < len(groups[k])]
         idx = 0
         while surplus > 0 and candidates:
             k = candidates[idx % len(candidates)]
@@ -102,7 +102,7 @@ def stratified_sample(
 
     # perform sampling within each group
     rnd = random.Random(seed)
-    selected_ids: List[int] = []
+    selected_ids: list[int] = []
     for k, grp in groups.items():
         n = alloc.get(k, 0)
         if n <= 0:
@@ -138,7 +138,7 @@ def current_git_commit() -> str:
 def write_manifest(
     dataset_path: str,
     database_root: str,
-    selected_question_ids: List[int],
+    selected_question_ids: list[int],
     out_path: Path,
     sample_size: int,
     seed: int,
@@ -177,7 +177,7 @@ def write_manifest(
 
 def execute_sqlite_query(
     db_file: Path, sql: str
-) -> Tuple[List[Tuple[Any, ...]], List[str]]:
+) -> tuple[list[tuple[Any, ...]], list[str]]:
     """
     Execute SQL against SQLite and return (rows, column_names).
     """
@@ -243,8 +243,8 @@ def normalize_value_for_compare(v: Any):
 
 
 def serialize_rows_for_judge(
-    rows: List[Tuple[Any, ...]], columns: List[str] | None = None
-) -> Tuple[List[Tuple[Any, ...]], str]:
+    rows: list[tuple[Any, ...]], columns: list[str] | None = None
+) -> tuple[list[tuple[Any, ...]], str]:
     """
     Normalize rows and produce a deterministic, human-readable text for the judge.
     Includes an optional header row with column names. NULLs rendered as `<NULL>`; empty strings as "".
@@ -283,10 +283,10 @@ def serialize_rows_for_judge(
 
 
 def compare_rows(
-    agent_rows: List[Tuple[Any, ...]],
-    agent_cols: List[str],
-    reference_rows: List[Tuple[Any, ...]],
-    reference_cols: List[str],
+    agent_rows: list[tuple[Any, ...]],
+    agent_cols: list[str],
+    reference_rows: list[tuple[Any, ...]],
+    reference_cols: list[str],
 ) -> bool:
     """
     Column-wise superset match: for every reference (gold) column, find some agent column

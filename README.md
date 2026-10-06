@@ -1,80 +1,140 @@
-# sql-agent
+# sqlegent
 
-`sql-agent` is a database assistant that turns natural language into SQL, runs the query, and explains the result. It also has a conversation mode, a web UI, Docker database discovery, and a context layer for remembering schemas and past queries.
+sqlegent connects to a database, finds the tables and context relevant to a question, builds the SQL query, and can execute it and return the results depending on the configuration.
 
-## Main entrypoints
+It is designed to work with smaller local models by keeping the context focused and only retrieving the information needed for each question. It supports six SQL dialects, human approval before execution, automatic discovery of Docker containers running supported databases, and a semantic layer for adding information that cannot be inferred from the database schema alone.
 
-- `src/main.py` — CLI entrypoint.
-- `src/webui/main.py` — web UI server.
-- `src/mcp_server.py` — MCP server exposing database tools.
+![webui](assets/webui_main.png)
 
-## Setup
+More [Screenshots](./assets/)
 
-Install the project with `uv` first:
+
+## Getting Started
+
+Requires Python 3.10+ and `uv`.
 
 ```bash
+# Install base dependencies
 uv sync
-uv pip install -e .
+
+# Install with optional drivers and WebUI support
+uv sync --extra postgres --extra webui --extra mariadb --extra mssql
 ```
 
-If you want extra database drivers and UI support in one step, use:
+### Configuration
+
+1. Copy `.env.example` to `.env`.
+2. Set your LLM provider credentials.
+3. Configure model parameters in `src/llm/model.py` if using non-standard endpoints (e.g., local Llama.cpp servers).
+
+The application behavior is controlled by `AppConfig` in `src/config/app_config.py`. Key flags include:
+*   `HUMAN_SQL_REVIEW`: Enable pre-execution query approval.
+*   `EXECUTE_SQL_QUERIES`: Allow database execution.
+*   `ENABLE_CONTEXT_LAYER`: Toggle semantic memory.
+
+## Usage
+
+### CLI
+
+Run the interactive terminal interface.
 
 ```bash
-uv sync --extra postgres --extra embedding --extra webui --extra mariadb --extra mssql
+# Default mode (auto-selects orchestrator or direct NL2SQL)
+uv run src/main.py
+
+# Force Conversational Orchestrator mode
+uv run src/main.py --chat
+
+# Force Direct NL2SQL pipeline mode
+uv run src/main.py --nl2sql
 ```
 
-## Run
+### Web UI
 
-Start the web app with:
+Start the FastAPI server for a graphical interface with persistent sessions, visual graph tracing, and semantic layer editing.
 
 ```bash
 uv run src/webui/main.py
 ```
 
-You can also run the CLI with:
+Access at `http://localhost:8000`.
+
+
+### MCP Server
+
+Expose database tools and whole agent to other AI agents via Model Context Protocol.
 
 ```bash
-uv run src/main.py
+uv run src/mcp_server.py
 ```
 
-## Project layout
+## Architecture Details
 
-- `src/agent/` — the NL2SQL pipeline. This is the SQL agent that finds tables, reads schema, generates SQL, runs it, retries when needed, and explains results.
-- `src/orchestrator/` — the conversation agent. This is the chat layer that decides when to call the SQL pipeline or other tools.
-- `src/tools/` — database tools used by the agents, including schema lookup, query execution, metadata caching, and the NL2SQL tool wrapper.
-- `src/app/` — runtime helpers shared by CLI, web UI, and MCP server, including agent execution, state setup, persistence, and context operations.
-- `src/context_layer/` — semantic context storage and retrieval. This is where schema memory, instruction memory, and query memory are managed.
-- `src/docker_connection/` — Docker auto-discovery and Docker-to-connection helpers.
-- `src/cli/` — terminal flows for starting the app and configuring the active database target.
-- `src/webui/` — FastAPI app, routes, templates, and browser-facing services.
-- `src/config/` — application and database configuration.
-- `src/llm/` — model selection and LLM wiring.
-- `src/utils/` — shared helpers for logging, formatting, node labels, and message handling.
+The system utilizes a **Two-Tiered Architecture** to balance flexibility with determinism.
 
-## How the system fits together
+### Tier 1: Conversational Orchestrator
+A lightweight ReAct loop that manages user interaction. It decides whether to engage in general chat or invoke the specialized NL2SQL subagent. It resolves ambiguous follow-ups before they reach the database.
 
-1. The CLI or web UI chooses a database target.
-2. The SQL agent reads schema and context, then generates a query.
-3. The query is validated and executed through SQLAlchemy-backed tools.
-4. The orchestrator can wrap the SQL agent in a chat flow for multi-turn conversations.
-5. The context layer can store and retrieve useful schema or query memory over time.
+**Tools exposed to Orchestrator:**
+*   `call_nl2sql_tool`: Invokes the full Tier 2 pipeline.
+*   `get_schema_tool_with_cache`: Quick lookup of table structures.
+*   `list_tables_with_cache`: Fast enumeration of available tables.
+*   `quick_fix_query_tool`: Applies minor edits (LIMIT, ORDER BY) to previous results without re-running the full pipeline.
 
-## Semantic files
+![Orchestrator Graph](assets/tier1_chat.png)
 
-- `semantic/` — semantic models and MDL files used by the context layer.
 
-## Notes
+### Tier 2: NL2SQL Subagent
+A deterministic state graph. It does not decide its own path; it follows strict edges with internal self-correction loops. This design allows smaller models to perform reliably by reducing cognitive load on the LLM.
 
-- The repo is centered around SQLAlchemy for database access.
-- Docker support is only used for auto-discovering running database containers.
-- The codebase is split by responsibility, not by database type.
+**Pipeline Flow:**
+1.  `question_synthesis`: Rewrites fragmented inputs into standalone, unambiguous queries.
+2.  `retrieve_context`: Fetches relevant schema snippets and verified past queries using sparse retrieval.
+3.  `generate_query`: Produces SQL based on synthesized question and context.
+4.  `check_query`: Validates syntax and safety constraints.
+5.  `run_query`: Executes against the target database.
+6.  `analyze_result`: Handles empty sets, errors, or success cases.
 
-## Docker test containers
+[NL2SQL Pipeline Graph](./assets/tier2_nl2sql.png)
 
-To test Docker container discovery, run:
+### Semantic Layer & Context
 
-```bash
-docker compose -f infra/docker/compose-chinook.yaml up -d
+Context is injected per-node to manage token limits precisely. The semantic layer stores business logic, aliases, and relationships in YAML format within `semantic/`.
+
+**Example Enhancement:**
+
+```yaml
+- name: Artist
+  description: Musical artist entity used for attribution in sales analytics.
+  aliases: [artists, musician, band]
+  columns:
+    - name: ArtistId
+      description: Primary key of the artist.
 ```
+also in webui:
 
-This starts 6 Chinook containers, one for each supported dialect.
+![Semantic editor](assets/mdl.png)
+For detailed configuration of models, relationships, and custom instructions, refer to the dedicated [Semantic Layer Documentation](./semantic/README.md).
+
+### Project Layout
+
+
+~~~text
+src/agent/               NL2SQL pipeline
+src/orchestrator/        conversational orchestrator
+src/tools/               database and agent tools
+src/app/                 shared runtime helpers
+src/context_layer/       semantic context storage and retrieval
+src/docker_connection/   Docker discovery and connection helpers
+src/cli/                 terminal flows
+src/webui/               FastAPI web UI
+src/config/              application and database configuration
+src/llm/                 model wiring
+src/utils/               shared utilities
+semantic/                semantic models and MDL files
+infra/docker/            Docker test containers
+~~~
+
+### Retrieval Strategy
+
+The system uses **sparse retrieval** instead of dense vector embeddings for metadata and schema lookups. This reduces resource consumption and improves precision on structured data while avoiding the overhead of embedding models. Query memory retrieves verified successful patterns to guide future generations.

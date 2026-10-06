@@ -1,7 +1,7 @@
 import argparse
 import json
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from pathlib import Path
 
 
@@ -22,7 +22,7 @@ def load_records(path):
 def save_summary(scores_by_condition, jsonl_path, out_path):
     summary = {
         "source_file": str(jsonl_path),
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
         "conditions": scores_by_condition,
     }
     out_path = Path(out_path)

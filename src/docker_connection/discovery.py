@@ -4,9 +4,9 @@ yoinked from this great project https://github.com/Maxteabag/sqlit
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import Enum
-from typing import Mapping
 from urllib.parse import quote
 
 from .docker import DockerCredentials, DockerDetector
@@ -15,8 +15,8 @@ __all__ = [
     "ContainerStatus",
     "DetectedContainer",
     "DockerStatus",
-    "detect_database_containers",
     "container_to_sqlalchemy_uri",
+    "detect_database_containers",
     "get_docker_status",
 ]
 
@@ -357,8 +357,7 @@ def _detect_containers_with_status(
             )
 
         container_name = container.name
-        if container_name.startswith("/"):
-            container_name = container_name[1:]
+        container_name = container_name.removeprefix("/")
 
         host = detector.preferred_host
         password = credentials.password

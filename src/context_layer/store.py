@@ -223,10 +223,9 @@ class ContextStore:
         top_k: int,
         min_similarity: float,
     ) -> list[SearchHit]:
-        with self._lock:
-            with self._connect() as conn:
-                rows = conn.execute(
-                    """
+        with self._lock, self._connect() as conn:
+            rows = conn.execute(
+                """
                     SELECT id, name, source_type, content, embedding_json, meta_json
                     FROM context_chunks
                     WHERE project_id = ?
@@ -234,8 +233,8 @@ class ContextStore:
                       AND embedding_model = ?
                       AND channel = ?
                     """,
-                    (project_id, db_fingerprint, embedding_model, channel),
-                ).fetchall()
+                (project_id, db_fingerprint, embedding_model, channel),
+            ).fetchall()
 
         scored: list[SearchHit] = []
         for row in rows:
@@ -277,10 +276,9 @@ class ContextStore:
         memory_id = str(uuid.uuid4())
         question_norm = normalize_whitespace(question).lower()
 
-        with self._lock:
-            with self._connect() as conn:
-                conn.execute(
-                    """
+        with self._lock, self._connect() as conn:
+            conn.execute(
+                """
                     INSERT INTO query_memory (
                         id, project_id, db_fingerprint, embedding_model, question,
                         question_norm, sql, tables_json, row_count, is_verified,
@@ -294,30 +292,30 @@ class ContextStore:
                         meta_json = excluded.meta_json,
                         created_at = excluded.created_at
                     """,
-                    (
-                        memory_id,
-                        project_id,
-                        db_fingerprint,
-                        embedding_model,
-                        question,
-                        question_norm,
-                        sql,
-                        to_json(tables),
-                        row_count,
-                        1 if is_verified else 0,
-                        to_json(embedding),
-                        to_json(metadata),
-                        now,
-                    ),
-                )
+                (
+                    memory_id,
+                    project_id,
+                    db_fingerprint,
+                    embedding_model,
+                    question,
+                    question_norm,
+                    sql,
+                    to_json(tables),
+                    row_count,
+                    1 if is_verified else 0,
+                    to_json(embedding),
+                    to_json(metadata),
+                    now,
+                ),
+            )
 
-                self._trim_rows(
-                    conn,
-                    table="query_memory",
-                    project_id=project_id,
-                    db_fingerprint=db_fingerprint,
-                    max_rows=max_rows_per_db,
-                )
+            self._trim_rows(
+                conn,
+                table="query_memory",
+                project_id=project_id,
+                db_fingerprint=db_fingerprint,
+                max_rows=max_rows_per_db,
+            )
 
         return memory_id
 
@@ -405,36 +403,35 @@ class ContextStore:
         failure_id = str(uuid.uuid4())
         now = int(time.time())
 
-        with self._lock:
-            with self._connect() as conn:
-                conn.execute(
-                    """
+        with self._lock, self._connect() as conn:
+            conn.execute(
+                """
                     INSERT INTO failed_queries (
                         id, project_id, db_fingerprint, question, sql, status,
                         error_message, retry_count, meta_json, created_at
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
-                    (
-                        failure_id,
-                        project_id,
-                        db_fingerprint,
-                        question,
-                        sql,
-                        status,
-                        error_message,
-                        retry_count,
-                        to_json(metadata),
-                        now,
-                    ),
-                )
+                (
+                    failure_id,
+                    project_id,
+                    db_fingerprint,
+                    question,
+                    sql,
+                    status,
+                    error_message,
+                    retry_count,
+                    to_json(metadata),
+                    now,
+                ),
+            )
 
-                self._trim_rows(
-                    conn,
-                    table="failed_queries",
-                    project_id=project_id,
-                    db_fingerprint=db_fingerprint,
-                    max_rows=max_rows_per_db,
-                )
+            self._trim_rows(
+                conn,
+                table="failed_queries",
+                project_id=project_id,
+                db_fingerprint=db_fingerprint,
+                max_rows=max_rows_per_db,
+            )
 
         return failure_id
 
@@ -478,16 +475,15 @@ class ContextStore:
         db_fingerprint: str,
         embedding_model: str,
     ) -> dict[str, Any] | None:
-        with self._lock:
-            with self._connect() as conn:
-                row = conn.execute(
-                    """
+        with self._lock, self._connect() as conn:
+            row = conn.execute(
+                """
                     SELECT schema_hash, stats_json, indexed_at
                     FROM context_index_state
                     WHERE project_id = ? AND db_fingerprint = ? AND embedding_model = ?
                     """,
-                    (project_id, db_fingerprint, embedding_model),
-                ).fetchone()
+                (project_id, db_fingerprint, embedding_model),
+            ).fetchone()
         if row is None:
             return None
         schema_hash, stats_json, indexed_at = row
@@ -498,35 +494,34 @@ class ContextStore:
         }
 
     def get_stats(self, *, project_id: str, db_fingerprint: str) -> dict[str, Any]:
-        with self._lock:
-            with self._connect() as conn:
-                chunk_counts = conn.execute(
-                    """
+        with self._lock, self._connect() as conn:
+            chunk_counts = conn.execute(
+                """
                     SELECT channel, COUNT(*)
                     FROM context_chunks
                     WHERE project_id = ? AND db_fingerprint = ?
                     GROUP BY channel
                     """,
-                    (project_id, db_fingerprint),
-                ).fetchall()
+                (project_id, db_fingerprint),
+            ).fetchall()
 
-                query_memory_count = conn.execute(
-                    """
+            query_memory_count = conn.execute(
+                """
                     SELECT COUNT(*)
                     FROM query_memory
                     WHERE project_id = ? AND db_fingerprint = ?
                     """,
-                    (project_id, db_fingerprint),
-                ).fetchone()[0]
+                (project_id, db_fingerprint),
+            ).fetchone()[0]
 
-                failed_count = conn.execute(
-                    """
+            failed_count = conn.execute(
+                """
                     SELECT COUNT(*)
                     FROM failed_queries
                     WHERE project_id = ? AND db_fingerprint = ?
                     """,
-                    (project_id, db_fingerprint),
-                ).fetchone()[0]
+                (project_id, db_fingerprint),
+            ).fetchone()[0]
 
         return {
             "chunks": {channel: count for channel, count in chunk_counts},

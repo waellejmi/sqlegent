@@ -15,8 +15,6 @@ wheels/
 .app_config/
 
 # Big files
-data/northwind.db
-data/sakila_master.db
 semantic/**/_baseline.generated.yaml
 /docs
 /data

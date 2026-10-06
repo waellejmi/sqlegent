@@ -377,11 +377,7 @@ def _merge_relationship_values(
     existing_desc = str(merged.get("description") or "").strip()
     incoming_desc = str(incoming.get("description") or "").strip()
 
-    if not existing_desc and incoming_desc:
-        merged["description"] = incoming_desc
-    elif incoming_is_higher and incoming_desc:
-        merged["description"] = incoming_desc
-    elif same_priority and incoming_desc and len(incoming_desc) > len(existing_desc):
+    if not existing_desc and incoming_desc or incoming_is_higher and incoming_desc or same_priority and incoming_desc and len(incoming_desc) > len(existing_desc):
         merged["description"] = incoming_desc
 
     return merged

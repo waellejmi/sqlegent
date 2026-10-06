@@ -8,7 +8,7 @@ def slug_model(model_name: str) -> str:
     return m.replace("/", "_").replace(":", "_").replace(" ", "_").replace("\\", "_")
 
 
-def write_raw_result(rec: Dict[str, Any], out_path: Path):
+def write_raw_result(rec: dict[str, Any], out_path: Path):
     with open(out_path, "a", encoding="utf-8") as f:
         f.write(json.dumps(rec, default=str) + "\n")
 
